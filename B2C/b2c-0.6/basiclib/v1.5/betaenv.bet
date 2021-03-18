@@ -1,0 +1,383 @@
+ORIGIN 'betaenv';
+CINCLUDE default 'private/ext/beta.h';
+CINCLUDE default 'private/ext/mmalloc.h';
+BODY 'private/streambody';
+BODY 'private/textbody';
+BODY 'private/betaenvbody';
+BODY 'private/gcbody';
+--- betaenv: ObjectDescriptor ---
+(#
+   <<SLOT lib: Attributes>>;
+
+
+   (************************************************************************
+    * Basic data types                                                     *
+    ************************************************************************)
+   Real: (# #);
+   Integer: (# #);
+   ShortInt: (# #);
+   Char: (# #);
+   Boolean: (# #);
+   False: (# exit 0=1 #);
+   True: (# exit 0=0 #);
+
+   IntegerValue: (# value: @Integer do INNER exit value #);
+   ShortIntValue: (# value: @ShortInt do INNER exit value #);
+   CharValue: (# value: @Char do INNER exit value #);
+   BooleanValue: (# value: @Boolean do INNER exit value #);
+   RealValue: (# value: @Real do INNER exit value #);
+
+   IntegerObject: IntegerValue (# enter value do INNER #);
+   ShortIntObject: ShortIntValue (# enter value do INNER #);
+   CharObject: CharValue (# enter value do INNER #);
+   BooleanObject: BooleanValue (# enter value do INNER #);
+   RealObject: RealValue (# enter value do INNER #);
+
+   (* the main superpattern of everything *)
+   Object: (# do INNER #);
+
+
+   (************************************************************************
+    * some standard functions                                              *
+    ************************************************************************)
+   min: (# x,y: @integer enter (x,y) do (if y<x then y->x if) exit x #);
+   max: (# x,y: @integer enter (x,y) do (if y>x then y->x if) exit x #);
+   abs: (# x: @integer enter x do (if x<0 then -x->x if) exit x #);
+
+
+   (************************************************************************
+    * loop control, etc.                                                   *
+    ************************************************************************)
+   Cycle: (# do INNER; restart cycle #);
+   ForTo:
+     (# min,max,inx: @integer
+     enter (min->inx,max)
+     do (if inx<=max then INNER; inx+1->inx; restart ForTo if);
+     #);
+   Loop:
+     (#
+        while:< BooleanValue (# do true->value; INNER #);
+	until:< BooleanValue;
+	TheWhile: @while;	(* private *)
+	TheUntil: @until;	(* private *)
+     do
+        (if TheWhile then INNER; (if not TheUntil then restart Loop if) if)
+     #);
+
+
+   (************************************************************************
+    * `stream' pattern: handle streams of characters                       *
+    ************************************************************************)
+   stream:
+     (#
+	<<SLOT StreamLib: Attributes>>;
+
+	(* Basic stream methods *)
+	eos:< BooleanValue;
+        peek:< (# ch: @char do INNER exit ch #);
+        get:< (# ch: @char do INNER exit ch #);
+        put:< (# ch: @char enter ch do INNER #);
+	puttext:< (# t: ^text; enter t[] do (if t[]<>NONE then INNER if) #);
+	getpos:< (# p: @integer do INNER exit p #);
+	setpos:< (# p: @integer enter p do INNER #);
+	reset: (# do 0->setpos; exit this(stream)[] #);
+	length:< IntegerValue;
+
+
+	(*
+	 * Number input/output.  The various fields have the following
+	 * meanings:
+	 * `signed'     : Output a plus sign, if number is positive.
+	 * `blankSign'  : Leave sign field blank, if no sign is printed.
+	 *                This is always ignored, when `signed' is set.
+	 * `width'      : minimum field width.
+	 * `adjustLeft' : Put any padding after the number, not before it.
+	 * `zeroPadding': Pad with zeros; only valid, if adjustLeft is not set.
+	 *
+	 * To set these parameters, one can either subclass the output
+	 * function, as in: `putint (# do 6->width #)', or use the
+	 * format virtual: `putint (# format:: (# do true->signed #) #)'.
+	 *)
+	putint:
+	  (#
+	     n: @integer;
+	     signed,blankSign,adjustLeft,zeroPadding: @boolean;
+	     width: @integer;
+	     (* internal descriptors - don't use these! *)
+	     p: @put;
+	     r: <<SLOT StreamPutintR: ObjectDescriptor>>
+	  enter n
+	  <<SLOT StreamPutintDoPart: DoPart>>
+	  #);
+
+        getint: IntegerValue
+          (* Skip any leading whitespace, then return an integer of the
+	   * format [-+]?[0-9]+.  Stop on EOS or on the first offending
+	   * character.
+	   *)
+          (# syntaxError:< exception; p: @peek; g: @get; e: @eos; sign: @integer
+	  <<SLOT StreamGetintDoPart: DoPart>>
+          #);
+
+	(* Various other "higher level" stream methods, which are implemented
+	 * by calling the basic methods. *)
+	putline: (# t: ^text enter t[] do t[]->puttext; newline #);
+	newline: (# do '\n'->put #);
+
+
+	(* Stream Exception processing *)
+	EOSraise: streamRaise
+	  (#
+	  do
+	     INNER;
+	     'End of Stream reached'->msg.putline;
+	     EOSerror##->deliverTo;
+	  #);
+	EOSerror:< exception;
+
+	streamRaise: raise
+	  (#
+	  do
+	     INNER;
+	     'General BETA stream error'->msg.putline;
+	     streamError##->deliverTo;
+	  #);
+	streamError:< exception;
+     #);
+
+
+   (************************************************************************
+    * `text' pattern, a stream for storing strings in memory               *
+    ************************************************************************)
+   text: stream
+     (#
+	<<SLOT TextLib: Attributes>>;
+	(* internal attributes -- do not use these directly! *)
+	rep: [10] @char;
+	l,pos: @integer;
+	import: (# enter rep do rep.range->l->pos #);
+
+	(* general stream methods *)
+	eos:: (# do (pos>=l)->value #);
+	peek:: (# <<SLOT TextPeek: DoPart>> #);
+	get:: (# <<SLOT TextGet: DoPart>> #);
+	put:: (# <<SLOT TextPut: DoPart>> #);
+	puttext:: (# i: @integer <<SLOT TextPutText: DoPart>> #);
+	getpos:: (# do pos->p #);
+	setpos:: (# <<SLOT TextSetPos: DoPart>> #);
+	length:: (# do l->value #);
+
+	(* special methods for text objects *)
+	clear: (# do 0->l->pos #);
+	empty: (# exit (0=l) #);
+	(* Creates a copy of this(text)[].  The copy will have the same
+	 * qualification as this(text). *)
+        copy: 
+          (# t1: ^text; q: ##text
+	  <<SLOT TextCopy: DoPart>>
+          exit t1[]
+          #);
+        sub: 
+          (# i,j: @integer; t1: ^text; q: ##text
+	  enter (i,j)
+	  <<SLOT TextSub: DoPart>>
+          exit t1[]
+          #);
+	append:
+	  (# t: ^text; p: @integer
+	  enter t[]
+	  <<SLOT TextAppend: DoPart>>
+	  exit this(text)[]
+	  #);
+	prepend:
+	  (# t: ^text; p: @integer
+	  enter t[]
+	  <<SLOT TextPrepend: DoPart>>
+	  exit this(text)[]
+	  #);
+	insert:
+	  (# t: ^text; at,p: @integer
+	  enter (t[],at)
+	  <<SLOT TextInsert: DoPart>>
+	  exit this(text)[]
+	  #);
+	delete:
+	  (# i,j,p: @integer
+	  enter (i,j)
+	  <<SLOT TextDelete: DoPart>>
+	  exit this(text)[]
+	  #);
+	equal: BooleanValue
+	  (# t: ^text; privInt: @integer
+	  enter t[]
+	  <<SLOT TextEqual: DoPart>>
+	  #);
+	inxGet: CharValue
+	  (# inx: @integer enter inx <<SLOT TextInxGet: DoPart>> #);
+	inxPut:
+	  (# ch: @char; inx: @integer
+	  enter (ch,inx)
+	  <<SLOT TextInxPut: DoPart>>
+	  #);
+	scanAll: (* Call INNER for all characters in this(text) *)
+          (# i: @integer; ch: @char
+          do 0->i; l: (if i<l then rep[i+1->i]->ch; INNER; restart l if)
+          exit this(text)[]
+          #);
+
+	(* Text Exception processing *)
+	indexRaise: streamRaise
+	  (# inx: @integer
+	  enter inx
+	  do
+	     INNER;
+	     'Index '->msg.putline;
+	     inx->msg.putint;
+	     ' out of range in text!'->msg.putline;
+	     indexError##->deliverTo;
+	  #);
+	indexError:< exception;
+
+     enter import
+     exit rep[1:l]
+     #);
+
+
+   (************************************************************************
+    * Shortcuts for the standard streams linked to `screen' and `keyboard' *
+    ************************************************************************)
+   keyboard: ^stream;
+   get: (# g: @screen.get; ch: @char do g->ch exit ch #);
+   peek: (# p: @screen.peek; ch: @char do p->ch exit ch #);
+   getint: screen.getint (# do INNER #);
+
+   screen: ^stream;
+   put: (# p: @screen.put; ch: @char enter ch do ch->p #);
+   puttext: (# p: @screen.puttext; t: ^text enter t[] do t[]->p #);
+   putline: screen.putline (# #);
+   newline: screen.newline (# #);
+   putint: screen.putint (# do INNER #);
+
+
+   (************************************************************************
+    * ASCII pattern, with information about the ASCII character set        *
+    ************************************************************************)
+   ASCII: @
+     (#
+	testChar: BooleanValue (# ch: @char enter ch do INNER #);
+	isdigit: @testChar (# do (ch>='0') and (ch<='9')->value #);
+	isspace: @testChar
+	  (#
+	  do
+	     (ch=' ') or (ch='\n') or (ch='\r') or (ch='\t') or (ch='\v') or
+	     (ch='\f')->value
+	  #);
+
+	(* !!! This is stolen from Mjolner, but probably bogus: `whitespace'
+	 *     means the same as `space'.  Also, Mjolner considers '\177'
+	 *     (ASCII DEL) to be printable, which it is not in general. *)
+	iswhitespace: @testChar (# do (ch<' ') or (ch>'~')->value #);
+
+	(* this is probably a better name for the before test! *)
+	isnotprint: @testChar (# do (ch<' ') or (ch>'~')->value #);
+
+	(* test for the iso-latin-1 extended character set *)
+	isiso: @testChar
+	  (# do ((ch>=' ') and (ch<='~')) or (ch>='\240')->value #);
+     #);
+
+   (************************************************************************
+    * Exception handling, program termination, etc.                        *
+    ************************************************************************)
+   stop:
+     (#
+	why: @integer;
+	msg: ^text;
+	doexit: external (# i: @integer enter i do 'exit'->callc #);
+     enter (why,msg[])
+     <<SLOT BetaenvStop: DoPart>>
+     #);
+   normal: (# exit 0 #);	(* normal program termination - no errors *)
+   failure: (# exit 1 #);	(* program termination with failure *)
+   failureTrace: (# exit 2 #);	(* as before, but also generate a stack dump *)
+
+   raise:
+     (#
+	termCode: @integer;
+	msg: @text;
+	deliverTo: @
+	  (# dest: ##exception; exc: ^exception;
+	  enter dest##
+	  <<SLOT BetaenvRaiseDeliverTo: DoPart>>
+	  #);
+	finish: ^object;
+     <<SLOT BetaenvRaise: DoPart>>
+     #);
+   exception:
+     (#
+        continue: @Boolean;
+	termCode: @integer;
+	msg: ^text;
+	err: ^raiser;
+	raiser:< raise;
+     <<SLOT BetaenvException: DoPart>>
+     #);
+   notification: exception (# do true->continue; INNER #);
+
+
+   (************************************************************************
+    * Interface to the runtime system                                      *
+    ************************************************************************)
+   (* JO I also prepared an environment for occasional communication of
+	 the mutator with collector, which cannot be used, yet, because
+	 this version of b2c has no support for callbacks. *)
+   doGC: <<SLOT BetaenvDoGC: ObjectDescriptor>>;
+   (* JO *)
+
+
+   (************************************************************************
+    * External interface                                                   *
+    ************************************************************************)
+   External:
+     (#
+        name: ^text;
+	type: @Integer;
+	callC: (# enter name do 0->type #);
+	cExternalEntry: (# enter name do 1->type #);
+     do INNER
+     #);
+
+
+   (************************************************************************
+    * Internal descriptors, that cannot be used by an application          *
+    * directly.  Don't touch these, unless you know, what you're doing!    *
+    ************************************************************************)
+   repetition:
+     (#
+	size: @integer;
+	elsize: @integer;
+	alsize: @integer; (* JS allocated size (element count) *)
+	range: (# exit size #);
+	new: (# enter size do INNER #);
+	extend: (# amount: @integer enter amount do INNER #);
+     do INNER
+     #);
+
+   forLoop:
+     (# index: @integer; maximum: @integer;
+     enter maximum
+     do 0->index; l: (if (index+1->index)<=maximum then INNER; restart l if);
+     #);
+
+
+   (************************************************************************
+    * The Application, that is running in this BETAenvironment             *
+    ************************************************************************)
+   program: <<SLOT program: ObjectDescriptor>>;
+   theProgram: @program
+
+do
+   &<<SLOT BetaenvInit: ObjectDescriptor>>;
+   theProgram;
+   &<<SLOT BetaenvCleanup: ObjectDescriptor>>;
+#)

@@ -1,0 +1,248 @@
+ORIGIN 'container';
+BODY 'private/listbody';
+--- lib: Attributes ---
+(* (C) 1996 Kai Petzke, wpp@marie.physik.tu-berlin.de
+ *
+ * Interface definition for the `list' pattern, a double linked list.
+ *)
+list: container
+  (#
+     <<SLOT listLib: Attributes>>;
+
+     (****************************************************************
+      * The following patterns are used to remember positions in the *
+      * list.  The `index' pattern, however, is not present in the   *
+      * Mjolner BETA system.  There are two reasons, why I added it: *
+      * - The `index' pattern "hides" away the actual data structure *
+      *   of the list, while the `theCellType' interface may provoke *
+      *   people to do "dirty" things, like directly assigning new   *
+      *   values to the `succ', `pred' and `elm' fields.             *
+      * - The `index' pattern can in principal be generalized, so    *
+      *   that all containers, that are ordered, allow indexes to    *
+      *   be used.                                                   *
+      ****************************************************************)
+
+     theCellType:
+       (#
+	  succ,pred: ^privatePair;
+	  elm: ^element;
+       do INNER
+       #);
+
+     index:
+       (#
+	  privatePtr: ^theCellType;
+          advance: <<SLOT ListIndexAdvance: ObjectDescriptor>>;
+          goback: <<SLOT ListIndexGoBack: ObjectDescriptor>>;
+	  (* use negative arg with `advanceBy' to move the index back: *)
+          advanceBy:
+	    (# n: @integer enter n <<SLOT ListIndexAdvanceBy: DoPart>> #);
+       enter privatePtr[]
+       exit privatePtr[]
+       #);
+
+     (* return an index of the first respective last element of the list.
+      * NB: Mjolner gave these routines the names `head' and `last',
+      *     which are not very consistent.  I prefer using `first'
+      *     instead of `head'.
+      *)
+     head: first (# #);
+     first: indexMethod (# <<SLOT ListFirst: DoPart>> #);
+     last: indexMethod (# <<SLOT ListLast: DoPart>> #);
+     indexMethod:
+       (#
+	  h: ^theCellType;
+	  empty:< Exception;
+	  emptyRaise: emptyContainerRaise (# do empty##->deliverTo #);
+       do INNER
+       exit h[]
+       #);
+     
+
+     (********************************************************************
+      * Prepend respective append elements to this list.  InsertBefore   *
+      * will append an element to the end of the list, if the position[] *
+      * index is NONE.  Likewise, InsertAfter will prepend an element    *
+      * to the beginning of the list, if position[] is NONE.             *
+      ********************************************************************)
+     insert:: append;
+     prepend: insertListMethod (# <<SLOT ListPrepend: DoPart>> #);
+     append: insertListMethod (# <<SLOT ListAppend: DoPart>> #);
+     insertAfter: insertAtMethod (# <<SLOT ListInsertAfter: DoPart>> #);
+     insertBefore: insertAtMethod (# <<SLOT ListInsertBefore: DoPart>> #);
+     insertListMethod: insertMethod
+       (# newPosition: ^theCellType do INNER exit newPosition[] #);
+     insertAtMethod: insertListMethod
+       (# position: ^theCellType enter position[] do INNER #);
+
+
+     (******************************************************************
+      * Delete elements from the list.  `DeleteBefore' will delete the *
+      * list's last element, if position[] is NONE.  The other way     *
+      * round for `deleteAfter'.                                       *
+      ******************************************************************)
+     delete: deleteMethod (# <<SLOT ListDelete: DoPart>> #);
+     deleteBefore: deleteMethod (# <<SLOT ListDeleteBefore: DoPart>> #);
+     deleteAfter: deleteMethod (# <<SLOT ListDeleteAfter: DoPart>> #);
+     deleteMethod:
+       (#
+	  position,deletedPosition: ^theCellType;
+	  empty:< Exception;
+	  emptyRaise: emptyContainerRaise (# do empty##->deliverTo #);
+       enter position[]
+       do INNER
+       exit deletedPosition[]
+       #);
+     clear:: clearMethod;
+     init:: clearMethod;
+     clearMethod: (# <<SLOT ListClear: DoPart>> #);
+
+
+     (**********************************************************************
+      * Various operations for copying lists.                              *
+      *                                                                    *
+      * The copyRangeExclusive pattern will copy the list elements between *
+      * from[] and to[], but not from[] and to[] themselves.  Use NONE as  *
+      * from[] to copy from the very beginning, and NONE as to[] to copy   *
+      * to the very end.  copyRangeExclusive is not supported by Mjolner's *
+      * list pattern.                                                      *
+      **********************************************************************)
+     copyRangeExclusive:
+       (#
+          from,to: ^theCellType;
+	  lst: ^list;
+	  thislist: ##list;
+	  private: ^privatePair;
+       enter (from[],to[])
+       <<SLOT ListCopyRangeExclusive: DoPart>>
+       exit lst[]
+       #);
+     preample: (* copy all of list except last element *)
+       (# lst: ^list do (NONE,last)->copyRangeExclusive->lst[] exit lst #);
+     tail: (* copy all of list except first element *)
+       (# lst: ^list do (first,NONE)->copyRangeExclusive->lst[] exit lst #);
+
+     (* generate a new list by concatenating this(list) and theOther *)
+     concatenate:
+       (# theOther,lst: ^list
+       enter theOther[]
+       <<SLOT ListConcatenate: DoPart>>
+       exit lst[]
+       #);
+
+     (* Split the list into the part from the beginning to just before
+      * `position', and in the part from `position' to the end.  That
+      * second part is empty, if `position' is NONE.  *)
+     splitBefore: splitMethod (# <<SLOT ListSplitBefore: DoPart>> #);
+
+     (* `SplitAfter' is like `SplitBefore', except that the element at
+      * `position' will be inserted into `preList' instead of `postList' *)
+     splitAfter: splitMethod (# <<SLOT ListSplitAfter: DoPart>> #);
+     splitMethod:
+       (#
+          position: ^theCellType;
+	  preList,postList: ^list;
+	  privateCRE: @copyRangeExclusive;
+       enter position[]
+       do INNER
+       exit (preList[],postList[])
+       #);
+
+
+     (**************************************************************
+      * Query the state of the list.                               *
+      **************************************************************)
+     size:: (# privatePtr: ^privatePair <<SLOT ListSize: DoPart>> #);
+     (* normal scan method is already defined in container.bet *)
+     (* `scanReverse' is like `scan', but traverses the list backwards *)
+     scanReverse: scanMethod (# <<SLOT ListScanReverse: DoPart>> #);
+     (* `scanFrom' is like `scan', but starts at list index `position' *)
+     scanFrom: scanFromMethod (# <<SLOT ListScanFrom: DoPart>> #);
+     scanReverseFrom: scanFromMethod (# <<SLOT ListScanReverseFrom: DoPart>> #);
+
+     (* general superpatterns for all the scan functions *)
+     scanFromMethod: scanMethod
+       (# position: ^theCellType enter position[] do INNER #);
+     scanMethod:
+       (#
+	  current: ^element;
+	  where:< elementPredicate;
+	  start:< Object;
+	  end:< Object;
+	  getPosition:
+	    (# position: ^theCellType
+	    <<SLOT ListScanMethodGetPosition: DoPart>>
+	    exit position[]
+	    #);
+	  private: @<<SLOT ListScanMethodPrivate: ObjectDescriptor>>;
+       do INNER
+       #);
+
+     (* `iterate' is like scan - except, that the `current' index points
+      * to a list position, not an element. *)
+     iterate: iterateMethod (# <<SLOT ListIterate: DoPart>> #);
+     iterateFrom: iterateFromMethod (# <<SLOT ListIterateFrom: DoPart>> #);
+     iterateReverse: iterateMethod (# <<SLOT ListIterateReverse: DoPart>> #);
+     iterateReverseFrom: iterateFromMethod
+       (# <<SLOT ListIterateReverseFrom: DoPart>> #);
+
+     (* general superpatterns for all the iterate methods *)
+     iterateFromMethod: iterateMethod
+       (# position: ^theCellType enter position[] do INNER #);
+     iterateMethod:
+       (#
+          current: ^theCellType;
+	  where:< cellPredicate;
+	  start:< Object;
+	  end:< Object;
+	  private: @<<SLOT ListIterateMethodPrivate: ObjectDescriptor>>;
+       do INNER
+       #);
+
+     (* Find the position of a list element, that is equal to elm[]. *)
+     at:
+       (# elm: ^element; position: ^theCellType
+       enter elm[]
+       <<SLOT ListAt: DoPart>>
+       exit position[]
+       #);
+     (* Find a location in the list, which satiesfies `predicate'.
+      * Please note, that in difference to the `iterate' pattern
+      * below, the found position is called `position', not `current'.
+      * I also don't know, why Mjolner used two different names
+      * (namely `where' and `predicate') for the virtual, that holds
+      * the search condition.
+      *)
+     locate:
+       (#
+	  predicate:< cellPredicate;
+	  notFound:< Notification;
+	  notFoundRaise: raise
+	    (#
+	    do INNER; 'Cell not found in list'->msg; notFound##->deliverTo;
+	    #);
+	  start:< Object;
+	  end:< Object;
+	  position: ^theCellType;
+	  private: @<<SLOT ListLocatePrivate: ObjectDescriptor>>
+       <<SLOT ListLocate: DoPart>>
+       #);
+     cellPredicate: BooleanValue
+       (# current: ^theCellType
+       enter current[]
+       do true->value; INNER
+       #);
+
+
+     (* private - don't use these *)
+     privatePair: <<SLOT ListPrivatePair: ObjectDescriptor>>;
+     privateHead,privateTail: ^privatePair;
+     privateScan::
+       (#
+	  p: ^privatePair;
+	  position: ^theCellType;
+	  init:: (# <<SLOT ListPrivateScanInit: DoPart>> #);
+	  nxtel:: (# <<SLOT ListPrivateScanNxtel: DoPart>> #);
+       exit p[]
+       #);
+  #);

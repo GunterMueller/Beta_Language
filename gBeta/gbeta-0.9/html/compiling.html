@@ -1,0 +1,141 @@
+
+
+
+
+
+<HTML>
+<HEAD><TITLE>gbeta: Compiling <B>gbeta</B>, Creating Variants</TITLE></HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF"
+  LINK="#0000FF" VLINK="#800080" ALINK="#FF00FF">
+<TABLE WIDTH="100%">
+<TR><TD ALIGN="right"></TD></TR>
+<TR><TD ALIGN="left"><H1>Compiling <B>gbeta</B>, Creating Variants</H1></TD></TR>
+</TABLE>
+<P><HR></P>
+<TABLE><TR><TD WIDTH="25%">&nbsp;</TD><TD WIDTH="50%">
+
+<P>
+If you have <A HREF="index_download.html" TARGET="_top">downloaded</A> the soure code, and you have
+access to a <A HREF="http://www.mjolner.dk/" TARGET="_top">Mjolner BETA System</A> compiler, you can compile the interpreter, and
+hence you can perform language design experiments with it.  Since I'd
+enjoy cooperating about such endeavors, don't hesitate to <A
+HREF="mailto:eernst@cs.auc.dk">ask me</A> if you experience
+problems in doing so!
+</P>
+
+<P>
+Assuming you have installed <B>gbeta</B> in your home directory, you
+can compile the interpreter like this:
+</P>
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>cd $HOME/gbeta-0.9/src/main<BR>beta -lq gbeta</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+<P>
+This will take some time.  The binary created by this compilation must
+be moved to the <CODE>bin</CODE> directory of your <B>gbeta</B>
+installation, and it must be named in a way which shows what platform
+it belongs to, i.e. you must execute one of the following commands:
+</P>
+
+<P>
+On Linux: 
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>mv gbeta ../../bin/gbeta-0.9-i386-linux-elf-bin</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+</P>
+
+<P>
+On Sun: 
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>mv gbeta ../../bin/gbeta-0.9-sparc-sun-solaris2.5-bin</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+</P>
+
+<P>
+On HP: 
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>mv gbeta ../../bin/gbeta-0.9-hppa1.1-hp-hpux9-bin</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+</P>
+
+<P>
+On the SGI platform it is necessary to move a number of auxiliary
+dynamically loaded libraries, in order to ensure that the dynamic link
+process succeeds: 
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>mv gbeta ../../bin/gbeta-0.9-mips-sgi-irix6-bin<BR>
+            mv sgi/gbeta*..so ../../bin</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+</P>
+
+<P>
+That's it!  Now you can <A HREF="index_start.html" TARGET="_top">try out</A> your new interpreter,
+to see if your installation is basically sound.
+</P>
+
+<H3>Creating Variants</H3>
+
+<P>
+Of course there could be myriads of different ways to modify
+<B>gbeta</B>.  If you want to experiment with the grammar of the
+language, you need the <CODE>dogram</CODE> tool which is delivered
+with the Mjolner BETA System.  This tool will generate grammar tables
+from your customized version of the involved grammars, and the
+interpreter cannot use a changed grammar without having these
+generated files.  After having generated the new grammar files, you
+must adjust a few paths in the generated files.  These paths are
+generated on the assumption that the meta-programming system is
+located within a standard Mjolner installation, and in this case you
+must use the patched version of the meta-programming system which is
+included in the <B>gbeta</B> source distribution (thanks to Mjolner
+Informatics for allowing this).  The script <CODE>bin/dogrammar</CODE>
+will help you getting this right.
+</P>
+
+<P>
+Changing the grammar of the language is of course potentially a very
+deep change which requires a lot of changes to the static analysis and
+run-time system of <B>gbeta</B>.  Don't hesitate to tell me about your
+adventures if you are doing such things!
+</P>
+
+</TD><TD WIDTH="20%">&nbsp;</TD></TR></TABLE>
+<P><HR></P>
+<SMALL>
+  <I>
+    <CENTER>
+      <STRONG>Signed by: </STRONG>
+      <A HREF="mailto:eernst@cs.auc.dk">eernst@cs.auc.dk</A>.
+      Last Modified:  3-Jul-01
+<BR>
+    </CENTER>
+  </I>
+</SMALL>
+</BODY>
+</HTML>
+

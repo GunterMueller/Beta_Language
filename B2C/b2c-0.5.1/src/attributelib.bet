@@ -1,0 +1,51 @@
+ORIGIN 'attribute';
+INCLUDE 'name';
+INCLUDE 'attden';
+BODY 'attributebody';
+BODY 'att/init';
+BODY 'att/repetitionbody';
+--- CompilerLib: Attributes ---
+RepetitionDecl: SimpleDecl
+  (#
+     ev: ^Evaluation;
+     sd: @SimpleDecl
+       (#
+          getcdecl:: (# do '*'->t.put #);
+	  checkFollow::
+	    (#
+	    do
+	       (if not(od.isbasic) then
+		  'Repetitions of static references to complex objects are not supported yet.\nUse a repetition of dynamic references instead.'->os.error
+	       if);
+	    #);
+	  dontinit:: (# do true->value #);
+       #);
+     nme: @Name;
+     isrep:: (# do true->value #);
+     getRepEl:: (# do sd[]->att[] #);
+     print::
+       (# printos:: (# <<SLOT RepetitionDeclPrintos: DoPart>> #)
+       <<SLOT RepetitionDeclPrint: DoPart>>
+       #);
+     DoInit:: (# <<SLOT RepetitionDeclDoInit: DoPart>> #);
+  enter ev[]
+  <<SLOT RepetitionDeclDoPart: DoPart>>
+  #);
+
+PatternOrVirtualDecl: Attribute
+  (#
+     ispattern:: (# do true->value #);
+     checkName::< (# <<SLOT PatternOrVirtualDeclCheckName: DoPart>> #);
+  do INNER
+  #);
+
+PatternDecl: PatternOrVirtualDecl
+  (#
+     print:: (# do ': '->s.append #);
+     isvirtual:: (# do false->value #);
+     checkName:: (# <<SLOT PatternDeclCheckName: DoPart>> #);
+     checkFollow:: (# <<SLOT PatternDeclCheckFollow: DoPart>> #);
+     getcexpr:: (# <<SLOT PatternDeclGetcexpr: DoPart>> #);
+  do
+     INNER
+  #);

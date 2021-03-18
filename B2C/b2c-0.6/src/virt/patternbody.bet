@@ -1,0 +1,66 @@
+ORIGIN 'decl';
+INCLUDE '../cintf';
+INCLUDE '../nametable';
+INCLUDE '../objectdesc';
+INCLUDE '../ad/backlevel';
+INCLUDE '../od/genfunction';
+INCLUDE '../od/funcdecl';
+--- VirtualPatternSetVirtname: ObjectDescriptor ---
+  (# (* ad: ^AttributeDenotation; bl: ^Backlevel *)
+  do
+     c_file.NameMapper.state->virtname;
+     c_file.NameMapper.advance;
+     declarevirtual##->c_file.cstrucdecl;
+     createvirtual##->c_file.todoReduce;
+(*
+     (if att.od[]<>NONE then att.od.private.mapname[]->newname[] if);
+     (if att.os##<=AttributeDenotation## then
+        att.os[]->ad[];
+	(if ad.getod = objectPattern[] then leave checkencl if);
+	(if ad.prec##<=Backlevel## then
+	   ad.prec[]->bl[];
+	   (if bl.nlevel = 0 then leave checkencl if);
+	if);
+	(* The method referenced by this virtual belongs to a different
+	 * pattern than this virtual.  That means, that this virtual needs
+	 * its own private object creator function *)
+     (*
+     if);
+     *)
+  #)
+
+
+--- VirtualPatternLib: Attributes ---
+createvirtual:
+  (# do (att.os[],att.encl[],virtname[])->att.od.private.generate #);
+
+
+declarevirtual:
+  (#
+  do
+     'struct O'->c_file.cstream.puttext;
+     att.od.private.mapname[]->c_file.cstream.puttext;
+     ' *V'->c_file.cstream.puttext;
+     virtname[]->c_file.cstream.puttext;
+     att.encl.private.mapname[]->cintf.virtfuncdecl;
+     ';\n'->c_file.cstream.puttext;
+  #);
+
+
+--- VirtualPatternDoCDecl: DoPart ---
+do
+   '    struct O'->c_file.cstream.puttext;
+   att.od.private.mapname[]->c_file.cstream.puttext;
+   ' *(*virt'->c_file.cstream.puttext;
+   n->c_file.cstream.putint;
+   ')'->c_file.cstream.put;
+   att.encl.private.mapname[]->cintf.virtfuncdecl;
+   ';\n'->c_file.cstream.puttext;
+
+
+--- VirtualPatternDoCDef: DoPart ---
+do
+   (* !!! should the following cast be more specific? *)
+   (if att.od[]=objectPattern[] then '(void *) '->c_file.cstream.puttext if);
+   'V'->c_file.cstream.put;
+   virtname[]->c_file.cstream.puttext

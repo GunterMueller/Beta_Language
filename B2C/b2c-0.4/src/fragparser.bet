@@ -1,0 +1,72 @@
+ORIGIN 'parser';
+INCLUDE '~beta/basiclib/current/file';
+(* !!! Bad implementation dependency! *)
+INCLUDE '~beta/basiclib/current/private/file_unixbody';
+BODY 'fragparserbody';
+--- FragmentLanguageParser: ObjectDescriptor ---
+(#
+   f: @file;
+   line,col: @Integer;
+   error: @
+     (# msg: ^text
+     enter msg[]
+     do
+        filename[]->errstream.puttext;
+	': line '->errstream.puttext;
+	line->errstream.putint;
+	' col '->errstream.puttext;
+	col->errstream.putint;
+	': '->errstream.puttext;
+	msg[]->errstream.putline;
+	errs+1->errs;
+     #);
+   token: @
+     (#
+        name: (# exit 0 #);
+	intConst: (# exit 1 #);
+	textConst: (# exit 2 #);
+	colon: (# exit 3 #);
+	semicolon: (# exit 4 #);
+	fragment: (# exit 5 #);
+	fragblock: (# exit 6 #);
+	eos: (# exit 7 #);
+
+	(* internal only *)
+	textConstBackslash: (# exit -1 #);
+	textConstStart: (# exit -2 #);
+	fragmentStart: (# exit -3 #);
+     #);
+   advance: @
+     (# c: @char
+     do
+        (if (f.get->c)=ascii.newline then
+	   line+1->line; 1->col
+        else
+	   col+1->col
+	if)
+     exit c
+     #);
+   gettoken: @<<SLOT FragparserGettoken: ObjectDescriptor>>;
+   readHeaders: @<<SLOT FragparserReadHeaders: ObjectDescriptor>>;
+
+do
+   filename[]->f.name;
+   readHeaders;
+   (if errs<>0 then
+      (failure,'Compilation aborted due to errors in headers!\n')->Stop;
+   if);
+   (* now parse the main part of the file *)
+   (if included or needsRecomp then
+      (if not (origin.included or origin.needsRecomp) then
+	 true->origin.included; origin.open
+      if);
+      (for i:ninclude repeat
+	 (if not (include[i].included or include[i].needsRecomp) then
+	    true->include[i].included; include[i].open
+	 if);
+      for);
+      init;
+      (f.private.unixStream,filename,line)->parsefile->res;
+   if);
+   f.close;
+#)

@@ -1,0 +1,161 @@
+ORIGIN 'basic';
+INCLUDE '../objectdesc';
+INCLUDE '../specialdesc';
+INCLUDE '../ctype';
+--- EnterExitReduceDoPart: DoPart ---
+do
+   (* !!! enable recursion detection one day!
+   (if inenter then
+      'Illegal recursion of enter lists!'->error;
+      leave getenter
+   if);
+   *)
+
+   ad.getpatt->od[];
+   loop: (if od[]<>NONE then
+      (if od.isbasic->flag then
+	 not (od.private.sd.isexternal or od.private.sd.iscconstant)->flag
+      if);
+      (if flag or od.isrep then
+	 (* Treat basic patterns here, whose enter and exit list cannot
+	  * be reduced any further. *)
+	 ad[]->&EnterExitSimple->enteropt[]->exitopt[]; leave loop
+      if);
+
+      (if isenter then
+	 od.private.enterprt[]->ev[];
+      else
+	 od.private.exitprt[]->ev[];
+      if);
+
+      (if ev[]<>NONE then
+	 &ev.reduce[]->red[];
+
+	 (* DEBUG
+	 (# t: @text;
+	 do
+	    'EnterExit: calling reduce for: '->t;
+	    t[]->ad.getcexpr;
+	    t[]->putline;
+	 #);
+	 *)
+
+	 ad[]->red;
+
+	 (* DEBUG
+	 (if (red.before[]=NONE) and (red.enteropt[]=NONE)
+	    and (red.main[]=NONE) and (red.exitopt[]=NONE) then
+	    'EnterExit: reduce returned nothing!'->putline;
+	 if);
+	 *)
+
+	 (* enter and exit lists are ordered backwards! *)
+	 (red.before[],before[])->EvaluationJoin->before[];
+	 (enteropt[],red.enteropt[])->EvaluationJoin->enteropt[];
+	 (red.main[],main[])->EvaluationJoin->main[];
+	 (exitopt[],red.exitopt[])->EvaluationJoin->exitopt[];
+      if);
+
+      (* continue with object descriptor of superpattern *)
+      od.private.super[]->od[];
+      restart loop;
+   if);
+
+
+--- EnterExitType: DoPart ---
+do evtype_unreduced->value;
+
+
+--- EnterExitSimpleType: DoPart ---
+do
+   evtype_integer->value;
+   (if (ad.getpatt->od[])<>NONE then
+      (if od[]
+      // BooleanPattern[] then evtype_boolean->value
+      // CharPattern[] then evtype_char->value
+      // RealPattern[] then evtype_real->value
+      else
+         (if od.isrep then evtype_rep->value if)
+      if);
+   if)
+
+
+--- CallExternalType: DoPart ---
+do
+   true->exitvalueisused;
+   evtype_integer->value;
+   (if (ad.getpatt->od[])<>NONE then
+      (if od.private.exitprt[]<>NONE then
+	 (if od.private.exitprt##<=ObjectEvaluation## then
+	    od.private.exitprt[]->oev[];
+	    (if (oev.obj##<=AttributeDenotation##) then
+	       oev.obj[]->tmpad[];
+	       (if (tmpad.getpatt->od[])<>NONE then
+		  (if od[]
+		  // BooleanPattern[] then evtype_boolean->value
+		  // CharPattern[] then evtype_char->value
+		  // RealPattern[] then evtype_real->value
+		  else
+		     (if od.isrep then evtype_rep->value if)
+		  if);
+	       if);
+	    if);
+	 if);
+      if);
+   if);
+
+
+--- CallPatternDoDo: DoPart ---
+do
+   getod->od[];
+   (if od.private.funcname[]=NONE then
+      '    if('->c_file.cstream.puttext;
+      ctype_patternptr->DoCexpr;
+      '->function) if(!(*'->c_file.cstream.puttext;
+      ctype_patternptr->DoCexpr;
+      '->function)('->c_file.cstream.puttext;
+   else
+      '    if(!F'->c_file.cstream.puttext;
+      od.private.funcname[]->c_file.cstream.puttext;
+      '((struct O'->c_file.cstream.puttext;
+      od.private.funcname[]->c_file.cstream.puttext;
+      ' *)'->c_file.cstream.puttext;
+   if);
+   ctype_objectptr->DoCexpr;
+   (if lab[]<>NONE then
+      ')) goto L'->c_file.cstream.puttext;
+      lab.testOD->c_file.cstream.putint;
+      ';\n'->c_file.cstream.puttext;
+   else
+      ')) return 0;\n'->c_file.cstream.puttext;
+   if);
+
+
+--- CallExternalDoDo: DoPart ---
+do
+   (if not exitvalueisused then
+      '    '->c_file.cstream.puttext;
+      ExitExternal.DoCexpr;
+      ';\n'->c_file.cstream.puttext
+   if)
+
+
+--- CallExternalDoCexpr: DoPart ---
+do
+   this(CallExternal).getod->od[];
+   od.private.sd.ctype[]->c_file.cstream.puttext;
+   '('->c_file.cstream.put;
+   args.recurse
+     (# rc:: (# do el.DoCexpr #); middle:: (# do ','->c_file.cstream.put #)
+     #);
+   ')'->c_file.cstream.put;
+
+
+--- CallExternalCheckExtra: DoPart ---
+do
+   getod->od[];
+   (if (args=NONE) and (od[]<>NONE) then
+      (if od.private.enterprt[]<>NONE then
+	 'External called without parameters!'->origad.error
+      if)
+   if)

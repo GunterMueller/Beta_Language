@@ -1,0 +1,20 @@
+ORIGIN '../attden';
+INCLUDE '../att/simpledecl.bet';
+BODY 'myenclbody';
+--- CompilerLib: Attributes ---
+(* Denote the enclosing pattern number n of a given object descriptor.
+ * This denotation may only be used in assignment expressions, that
+ * are used to initialize the encl1 ... enclN pointers of an object.
+ * It may only be the last part of an attribute denotation "path"!
+ *)
+Myencl: AttributeDenotation
+  (#
+     sd: @SimpleDecl;
+     n: @integer;
+     type:: Myencl;
+     copy:: (# do (toadd[]->prec.copy,sd.od[],n)->cpy->ad[] #);
+     getcexpr:: (# <<SLOT MyenclGetCexpr: DoPart>> #);
+  enter (prec[],sd.od[],n)
+  <<SLOT MyenclDoPart: DoPart>>
+  exit this(Myencl)[]
+  #);

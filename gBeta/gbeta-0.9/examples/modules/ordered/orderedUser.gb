@@ -1,0 +1,19 @@
+ORIGIN 'betaenv';
+INCLUDE 'orderedNumber' 'orderedText' 'orderedAsString'
+
+-- program:merge --
+
+(# 
+   t1,t2: ^text;
+   n1,n2: ^number;
+   r: @real;
+do
+   'Hello, '->(&t1).init;
+   'world!'->(&t2).init;
+   (if t1[]->t2.lessEqual then t1.asString->puttext if);
+   (t1[]->t2.max).asString->putline;
+   
+   3.14159->float.init->n1[]; 
+   4->int.init->n2[];
+   (n1[]->n2.max).asString->putline
+#)

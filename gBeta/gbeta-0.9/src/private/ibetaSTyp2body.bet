@@ -1,0 +1,1814 @@
+(* FILE "./private/ibetaSTyp2body.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaSTyp2body.bet,v 1.68 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN '../ibetaSType';
+INCLUDE 'basicinterplib';
+INCLUDE 'ibetaStaticlib';
+INCLUDE 'ibetaSlicelib'
+
+(************************************************************
+ *                                                          *
+ *                     Static Substance                     * 
+ *                                                          *
+ ************************************************************)
+
+-- StaticScopeContextGetEnclosing:dopart --
+do
+   originPath[]
+     ->world.find
+     ->stcon[];
+
+   (if stcon[]<>NONE then 
+       (* found, set focus to enclosing syntax *)
+       (if not ((getSyntax).scope.location->stcon.setFocus) then 
+           'Inconsistent static "world" (wrong runtime path)'
+             ->internalError
+       if)
+    else
+       (* not found, create from scratch *)
+       (# l2ast: ^l2AstNode
+       do getSyntax->l2ast[];
+          (if l2ast[]<>NONE then 
+
+              (* get enclosing syntax *)
+              (originPath[],world[],usageAst[])
+                ->l2ast.scope.getInitialContext
+                ->stcon[]
+
+           else
+              (* no enclosing syntax, hence no enclosing substance *)
+              NONE->stcon[]
+          if)
+       #)
+   if)
+
+-- StaticLabelSubstanceInit:dopart --
+do
+   (getInitialSyntax,l2limp.NameDcl[])
+     ->theLabel.init
+
+-- StaticLabelSubstancePrint:dopart --
+do
+   ' with label '->output;
+   (dest[],indentation,false)->l2limp.print
+
+-- StaticLabelSubstanceCopy:dopart --
+do
+   l2limp[]->theCopy.l2limp[];
+   (getInitialSyntax,l2limp.NameDcl[])->theCopy.theLabel.init
+
+-- StaticLabelSubstanceSetFocus:dopart --
+do
+   (* focus can never change for a label-substance, so we just check *)
+   (l2ast[]=l2limp[])->value
+
+-- StaticLabelSubstanceFocusUp:dopart --
+do
+   (* focus can never change for a label-substance, so we just check *)
+   (l2ast[]=l2limp[])->value
+
+-- StaticLabelSubstanceFocusDown:dopart --
+do
+   (* focus can never change for a label-substance, so we just check *)
+   (l2ast[]=l2limp[])->value
+
+-- StaticLabelSubstanceGetByLookup:dopart --
+do
+   (if (name[],l2limp.NameDcl[])->private.theNameEqual then
+       theLabel[]->stsub[]
+    else
+       NONE->stsub[]
+   if)
+
+-- StaticLabelSubstanceLookupName:dopart --
+do
+   (if (name[],l2limp.NameDcl[])->private.theNameEqual then
+       l2limp.NameDcl[]->l2ndcl[]
+    else
+       NONE->l2ndcl[]
+   if)
+
+-- StaticLabelSubstanceIsBetter:dopart --
+do
+   (if other##<=staticLabelSubstance## then 
+       (* all descriptions of a label-scope are equal *)
+       false->value
+       (* !! but can we have more or less good paths to them? *)
+    else
+       (* should not be possible to describe the same thing as
+        * a label-scope and as something else at the same time! *)
+       (# msg: ^text
+       do 'Comparing a label substance with '->msg[];
+          (other.typename).withIndefArticle->msg.puttext;
+          (msg[]
+          ,'Don\'t compare a label with anything'
+          ,l2limp[])->staticError
+       #)
+   if)
+
+-- StaticForSubstanceInit:dopart --
+do
+   (getInitialSyntax,l2nfimp.NamedIndex.NameDcl[])
+     ->theIndex.init
+
+-- StaticForSubstancePrint:dopart --
+do
+   ' with index '->output;
+   (dest[],indentation+indent_delta,false)
+     ->l2nfimp.NamedIndex.NameDcl.print
+
+-- StaticForSubstanceCopy:dopart --
+do
+   l2nfimp[]->theCopy.l2nfimp[];
+   (getInitialSyntax,l2nfimp.NamedIndex.NameDcl[])
+     ->theCopy.theIndex.init
+
+-- StaticForSubstanceSetFocus:dopart --
+do
+   (* focus can never change for a for-substance, so we just check *)
+   (l2ast[]=l2nfimp[])->value
+
+-- StaticForSubstanceFocusUp:dopart --
+do
+   (* focus can never change for a for-substance, so we just check *)
+   (l2ast[]=l2nfimp[])->value
+
+-- StaticForSubstanceFocusDown:dopart --
+do
+   (* focus can never change for a for-substance, so we just check *)
+   (l2ast[]=l2nfimp[])->value
+
+-- StaticForSubstanceGetByLookup:dopart --
+do
+   (if (name[],l2nfimp.NamedIndex.NameDcl[])->private.theNameEqual then
+       theIndex[]->stsub[]
+    else
+       NONE->stsub[]
+   if)
+
+-- StaticForSubstanceLookupName:dopart --
+do
+   (if (name[],l2nfimp.NamedIndex.NameDcl[])->private.theNameEqual then
+       l2nfimp.NamedIndex.NameDcl[]->l2ndcl[]
+    else
+       NONE->l2ndcl[]
+   if)
+
+-- StaticForSubstanceIsBetter:dopart --
+do
+   (* see StaticLabelSubstanceIsBetter *)
+   (if other##<=staticForSubstance## then 
+       false->value
+    else
+       (# msg: ^text
+       do 'Comparing a for substance with '->msg[];
+          (other.typename).withIndefArticle->msg.puttext;
+          msg[]->internalError (* !! or staticError? *)
+       #)
+   if)
+
+-- StaticForIndexGetCplr:dopart --
+do
+   ('Trying to execute (not evaluate) a \'for\' index variable'
+   ,'A \'for\' index variable can only be evaluated'
+   ,usageAst[])->staticError
+
+-- StaticForIndexGetEnterCplr:dopart --
+do
+   ('Trying to assign to a \'for\' index variable'
+   ,'A \'for\' index variable can only be evaluated'
+   ,usageAst[])->staticError
+
+-- StaticForIndexExitCplr:dopart --
+do
+   &exitOnceCompiler
+   (# generate::
+        (# do ('ibetaSTyp2body.bet/213'
+           ,this(staticForSubstance).pathTo[])
+             ->(&getIndexCode[]).init
+             ->program.append;
+           (&staticIntegerTransient[]).init->stran[]
+        #)
+   #)[]->xc[]
+
+-- StaticForIndexGetEnterExitCplr:dopart --
+do
+   ('Trying to assign-then-evaluate a \'for\' index variable'
+   ,'A \'for\' index variable can only be evaluated'
+   ,usageAst[])->staticError
+
+-- StaticWhenSubstancePrint:dopart --
+do
+   ' with qualified name '->output;
+   (dest[],indentation+indent_delta,false)
+     ->l2wimp.NameDcl.print
+
+-- StaticWhenSubstanceCopy:dopart --
+do
+   l2wimp[]->theCopy.l2wimp[]
+
+-- StaticWhenSubstanceSetFocus:dopart --
+do
+   (* focus can never change for a when-substance, so we just check *)
+   (l2ast[]=l2wimp[])->value
+
+-- StaticWhenSubstanceFocusUp:dopart --
+do
+   (* focus can never change for a when-substance, so we just check *)
+   (l2ast[]=l2wimp[])->value
+
+-- StaticWhenSubstanceFocusDown:dopart --
+do
+   (* focus can never change for a when-substance, so we just check *)
+   (l2ast[]=l2wimp[])->value
+
+-- StaticWhenSubstanceGetByLookup:dopart --
+do
+   (* at top level (only reachable from within the ElsePartOpt), 
+    * the static substance is just the ordinary substance of the 
+    * target object *)
+   (if (name[],l2wimp.NameDcl[])->private.theNameEqual then
+       (this(staticWhenSubstance)[],world[],usageAst[])
+         ->l2wimp.AttributeDenotation.getStaticSubstance
+         ->stsub[]
+    else
+       NONE->stsub[]
+   if)
+
+-- StaticWhenSubstanceLookupName:dopart --
+do
+   name[]
+     ->l2wimp.theScopeNode.findNameDcl
+     ->l2ndcl[]
+
+-- StaticWhenSubstanceIsBetter:dopart --
+do
+   (* see StaticLabelSubstanceIsBetter *)
+   (if other##<=staticWhenSubstance## then 
+       false->value
+    else
+       (# msg: ^text
+       do 'Comparing a when substance with '->msg[];
+          (other.typename).withIndefArticle->msg.puttext;
+          msg[]->internalError (* !! or staticError? *)
+       #)
+   if)
+
+-- StaticWhenAltSubstanceInit:dopart --
+do
+   INNER
+
+-- StaticWhenAltSubstancePrint:dopart --
+do
+   ' with attribute denotation '->output;
+   (dest[],indentation+indent_delta,false)
+     ->l2walt.AttributeDenotation.print
+
+-- StaticWhenAltSubstanceCopy:dopart --
+do
+   l2walt[]->theCopy.l2walt[]
+
+-- StaticWhenAltSubstanceSetFocus:dopart --
+do
+   (* focus can never change for a when-alt-substance, so we just check *)
+   (l2ast[]=l2walt[])->value
+
+-- StaticWhenAltSubstanceFocusUp:dopart --
+do
+   (* focus can never change for a when-alt-substance, so we just check *)
+   (l2ast[]=l2walt[])->value
+
+-- StaticWhenAltSubstanceFocusDown:dopart --
+do
+   (* focus can never change for a when-alt-substance, so we just check *)
+   (l2ast[]=l2walt[])->value
+
+-- StaticWhenAltSubstanceGetByLookup:dopart --
+do
+   (* for an alternative, the static substance must be created 
+    * similarly to what happens in the qualified access *)
+   (if (name[],l2walt.ghostNameDcl[])->private.theNameEqual then
+       (# enclosing: ^staticContext;
+          aden_stsub: ^staticSubstance;
+          stocp: ^staticOCP
+       do (world[],usageAst[])
+            ->getEnclosing
+            ->enclosing[];
+          (enclosing[],world[],usageAst[])
+            ->(l2walt.getWhenImp).AttributeDenotation.getStaticSubstance
+            ->aden_stsub[];
+          (aden_stsub.getInitialSyntax
+          ,(this(staticWhenAltSubstance)[],world[],usageAst[])
+            ->l2walt.AttributeDenotation.getStaticType)
+            ->(&staticOCP[]).init
+            ->stocp[];
+          aden_stsub.pathTo.deliverCopy->stocp.pathTo.assign;
+          stocp[]->stsub[]
+       #)
+    else
+       NONE->stsub[]
+   if)
+
+-- StaticWhenAltSubstanceLookupName:dopart --
+do
+   l2walt.ghostNameDcl[]->l2ndcl[];
+   (if not ((name[],l2ndcl[])->private.theNameEqual) then
+       NONE->l2ndcl[]
+   if)
+
+-- StaticWhenAltSubstanceIsBetter:dopart --
+do
+   (* see StaticLabelSubstanceIsBetter *)
+   (if other##<=staticWhenAltSubstance## then 
+       false->value
+    else
+       (# msg: ^text
+       do 'Comparing a when alternative scope substance with '->msg[];
+          (other.typename).withIndefArticle->msg.puttext;
+          msg[]->internalError (* !! or staticError? *)
+       #)
+   if)
+
+-- StaticRepSubstanceInit:dopart --
+do
+   (getInitialSyntax,l2rscope.NamedIndex.NameDcl[])
+     ->theIndex.init
+
+-- StaticRepSubstancePrint:dopart --
+do
+   ' with index '->output;
+   (dest[],indentation+indent_delta,true)
+     ->l2rscope.NamedIndex.NameDcl.print
+
+-- StaticRepSubstanceCopy:dopart --
+do
+   l2rscope[]->theCopy.l2rscope[];
+   (getInitialSyntax,l2rscope.NamedIndex.NameDcl[])
+     ->theCopy.theIndex.init
+
+-- StaticRepSubstanceSetFocus:dopart --
+do
+   (* focus can never change for a rep-substance, so we just check *)
+   (l2ast[]=l2rscope[])->value
+
+-- StaticRepSubstanceFocusUp:dopart --
+do
+   (* focus can never change for a rep-substance, so we just check *)
+   (l2ast[]=l2rscope[])->value
+
+-- StaticRepSubstanceFocusDown:dopart --
+do
+   (* focus can never change for a rep-substance, so we just check *)
+   (l2ast[]=l2rscope[])->value
+
+-- StaticRepSubstanceGetByLookup:dopart --
+do
+   (if (name[],l2rscope.NamedIndex.NameDcl[])->private.theNameEqual then
+       theIndex[]->stsub[]
+    else
+       NONE->stsub[]
+   if)
+
+-- StaticRepSubstanceLookupName:dopart --
+do
+   (if (name[],l2rscope.NamedIndex.NameDcl[])->private.theNameEqual then
+       l2rscope.NamedIndex.NameDcl[]->l2ndcl[]
+    else
+       NONE->l2ndcl[]
+   if)
+
+-- StaticRepSubstanceIsBetter:dopart --
+do
+   (* see StaticLabelSubstanceIsBetter *)
+   (if other##<=staticRepSubstance## then 
+       false->value
+    else
+       (# msg: ^text
+       do 'Comparing a repetition scope substance with '->msg[];
+          (other.typename).withIndefArticle->msg.puttext;
+          msg[]->internalError (* !! or staticError? *)
+       #)
+   if)
+
+-- StaticOCPTypeName:dopart --
+do
+   (if sptype[]<>NONE then 
+       sptype.typeName->value[]
+    else
+       'staticOCP(sptype=NONE)'->value[]
+   if)
+
+-- StaticOCPShortTypeName:dopart --
+do
+   (if sptype[]<>NONE then 
+       sptype.shortTypename->value[]
+    else 
+       'stOCP(?)'->value[]
+   if)
+
+-- StaticOCPPrint:dopart --
+do
+   (if focus[]=NONE then ' with NO focus'->output if);
+   ' having '->output;
+   (dest[],indentation+indent_delta,true)->sptype.printStaticPatternType
+   (# 
+   do (if current[]=focus[] then ' <-- FOCUS'->output if);
+      (if current[]=destSlice[] then ' <-- DEST'->output if);
+      (if current[]=sptype.startSlice[] then ' <-- RESET'->output if)
+   #)
+
+-- StaticOCPCopy:dopart --
+do
+   (* !! This  seems to be too complicated!  It does not "feel
+    * right" to repeat the lookup procedure just to ensure that
+    * the situation on this static substance is re-created in
+    * the copy.  Does this mean that the 'destSlice' and 'focus'
+    * definitions are too brittle?  Should we define the syntax
+    * and lookup the slice in stead of pointing directly at
+    * the slice?  If so, it becomes more costly to 'performStatic',
+    * but this operation would be easier/cheaper *)
+
+   (* copy 'sptype'. 'destSlice', and 'focus' *)
+   sptype.copy->theCopy.sptype[];
+   (if destSlice[]<>NONE then
+       (* make theCopy.destSlice point to "the same slice" in the copy *)
+       destSlice.getSyntax
+         ->theCopy.sptype.ast2slice
+         ->theCopy.destSlice[];
+       (if theCopy.destSlice[]=NONE then
+           'destSlice not found after copy'
+             ->internalError
+       if)
+    else
+       NONE->theCopy.destSlice[]
+   if);
+   (if focus[]<>NONE then
+       (* make theCopy.focus point to "the same slice" in the copy *)
+       focus.getSyntax
+         ->theCopy.sptype.ast2slice
+         ->theCopy.focus[];
+       (if theCopy.focus[]=NONE then
+           'focus not found after copy'
+             ->internalError
+       if)
+    else
+       NONE->theCopy.focus[]
+   if)
+
+-- StaticOCPResetFocus:dopart --
+do 
+   (if sptype.slices.empty then 
+       (* no slices here *)
+       NONE->focus[] (*!!! should this be an error? internal? *)
+    else
+       (* This if-imp used to be just the else-case; the if and the
+        * then-case were added when "swap" (inverse merge) was 
+        * introduced; the idea is that resetFocus should put the 
+        * focus at the startSlice, if such one exists, not just at 
+        * the first slice in all cases. MainPartScopeGetIC will make 
+        * the main part itself the startSlice.  With inverse merge 
+        * it might not be the first slice in sptype, but we do indeed
+        * want to start searches for name dcls from the main part 
+        * itself, not from the bottommost slice.  In the normal case
+        * (anything but MainPartScopeGetIC), startSlice will be NONE,
+        * and we will start name searches from the bottommost slice 
+        * as in the good old days.. *)
+       (if sptype.startSlice[]<>NONE then
+           sptype.startSlice[]->focus[]
+        else
+           sptype.slices.first->focus[]
+       if)
+   if)
+
+-- StaticOCPSetFocus:dopart --
+do
+   L: (# 
+      do NONE->focus[];
+         sptype.slices.scan
+         (# 
+         do (if l2ast[]->current.associated then 
+                current[]->focus[];
+                leave L
+            if)
+         #)
+      #);
+   (focus[]<>NONE)->value
+
+-- StaticOCPFocusUp:dopart --
+do
+   L: (if focus[]<>NONE then
+          focus.scanForward
+          (# 
+          do (if l2ast[]->current.associated then 
+                 current[]->focus[];
+                 true->value;
+                 leave L
+             if)
+          #);
+          (* this point only reached when search failed *)
+          false->value
+       else
+          'Focus of a static object/component/pattern was NONE'
+            ->internalError
+      if)
+
+-- StaticOCPFocusDown:dopart --
+do
+   L: (if focus[]<>NONE then 
+          focus.scanBackward
+          (# 
+          do (if l2ast[]->current.associated then 
+                 current[]->focus[];
+                 true->value;
+                 leave L
+             if)
+          #);
+          (* this point only reached when search failed *)
+          false->value
+       else
+          'Focus of a static object/component/pattern was NONE'
+            ->internalError
+      if)
+
+-- StaticOCPGetEnclosing:dopart --
+do
+   (# asComposite:
+        (* check that 'slice' is at a composite slice and give access to it *)
+        (# cSlice: ^compositeStaticSlice;
+           slice: ^staticSlice
+        enter slice[]
+        do (if true
+            // slice##<=compositeStaticSlice## then
+               slice[]->cSlice[];
+               INNER
+
+            // slice##<=basicStaticSlice## then
+               (* no enclosing substance here; !!! internal/static error? *)
+               NONE->stcon[] (* at least this says "failed" *)
+
+            else
+               'Unrecognized pattern static slice'
+                 ->internalError
+           if)
+        #);
+      creationFocus: ^staticSlice
+
+   do (if focus[]<>NONE then 
+          NONE->stcon[];
+
+          (* retrieve the best possible focus for obtaining origin *)
+          (*test-obs ('GetEncl,focus','e')->focus.observe; *)
+          L: focus.originPath[]->sameOriginScan
+          (#
+          do (*test-obs ('  same origin','e')->current.observe; *)
+
+             current[]->creationFocus[];
+
+             (* see if we have got the object already *)
+             creationFocus.originPath[]
+               ->world.find
+               ->stcon[];
+
+             (if stcon[]<>NONE then 
+                 (* yes! assuming that known objects are always 
+                  * better this is what we want *)
+                 leave L
+             if)
+          #);
+
+          (if creationFocus[]<>NONE then
+              (if stcon[]=NONE then 
+                  (* not found, construct it from scratch *)
+                  creationFocus[]->asComposite
+                  (# 
+                  do (cSlice.originPath[],world[],usageAst[])
+                       ->cSlice.l2mpar.scope.getInitialContext
+                       ->stcon[]
+                  #)
+              if);
+
+              (* set focus of 'stcon' to enclosing slice of my focus *)
+              focus[]->asComposite
+              (# 
+              do (if not (cSlice.l2mpar.scope.location->stcon.setFocus) then
+                     (# line: (# do newline; (for 60 repeat '%'->put for)#);
+                     do line;
+                        ('The staticOCP',0)->observe;
+                        ('Alleged encl.',0)->stcon.observe;
+                        line;
+                        'Could not initialize focus of enclosing object'
+                          ->internalError
+                     #)
+                 if)
+              #)
+
+           else
+              (# line: (# do newline; (for 60 repeat '%'->put for)#);
+                 msg: ^text
+              do line;
+                 ('The staticOCP',0)->observe;
+                 line;
+                 'Could not find creationFocus'
+                   ->internalError
+              #)
+          if)
+
+       else
+          'Focus of a static object/component/pattern was NONE'
+            ->internalError
+      if)
+   #)
+
+-- StaticOCPGetByLookup:dopart --
+do
+   (if focus[]<>NONE then
+       (# l2ndcl: ^l2NameDcl;
+          coSlice: ^compositeStaticSlice;
+          bsSlice: ^basicStaticSlice
+       do (if true 
+           // focus##<=compositeStaticSlice## then 
+              focus[]->coSlice[];
+              name[]
+                ->coSlice.l2mpar.theScopeNode.findNameDcl
+                ->l2ndcl[];
+              (if l2ndcl[]<>NONE then 
+                  (this(staticOCP)[],world[],usageAst[])
+                    ->l2ndcl.getStaticSubstance
+                    ->stsub[]
+               else
+                  (* failed, tell`em *)
+                  NONE->stsub[]
+              if)
+
+           // focus##<=basicStaticSlice## then 
+              focus[]->bsSlice[];
+              name[]
+                ->(bsSlice.getScope).findNameDcl
+                ->l2ndcl[];
+              (if l2ndcl[]<>NONE then 
+                  (this(staticOCP)[],world[],usageAst[])
+                    ->l2ndcl.getStaticSubstance
+                    ->stsub[]
+               else
+                  (* failed, tell`em *)
+                  NONE->stsub[]
+              if)
+
+           else
+              'Unrecognized kind of static slice'
+                ->internalError
+          if)
+       #)
+    else
+       'Focus of a static object/component/pattern was NONE'
+         ->internalError
+   if)
+
+-- StaticOCPLookupName:dopart --
+do
+   (name[],usageAst[])
+     ->sptype.lookupName
+     ->l2ndcl[]
+
+-- StaticOCPIsBetter:dopart --
+do 
+   (* Assuming that it has already been established that 
+    * this static substance describes the same run-time
+    * object as 'other', they are totally ordered (see comment 
+    * in slot-def StaticSubstanceSame).  Hence, we only have 
+    * to check whether all of the slices in the 'other' static
+    * substance are also present in this static substance.  In 
+    * that case, we can safely answer "no", otherwise we can 
+    * safely answer "yes".
+    *)
+   L: (if other##<=staticOCP## then
+          (if sptype.slices.empty then 
+              (* this is "object" so 'other' must be at least as good *)
+              true->value
+           else
+              (* this is more than "object" *)
+              (# cursor: ^staticSlice;
+                 stocp: ^staticOCP
+              do other[]->stocp[];
+
+                 (* setup cursor on me *)
+                 sptype.slices.first->cursor[];
+
+                 stocp.sptype.slices.scan
+                 (# 
+                 do (* search current slice of other in me *)
+                    M: (if cursor[]<>NONE then 
+                           (if current[]->cursor.equal then 
+                               (* succeeded for this slice of me, continue *)
+                               cursor.next->cursor[]
+                            else
+                               (* not yet, try next slice of me *)
+                               cursor.next->cursor[];
+                               restart M
+                           if)
+                        else
+                           (* exhausted, so 'other' has more than I have *)
+                           true->value;
+                           leave L
+                       if)
+                 #);
+
+                 (* getting here means that we found all of 'other' in me *)
+                 false->value
+              #)
+          if)
+
+       else
+          (* should not be possible to describe the same thing as
+           * an object and as something else at the same time! *)
+          (# msg: ^text
+          do 'Comparing a staticOCP with '->msg[];
+             (other.typename).withIndefArticle->msg.puttext;
+             msg[]->internalError (* !! or staticError? *)
+          #)
+      if)
+
+-- StaticOCPAdjustPaths:dopart --
+do
+   (* Traverse 'sptype' and prepend 'path' to all 'originPath's;
+    * we must ensure that 'path' is neither consumed nor changed; 
+    * 'sptype.adjustPaths' should keep this promise *)
+   path[]->sptype.adjustPaths
+
+-- StaticOCPAppendSPTA:dopart --
+do
+   (if destSlice[]<>NONE then
+       (* 'pathTo' is exact *)
+       (if l2ast[]->destSlice.associated then
+           (* and goes right here: no up-step needed *)
+        else
+           (* goes elsewhere, take the step up here *)
+           L: (if not sptype.slices.empty then
+                  (if sptype.startSlice[]=NONE then
+                      (* no start slice - the traditional situation *)
+                      sptype.slices.scan
+                      (# 
+                      do (if l2ast[]->current.associated then
+                             l2ast[]->path.addStepUp;
+                             leave L
+                         if)
+                      #)
+                   else
+                      (* startSlice present - inversion *)
+                      sptype.slices.scan
+                      (# seenStart: @boolean
+                      do (if current[]=sptype.startSlice[] then
+                             true->seenStart
+                         if);
+                         (if l2ast[]->current.associated then
+                             (if seenStart then
+                                 l2ast[]->path.addStepUp
+                              else
+                                 l2ast[]->path.addStepDown
+                             if);
+                             leave L
+                         if)
+                      #)
+                  if);
+
+                  (* not found *)
+                  'Bad arguments (declaration not found)'
+                    ->internalError
+               else
+                  (* this is "object", 'l2ast' cannot be here! *)
+                  'Bad arguments (looking for a declaration in "object")'
+                    ->internalError
+              if)
+       if)
+    else
+       (* 'pathTo' is approximate, so we always have to search this slice *)
+       l2ast[]->path.addStepUp
+   if)
+
+-- StaticOCPPWC:dopart --
+do
+   sptype.prefixWithComponent
+
+-- StaticOCPGetTranOut:dopart --
+do
+   (this(staticOCP)[],world[],usageAst[])
+     ->sptype.getStaticTransientOut
+     ->stran[]
+
+-- StaticOCPGetTranIn:dopart --
+do
+   (this(staticOCP)[],world[],usageAst[])
+     ->sptype.getStaticTransientIn
+     ->stran[]
+
+-- StaticOCPGetCplr:dopart --
+do
+   (*checksub checkAccessibility; *)
+   (if sptype.kindValue
+    // patternTypeKind then
+       &exeCompiler
+       (# generate::
+            (# finalOCP: ^staticOCP;
+               framePos: @integer
+            do 
+               (* check to see if we can use a static approach *)
+               (if staticCreateObjectFlag
+                   and sptype.knownStatically
+                   and sptype.hasExistingParts then
+                   (* reserve a tmp.slot for the object *)
+                   cInfo.allocateTmp->framePos;
+                   (* create the object directly from static pattern *)
+                   (if staticPredefinedPatternFlag and sptype.isPredefined then
+                       (framePos,program[])->sptype.generateGetPredefinedTmp
+                    else
+                       ('ibetaSTyp2body.bet/851',framePos,sptype[])
+                         ->(&createStaticTmpCode[]).init
+                         ->program.append
+                   if)
+                else
+                   (* set up the pattern for instantiation *)
+                   ('ibetaSTyp2body.bet/853',pathTo[],sptype[])
+                     ->(&getPatternCode[]).init
+                     ->program.append;
+                   (* reserve a tmp.slot for the object *)
+                   cInfo.allocateTmp->framePos;
+                   (* instantiate the pattern and push the tmp.object *)
+                   ('ibetaSTyp2body.bet/859',framePos)
+                     ->(&createTmpCode[]).init
+                     ->program.append
+               if);
+
+               (* create a fresh staticOCP to describe the new object *)
+               (generatingAst[],framePos)
+                 ->createTmpVersion
+                 ->finalOCP[];
+               
+               (* request execution of the object, if needed *)
+               (if not sptype.doesNothing then
+                   ('ibetaSTyp2body.bet/874',finalOCP.pathTo[])
+                     ->(&callDoCode[]).init
+                     ->program.append
+               if)
+            #)
+       #)[]->ec[];
+       usageAst[]->ec.usageAst[]
+
+    // patternRefTypeKind then
+       &exeCompiler
+       (# generate::
+            (# finalOCP: ^staticOCP;
+               framePos: @integer;
+            do 
+               (* set up the pattern for instantiation *)
+               ('ibetaSTyp2body.bet/895',pathTo[],sptype[])
+                 ->(&getPatternRefCode[]).init
+                 ->program.append;
+
+               (* reserve a tmp.slot for the object *)
+               cInfo.allocateTmp->framePos;
+
+               (* instantiate the pattern and push the tmp.object *)
+               ('ibetaSTyp2body.bet/903',framePos)
+                 ->(&createTmpCode[]).init
+                 ->program.append;
+
+               (* create a fresh 'staticOCP' to describe the new object *)
+               (generatingAst[],framePos)
+                 ->createTmpVersion
+                 ->finalOCP[];
+
+               (* request execution of the object, if needed *)
+               (if not finalOCP.sptype.doesNothing then
+                   ('ibetaSTyp2body.bet/908',finalOCP.pathTo[])
+                     ->(&callDoCode[]).init
+                     ->program.append
+               if)
+            #)
+       #)[]->ec[];
+       usageAst[]->ec.usageAst[]
+
+    // objectTypeKind then
+       &exeCompiler
+       (# generate::
+            (# 
+            do (if not sptype.doesNothing then
+                   ('ibetaSTyp2body.bet/920',pathTo[])
+                     ->(&callDoCode[]).init
+                     ->program.append
+               if)
+            #)
+       #)[]->ec[];
+       usageAst[]->ec.usageAst[]
+
+    // objectRefTypeKind then
+       &exeCompiler
+       (# generate::
+            (# 
+            do (if not sptype.doesNothing then
+                   ('ibetaSTyp2body.bet/932',pathTo[])
+                     ->(&callDoCode[]).init
+                     ->program.append
+               if)
+            #)
+       #)[]->ec[];
+       usageAst[]->ec.usageAst[]
+
+    else
+       (# msg: ^text
+       do 'Generating byte-code for unexpected kind of entity ('->msg[];
+          typename->msg.puttext;
+          msg[]->internalError
+       #)
+   if)
+
+-- StaticOCPLib:attributes --
+
+checkAccessibility:
+  (* Used to catch a certain kind of bugs: a staticOCP should only
+   * be used to create compilers for entities that actually exist;
+   * this check will stop the analysis (and gbeta in general) as soon
+   * as that happens, and hopefully it will easy to spot the 
+   * rule-breaker statement using the stack dump *)
+  (# line: (# do (for 60 repeat '%'->put for)#)
+  do pathTo.scan
+     (# fail:
+          (# (* this substance is no good for compiler generation! *)
+          do newline; line; observe; line;
+             'Trying to generate a compiler from a "ghost" staticOCP'
+               ->internalError
+          #);
+        lstep: ^runtimeLookupStep;
+        listep: ^runtimeLookupIndirectStep
+     do (if (current[]<>pathTo.lastLink[]) then
+            (if true
+             // (current##<=runtimeLookupStep##) then
+                current[]->lstep[];
+                (if lstep.repeated then fail if)
+             // current##<=runtimeLookupIndirectStep## then
+                current[]->listep[];
+                (if listep.repeated then fail if)
+            if)
+        if)
+     #)
+  #);
+
+delegatingEnterCompiler: enterCompiler
+  (* To use: furtherbind 'theWorld' and 'theUsageAst'; then find 
+   * INNER prepare, and provide the "final" object in your 
+   * specialization; the final object is just the object denoted
+   * by this staticOCP, or a newly created object in case this 
+   * staticOCP describes a pattern *)
+  (# theExecute:< booleanValue;
+     theWorld:<
+       (# value: ^staticContextDB
+       do INNER
+       exit value[]
+       #);
+     theUsageAst:<
+       (# value: ^l2AstNode
+       do INNER
+       exit value[]
+       #);
+     compilers: @list(# element::enterCompiler #);
+     current_compiler: ^compilers.theCellType;
+     final_stocp: ^staticOCP;
+     done: @boolean;
+
+     refresh:
+       (* ensure that 'current_compiler' refers to a compiler
+        * which is willing to do something; INVARIANT: refresh
+        * has been executed just before each 'more' *)
+       (# program: ^betaByteCodeList;
+          cInfo: ^compileInfo
+       enter (program[],cInfo[])
+       do L: (if not done then
+                 (if not current_compiler.elm.more then
+                     (program[],cInfo[])
+                       ->current_compiler.elm.cleanup;
+                     current_compiler.succ[]->current_compiler[];
+                     (if current_compiler[]=NONE then
+                         true->done
+                      else
+                         (program[],cInfo[])->current_compiler.elm.prepare
+                     if);
+                     restart L
+                 if)
+             if)
+       #);
+     prepare::<
+       (# 
+       do (* init *)
+          compilers.init;
+
+          (* get hold of the final object; make 'final_stocp' describe it *)
+          INNER prepare;
+
+          (* for each slice, obtain an enterCompiler *)
+          final_stocp.sptype.slices.scanReverse
+          (# do current.getSyntax->final_stocp.setFocus;
+             (final_stocp[],theWorld,theUsageAst,true)
+               ->current.getEnterCompiler
+               ->compilers.append
+          #);
+
+          (* setup "current" compiler *)
+          (if compilers.empty then
+              true->done
+           else
+              compilers.head->current_compiler[];
+              (program[],cInfo[])->current_compiler.elm.prepare;
+              (program[],cInfo[])->refresh
+          if)
+       #);
+     more::(# do not done -> value #);
+     generate::
+       (# do (program[],cInfo[])
+            ->current_compiler.elm.generate
+            ->stran[];
+          (program[],cInfo[])->refresh
+       #);
+     cleanup::
+       (#
+       do (if theExecute then
+              (* generate code to execute the main object, if needed *)
+              (if not final_stocp.sptype.doesNothing then
+                  ('ibetaSTyp2body.bet/1058',final_stocp.pathTo[])
+                    ->(&callDoCode[]).init
+                    ->program.append
+              if)
+          if)
+       #)
+  #);
+
+delegatingExitCompiler: exitCompiler
+  (* To use: furtherbind 'theWorld' and 'theUsageAst'; then find 
+   * INNER prepare, and provide the "final" object in your 
+   * specialization; the final object is just the object denoted
+   * by this staticOCP, or a newly created object in case this 
+   * staticOCP describes a pattern *)
+  (# theWorld:<
+       (# value: ^staticContextDB
+       do INNER
+       exit value[]
+       #);
+     theUsageAst:<
+       (# value: ^l2AstNode
+       do INNER
+       exit value[]
+       #);
+     compilers: @list(# element::exitCompiler #);
+     current_compiler: ^compilers.theCellType;
+     final_stocp: ^staticOCP;
+     final_path: ^runtimePath;
+     done: @boolean;
+
+     refresh:
+       (* ensure that 'current_compiler' refers to a compiler
+        * which is willing to do something; INVARIANT: refresh
+        * has been executed just before each 'more' *)
+       (# program: ^betaByteCodeList;
+          cInfo: ^compileInfo
+       enter (program[],cInfo[])
+       do L: (if not done then
+                 (if not current_compiler.elm.more then
+                     (program[],cInfo[])
+                       ->current_compiler.elm.cleanup;
+                     current_compiler.succ[]->current_compiler[];
+                     (if current_compiler[]=NONE then
+                         true->done
+                      else
+                         (program[],cInfo[])->current_compiler.elm.prepare
+                     if);
+                     restart L
+                 if)
+             if)
+       #);
+     prepare::<
+       (# 
+       do (* init *)
+          compilers.init;
+
+          (* get hold of the final object; make 'final_stocp' describe it *)
+          INNER prepare;
+
+          (* for each slice, obtain an exitCompiler *)
+          final_stocp.sptype.slices.scanReverse
+          (# do current.getSyntax->final_stocp.setFocus;
+             (final_stocp[],theWorld,theUsageAst)
+               ->current.getExitCompiler
+               ->compilers.append
+          #);
+          (if compilers.empty then true->done if);
+          (* generate code to execute the main object, if needed *)
+          (if not final_stocp.sptype.doesNothing then
+              ('ibetaSTyp2body.bet/1127',final_stocp.pathTo[])
+                ->(&callDoCode[]).init
+                ->program.append
+          if);
+          (* setup "current" compiler *)
+          (if not compilers.empty then
+              compilers.head->current_compiler[];
+              (program[],cInfo[])->current_compiler.elm.prepare;
+              (program[],cInfo[])->refresh
+          if)
+       #);
+     more::(# do not done -> value #);
+     generate::
+       (# do (program[],cInfo[])
+            ->current_compiler.elm.generate
+            ->stran[];
+          (program[],cInfo[])->refresh
+       #);
+     (* we must 'genCallDo' in 'cleanup', too: the exit list may be empty *)
+     cleanup::(# #)
+  #)
+
+-- StaticOCPGetEnterCplr:dopart --
+do
+   (*checksub checkAccessibility; *)
+
+   (* Let this if-imp enclose the middle part if the implicit [] 
+    * support should be enabled (part 1):
+    * 
+    * (if sptype.isDave then
+    *     (# msg: ^text
+    *     do 'Attempt to reference-assign to an object which is not '->msg[];
+    *        '\naccessed via a variable object attribute'->msg.puttext;
+    *        (msg[]
+    *        ,'Use a variable object reference or do not assign to it'
+    *        ,usageAst[])->staticError
+    *     #)
+    *  else
+    *)
+
+   (if sptype.kindValue
+    // patternTypeKind // patternRefTypeKind then
+       &delegatingEnterCompiler
+       (# theExecute::(# do this(getEnterCompiler).execute->value #);
+          theWorld::(# do world[]->value[] #);
+          theUsageAst::(# do usageAst[]->value[] #);
+          prepare::
+            (# do (program[],cInfo[],usageAst[],generatingAst[])
+                 ->generateGetTmpObject
+                 ->final_stocp[]
+                 ->world.enhance
+            #)
+       #)[]->nc[]
+
+    // objectTypeKind // objectRefTypeKind then
+       &delegatingEnterCompiler
+       (# theExecute::(# do this(getEnterCompiler).execute->value #);
+          theWorld::(# do world[]->value[] #);
+          theUsageAst::(# do usageAst[]->value[] #);
+          prepare::(# do this(staticOCP)[]->final_stocp[] #)
+       #)[]->nc[]
+
+    else
+       (# msg: ^text
+       do 'Generating byte-code for unexpected kind of entity ('->msg[];
+          typename->msg.puttext;
+          msg[]->internalError
+       #)
+   if)
+
+   (* Let this if-imp enclose the middle part if the implicit [] 
+    * support should be enabled (part 2):
+    * 
+    * if)
+    *)
+
+-- StaticOCPGetExitCplr:dopart --
+do
+   (*checksub checkAccessibility; *)
+
+   (* Let this if-imp enclose the middle part if the implicit [] 
+    * support should be enabled (part 1):
+    * 
+    * (if sptype.isDave then
+    *     &exitOnceCompiler
+    *     (# generate::
+    *          (# do (program[],cInfo[],true{*NONE is OK*},usageAst[])
+    *               ->generateGetObject
+    *               ->(&staticORefTransient[]).init
+    *               ->stran[]
+    *          #)
+    *     #)[]->xc[]
+    *  else
+    *)
+
+   (if sptype.kindValue
+    // patternTypeKind // patternRefTypeKind then
+       &delegatingExitCompiler
+       (# theWorld::(# do world[]->value[] #);
+          theUsageAst::(# do usageAst[]->value[] #);
+          prepare::
+            (# do (program[],cInfo[],usageAst[],generatingAst[])
+                 ->generateGetTmpObject
+                 ->final_stocp[]
+                 ->world.enhance
+            #)
+       #)[]->xc[]
+
+    // objectTypeKind // objectRefTypeKind then
+       &delegatingExitCompiler
+       (# theWorld::(# do world[]->value[] #);
+          theUsageAst::(# do usageAst[]->value[] #);
+          prepare::(# do this(staticOCP)[]->final_stocp[] #)
+       #)[]->xc[]
+
+    else
+       (# msg: ^text
+       do 'Generating byte-code for unexpected kind of entity ('->msg[];
+          typename->msg.puttext;
+          msg[]->internalError
+       #)
+   if)
+
+   (* Let this if-imp enclose the middle part if the implicit [] 
+    * support should be enabled (part 2):
+    * 
+    * if)
+    *)
+
+-- StaticOCPGetEnterExitCplr:dopart --
+do
+   (*checksub checkAccessibility; *)
+   (if sptype.kindValue
+    // patternTypeKind // patternRefTypeKind then
+       (# common_stocp: ^staticOCP
+       do &delegatingEnterCompiler
+          (# theExecute::(# do false->value #);
+             theWorld::(# do world[]->value[] #);
+             theUsageAst::(# do usageAst[]->value[] #);
+             prepare::
+               (# do (program[],cInfo[],usageAst[],generatingAst[])
+                    ->generateGetTmpObject
+                    ->common_stocp[]
+                    ->final_stocp[]
+                    ->world.enhance
+               #)
+          #)[]->nc[];
+          &delegatingExitCompiler
+          (# theWorld::(# do world[]->value[] #);
+             theUsageAst::(# do usageAst[]->value[] #);
+             prepare::(# do common_stocp[]->final_stocp[] #)
+          #)[]->xc[]
+       #)
+
+    // objectTypeKind // objectRefTypeKind then
+       &delegatingEnterCompiler
+       (# theExecute::(# do false->value #);
+          theWorld::(# do world[]->value[] #);
+          theUsageAst::(# do usageAst[]->value[] #);
+          prepare::(# do this(staticOCP)[]->final_stocp[] #)
+       #)[]->nc[];
+       &delegatingExitCompiler
+       (# theWorld::(# do world[]->value[] #);
+          theUsageAst::(# do usageAst[]->value[] #);
+          prepare::(# do this(staticOCP)[]->final_stocp[] #)
+       #)[]->xc[]
+
+    else
+       (# msg: ^text
+       do 'Generating byte-code for unexpected kind of entity ('->msg[];
+          typename->msg.puttext;
+          msg[]->internalError
+       #)
+   if)
+
+-- StaticOCPKnown:dopart --
+do
+   sptype.knownStatically->value
+
+-- StaticOCPGetSyntax:dopart --
+do
+   (if focus[]<>NONE then 
+       focus.getSyntax->value[]
+    else
+       'Focus of a static OCP was none'
+         ->internalError
+   if)
+
+-- StaticRepetitionInit:dopart --
+do
+   (* no-op, since the nested primitives became patterns *)
+
+-- StaticRepetitionPrint:dopart --
+do
+   ' with elements: '->output;
+   (dest[],indentation+indent_delta,true)->stocp.print
+
+-- StaticRepetitionCopy:dopart --
+do
+   RepetitionDecl[]->theCopy.RepetitionDecl[];
+   Evaluation[]->theCopy.Evaluation[];
+   stocp.copy->theCopy.stocp[]
+
+-- StaticRepetitionResetFocus:dopart --
+do
+   (* a no-op, there is only one possible focus *)
+
+-- StaticRepetitionSetFocus:dopart --
+do
+   (* cannot change, just check *)
+   (l2ast[]=Evaluation[])->value
+
+-- StaticRepetitionFocusUp:dopart --
+do
+   (* cannot change, just check *)
+   (l2ast[]=Evaluation[])->value
+
+-- StaticRepetitionFocusDown:dopart --
+do
+   (* cannot change, just check *)
+   (l2ast[]=Evaluation[])->value
+
+-- StaticRepetitionGetEnclosing:dopart --
+do
+   (* !!! should we just delegate like this? *)
+   (world[],usageAst[])
+     ->stocp.getEnclosing
+     ->stcon[]
+
+-- StaticRepetitionGetByLookup:dopart --
+do
+   (if true
+    // (name[],predefinedSyntax.predefinedNames.private.rangeDcl[])
+         ->private.theNameEqual then 
+       theRange[]->stsub[]
+
+    // (name[],predefinedSyntax.predefinedNames.private.extendDcl[])
+         ->private.theNameEqual then 
+       theExtend[]->stsub[]
+
+    // (name[],predefinedSyntax.predefinedNames.private.newDcl[])
+         ->private.theNameEqual then 
+       theNew[]->stsub[]
+
+    else
+       'ibetaSTyp2body.bet/1327'->notyet; (* !!! *)
+       (* !!! should we just delegate like this? *)
+       (* !!! should register the coercion,at least *)
+       (name[],world[],usageAst[])
+         ->stocp.getByLookup
+         ->stsub[]
+   if)
+
+-- StaticRepetitionLookupName:dopart --
+do
+   (if true
+    // (name[],predefinedSyntax.predefinedNames.private.rangeDcl[])
+         ->private.theNameEqual then 
+       predefinedSyntax.predefinedNames.private.rangeDcl[]->l2ndcl[]
+
+    // (name[],predefinedSyntax.predefinedNames.private.extendDcl[])
+         ->private.theNameEqual then 
+       predefinedSyntax.predefinedNames.private.extendDcl[]->l2ndcl[]
+
+    // (name[],predefinedSyntax.predefinedNames.private.newDcl[])
+         ->private.theNameEqual then 
+       predefinedSyntax.predefinedNames.private.newDcl[]->l2ndcl[]
+
+    else
+       'ibetaSTyp2body.bet/1351'->notyet; (* !!! *)
+       (* !! should we just delegate like this? *)
+       (name[],usageAst[])
+         ->stocp.lookupName
+         ->l2ndcl[]
+   if)
+
+-- StaticRepetitionIsBetter:dopart --
+do
+   (if other##<=staticRepetition## then 
+       (* all descriptions of a static repetition are equally good *)
+       false->value
+       (* !! but could we have more or less good paths to this? *)
+    else
+       (# msg: ^text
+       do 'Comparing a static repetition with '->msg[];
+          (other.typename).withIndefArticle->msg.puttext;
+          msg[]->internalError (* !! or staticError? *)
+       #)
+   if)
+
+-- StaticRepetitionAdjustPaths:dopart --
+do
+   path[]->stocp.adjustPaths
+
+-- StaticRepetitionPWC:dopart --
+do
+   (* !!! this would be smth crazy like R: [3]@integer; x: @|R *) 
+   'ibetaSTyp2body.bet/1383'->notyet; (* !!! *)
+
+-- StaticRepetitionAppendSPTA:dopart --
+do
+   (if l2ast[]=predefinedSyntax[] then 
+       (* concerning special repetition names range/extend/new: 
+        * no path extension needed *)
+    else
+       (* delegate *)
+       'ibetaSTyp2body.bet/1441'->notyet; (* !!! *)
+       (* Used to be like this, but this would not be the right 
+        * Evaluation to use, it should be the Eval. in the l2Indexed:
+        * 
+        * (Evaluation[],stocp.pathTo[])->path.addStepSelect;
+        * (path[],l2ast[])->stocp.appendSuffixPathToAst *)
+   if)
+
+-- StaticRepetitionGetTranOut:dopart --
+do
+   (pathTo[],RepetitionDecl[],false
+   ,(world[],usageAst[])->stocp.getStaticTransientOut,false)
+     ->(&staticRepeatedTransient[]).init
+     ->stran[]
+
+-- StaticRepetitionGetTranIn:dopart --
+do
+   (pathTo[],RepetitionDecl[],false
+   ,(world[],usageAst[])->stocp.getStaticTransientIn,false)
+     ->(&staticRepeatedTransient[]).init
+     ->stran[]
+
+-- StaticRepetitionGetCplr:dopart --
+do
+   &exeCompiler
+   (# generate::
+        (# do ('ibetaSTyp2body.bet/1477',pathTo[]
+           ,RepetitionDecl[],stocp.sptype.kind)
+             ->(&callRepCode[]).init
+             ->program.append
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- StaticRepetitionGetEnterCplr:dopart --
+do
+   (* NB: this does not extend the program since we cannot 
+    * set up repetition transfers separately for the enter 
+    * and exit ends; it just tells assignment about the rep *)
+   &enterOnceCompiler
+   (# generate::
+        (# rep_stran: ^staticRepeatedTransient
+        do (world[],usageAst[])
+             ->getStaticTransientIn
+             ->rep_stran[];
+           (* adjust *)
+           this(getEnterCompiler).execute->rep_stran.execute;
+           (* deliver *)
+           rep_stran[]->stran[] 
+        #)
+   #)[]->nc[]
+
+-- StaticRepetitionGetExitCplr:dopart --
+do
+   (* NB: this does not extend the program .. see above *)
+   &exitOnceCompiler
+   (# generate::
+        (# rep_stran: ^staticRepeatedTransient
+        do (world[],usageAst[])
+             ->getStaticTransientOut
+             ->rep_stran[];
+           (* adjust, even though 'execute' is ignored for exit purposes *)
+           true->rep_stran.execute;
+           (* deliver *)
+           rep_stran[]->stran[]
+        #)
+   #)[]->xc[]
+
+-- StaticRepetitionGetEnterExitCplr:dopart --
+do
+   (if RepetitionDecl.ReferenceSpecification##<=l2VariablePattern## then
+       (* this is a harder case because we need to allocate a 
+        * temporary repetition of objects and then use that 
+        * hencemore; since it is not likely to be used much 
+        * and an easy workaround exists (create the rep of objects 
+        * yourself and use that explicitly) we just give up for now *)
+       'ibetaSTyp2body.bet/1526'->notyet; (* !!! *)
+    else
+       (* since we have ruled out transformation by value through
+        * created repetitions (i.e. 'r1->rp->r2' where 'rp' 
+        * is a rep. of patterns) we can generate the two 
+        * compilers independently *)
+       (world[],generatingAst[],usageAst[],false)->getEnterCompiler->nc[];
+       (world[],generatingAst[],usageAst[])->getExitCompiler->xc[]
+   if)
+
+-- StaticRepetitionKnown:dopart --
+do
+   stocp.knownStatically->value
+
+-- StaticRepetitionGetSyntax:dopart --
+do
+   Evaluation[]->value[]
+
+-- StaticRepetitionRangeGetCplr:dopart --
+do
+   &exeCompiler[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- StaticRepetitionRangeGetEnterCplr:dopart --
+do
+   ('Attempt to assign to the \'range\' of a repetition'
+   ,'Evaluate \'range\' to determine the number of elements in the repetition'
+   ,usageAst[])->staticError
+
+-- StaticRepetitionRangeGetExitCplr:dopart --
+do
+   &exitOnceCompiler
+   (# generate::
+        (#
+        do ('ibetaSTyp2body.bet/1559'
+           ,this(staticRepetition).pathTo[]
+           ,RepetitionDecl[])->(&getSizeRepCode[]).init
+             ->program.append;
+           (&staticIntegerTransient[]).init
+             ->stran[]
+        #)
+   #)[]->xc[]
+
+-- StaticRepetitionRangeGetEnterExitCplr:dopart --
+do
+   ('Attempt to assign to the \'range\' of a repetition'
+   ,'Evaluate \'range\' to determine the number of elements in the repetition'
+   ,usageAst[])->staticError
+
+-- StaticRepetitionExtendGetCplr:dopart --
+do
+   (* a no-op *)
+   &execompiler[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- StaticRepetitionExtendGetEnterCplr:dopart --
+do
+   &enterOnceCompiler
+   (# generate::
+        (#
+        do ('ibetaSTyp2body.bet/1584'
+           ,this(staticRepetition).pathTo[]
+           ,RepetitionDecl[])->(&extendRepCode[]).init
+             ->program.append;
+           (&staticIntegerTransient[]).init
+             ->stran[]
+        #)
+   #)[]->nc[]
+
+-- StaticRepetitionExtendGetExitCplr:dopart --
+do
+   ('Attempt to evaluate the \'extend\' of a repetition'
+   ,'Assign to \'extend\' to increase number of elements in the repetition'
+   ,usageAst[])->staticError
+
+-- StaticRepetitionExtendGetEnterExitCplr:dopart --
+do
+   ('Attempt to assign-then-evaluate the \'extend\' of a repetition'
+   ,'Assign to \'extend\' to increase number of elements in the repetition'
+   ,usageAst[])->staticError
+
+-- StaticRepetitionNewGetCplr:dopart --
+do
+   (* no-op *)
+   &execompiler[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- StaticRepetitionNewGetEnterCplr:dopart --
+do
+   &enterOnceCompiler
+   (# generate::
+        (#
+        do ('ibetaSTyp2body.bet/1615'
+           ,this(staticRepetition).pathTo[]
+           ,RepetitionDecl[])->(&newRepCode[]).init
+             ->program.append;
+           (&staticIntegerTransient[]).init
+             ->stran[]
+        #)
+   #)[]->nc[]
+
+-- StaticRepetitionNewGetExitCplr:dopart --
+do
+   ('Attempt to evaluate the \'new\' of a repetition'
+   ,'Assign to \'new\' to force it to have that many entries, all new'
+   ,usageAst[])->staticError   
+
+-- StaticRepetitionNewGetEnterExitCplr:dopart --
+do
+   ('Attempt to assign-then-evaluate the \'new\' of a repetition'
+   ,'Assign to \'new\' to force it to have that many entries, all new'
+   ,usageAst[])->staticError   
+
+-- StaticIndexVariablePrint:dopart --
+do
+   ' with name '->output;
+   (dest[],indentation,false)->NameDcl.print
+
+-- StaticIndexVariablePrintShort:dopart --
+do
+   ' "'->output;
+   (dest[],indentation,false)->NameDcl.print;
+   '"'->output
+
+-- StaticIndexVariablePWC:dopart --
+do
+   ('Attempt to enhance an index variable into a component'
+   ,'Use a pattern as the basis for a component'
+   ,usageAst[])->staticError
+
+-- StaticIndexVariableGetTranOut:dopart --
+do
+   createSingletonTransient(# type::staticIntegerTransient #)->stran[]
+
+-- StaticIndexVariableGetTranIn:dopart --
+do
+   ('Attempt to assign a value to an index variable'
+   ,'Use an ordinary integer if you want to assign to it'
+   ,usageAst[])->staticError
+
+-- StaticPrimitiveEntityPWC:dopart --
+do
+   (# msg: ^text
+   do 'Attempt to enhance '->msg[];
+      (typename).withIndefArticle->msg.puttext;
+      ' into a component'->msg.puttext;
+      (msg[]
+      ,'Use a pattern as the basis for a component'
+      ,usageAst[])->staticError
+   #)
+
+-- StaticCommandGetTranOut:dopart --
+do
+   createEmptyTransient->stran[]
+
+-- StaticCommandGetTranIn:dopart --
+do
+   createEmptyTransient->stran[]
+
+-- StaticBoolSourceGetTranOut:dopart --
+do
+   createSingletonTransient(# type::staticBooleanTransient #)->stran[]
+
+-- StaticBoolSourceGetTranIn:dopart --
+do
+   ('Attempt to assign a value to an boolean source (e.g. ..->false)'
+   ,'Use an object, a pattern, or a sink for assigments'
+   ,usageAst[])->staticError
+
+-- StaticIntSourceGetTranOut:dopart --
+do
+   createSingletonTransient(# type::staticIntegerTransient #)->stran[]
+
+-- StaticIntSourceGetTranIn:dopart --
+do
+   ('Attempt to assign a value to an integer source (e.g. 5->someRep.range)'
+   ,'Use an object, a pattern, or a sink (e.g. 3->aString.at) for assigments'
+   ,usageAst[])->staticError
+
+-- StaticIntSinkGetTranOut:dopart --
+do
+   ('Attempt to evaluate an integer sink (e.g. someRep.extend->putInt)'
+   ,'Use an object, a pattern, an expression, or a source for evaluation'
+   ,usageAst[])->staticError
+
+-- StaticIntSinkGetTranIn:dopart --
+do
+   createSingletonTransient(# type::staticIntegerTransient #)->stran[]
+
+-- StaticBoolSinkSourceGetTranOut:dopart --
+do
+   createSingletonTransient(# type::staticBooleanTransient #)->stran[]
+
+-- StaticBoolSinkSourceGetTranIn:dopart --
+do
+   createSingletonTransient(# type::staticBooleanTransient #)->stran[]
+
+-- StaticCharSinkSourceGetTranOut:dopart --
+do
+   createSingletonTransient(# type::staticCharTransient #)->stran[]
+
+-- StaticCharSinkSourceGetTranIn:dopart --
+do
+   createSingletonTransient(# type::staticCharTransient #)->stran[]
+
+-- StaticIntSinkSourceGetTranOut:dopart --
+do
+   createSingletonTransient(# type::staticIntegerTransient #)->stran[]
+
+-- StaticIntSinkSourceGetTranIn:dopart --
+do
+   createSingletonTransient(# type::staticIntegerTransient #)->stran[]
+
+-- StaticRealSinkSourceGetTranOut:dopart --
+do
+   createSingletonTransient(# type::staticRealTransient #)->stran[]
+
+-- StaticRealSinkSourceGetTranIn:dopart --
+do
+   createSingletonTransient(# type::staticRealTransient #)->stran[]
+
+-- StaticStringSinkSourceGetTranOut:dopart --
+do
+   false->(&staticStringTransient[]).init->stran[]
+
+-- StaticStringSinkSourceGetTranIn:dopart --
+do
+   false->(&staticStringTransient[]).init->stran[]
+
+-- StaticIntSinkCharSourceGetTranOut:dopart --
+do
+   createSingletonTransient(# type::staticCharTransient #)->stran[]
+
+-- StaticIntSinkCharSourceGetTranIn:dopart --
+do
+   createSingletonTransient(# type::staticIntegerTransient #)->stran[]
+
+-- StaticLabelPrint:dopart --
+do
+   ' with name '->output;
+   (dest[],indentation,false)->NameDcl.print
+
+-- StaticLabelPrintShort:dopart --
+do
+   ' "'->output;
+   (dest[],indentation,false)->NameDcl.print;
+   '"'->output
+
+-- StaticLabelPWC:dopart --
+do
+   ('Attempt to enhance a label into a component'
+   ,'Use a pattern as the basis for a component'
+   ,usageAst[])->staticError
+
+-- StaticLabelGetTranOut:dopart --
+do
+   ('Attempt to evaluate a label'
+   ,'Use an object, a pattern, an expression, or a source for evaluation'
+   ,usageAst[])->staticError
+
+-- StaticLabelGetTranIn:dopart --
+do
+   ('Attempt to assign a value to a label'
+   ,'Use an object, a pattern, or a sink for assigments'
+   ,usageAst[])->staticError
+
+-- StaticLabelGetCplr:dopart --
+do
+   ('Attempt to execute a label'
+   ,'Execute only objects, patterns, or primitives (like "fork")'
+   ,usageAst[])->staticError
+
+-- StaticLabelGetEnterCplr:dopart --
+do
+   ('Attempt to assign to a label'
+   ,'Assign only to objects, repetitions, or primitives (like "extend")'
+   ,usageAst[])->staticError
+
+-- StaticLabelGetExitCplr:dopart --
+do
+   ('Attempt to evaluate a label'
+   ,'Evaluate only objects, repetitions, or primitives (like "range")'
+   ,usageAst[])->staticError
+
+-- StaticLabelGetEnterExitCplr:dopart --
+do
+   ('Attempt to assign-then-evaluate a label'
+   ,'Use only objects, repetitions, or primitives (like "at")'
+   ,usageAst[])->staticError
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

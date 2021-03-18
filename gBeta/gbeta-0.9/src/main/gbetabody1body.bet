@@ -1,0 +1,976 @@
+(* File "./main/gbetabody1body.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: gbetabody1body.bet,v 1.57 2001/07/02 01:40:21 eernst Exp $
+ *)
+
+ORIGIN 'gbetabody'
+
+-- GbetaDeadLocked:dopart --
+do
+   (# msg: ^text;
+   do 'NB: some threads or coroutines could not terminate.  Threads\n'->msg[];
+      'may be blocked on semaphores and coroutines suspended'->msg.puttext;
+      (normal,msg[])->stop
+   #)
+
+-- GbetaInterpInit:dopart --
+do 
+   commands.init;
+   (* the default reaction in case of run-time errors *)
+   defaultDynErrFormatter##->dynamicErrorFormatter##
+
+-- BeforeStaticAnalysis:dopart --
+do
+   (if printEarly then l2ast.print; newline if);
+   (if verbose_startup then
+       '\n------------------------------ Analyze program'->putline
+   if)
+
+-- BeforeInstantiate:dopart --
+do
+   (* nothing, for now *)
+
+-- BeforeExecute:dopart --
+do
+   (if verbose_startup then 
+       '\n------------------------------ Execute primary object'->putline
+   if)
+
+-- IntToBoolWarning:dopart --
+do
+   (l2ast[],'Integer-to-boolean conversion')->showWarning
+
+-- BoolToIntWarning:dopart --
+do
+   (l2ast[],'Boolean-to-integer conversion')->showWarning
+
+-- AmbiguousWarning:dopart --
+do
+   (l2ast[],'Declaration shadows another of the same name')->showWarning
+
+-- QuaWarning:dopart --
+do
+   (# t: ^text
+   do '\nPossible run-time type error - '->t[];
+      msg[]->t.puttext;
+      '\n  src: '->t.puttext;
+      (t[],7,false)->src.print;
+      '\n  dst: '->t.puttext;
+      (t[],7,false)->dst.print;
+      (l2ast[],t[])->showWarning
+   #)
+
+-- DynMergeWarning:dopart --
+do
+   (# t: ^text
+   do '\nPossible run-time pattern merging error: merging two'->t[];
+      '\npatterns which are not completely known at compile-time.'->t.puttext;
+      '\n\nLeft argument:'->t.puttext;
+      (if l[]=NONE then ' NONE'->t.puttext else (t[],10,true)->l.print if);
+      '\nRight argument:'->t.puttext;
+      (if r[]=NONE then ' NONE'->t.puttext else (t[],10,true)->r.print if);
+      (l2ast[],t[])->showWarning
+   #)
+
+-- DynMergeDMPWarning:dopart --
+do
+   (# t: ^text
+   do '\nPossible run-time error: merging will succeed but result'->t[];
+      '\nmay contain two mixins with the same main part.'->t.puttext;
+      '\n\nLeft argument:'->t.puttext;
+      (if l[]=NONE then ' NONE'->t.puttext else (t[],10,true)->l.print if);
+      '\nRight argument:'->t.puttext;
+      (if r[]=NONE then ' NONE'->t.puttext else (t[],10,true)->r.print if);
+      (l2ast[],t[])->showWarning
+   #)
+
+-- DynSpecWarning:dopart --
+do
+   (# t: @text
+   do '\n'->t;
+      msg[]->t.puttext;
+      (l2ast[],t[])->showWarning
+   #)
+
+-- A2SWarning:dopart --
+do
+   (# t: @text
+   do '\nCannot load AST-to-source map: '->t;
+      msg[]->t.puttext;
+      '\nThis means that source code positions cannot be computed '->t.puttext;
+      '\nfrom positions in abstract syntax trees.'->t.puttext;
+      t[]->showNoAstWarning
+   #)
+
+-- GbetaCannotExecute:dopart --
+do
+   '\n(not running, cannot "'->puttext;
+   name->puttext;
+   '" -- consider "restart", "step", or "run")'->putline
+
+-- GbetaCannotExecuteR:dopart --
+do
+   '\n(not stopped, cannot "'->puttext;
+   name->puttext;
+   '" -- consider "kill")'->putline
+
+-- GbetaInit:dopart --
+do
+   (* init interpreter state *)
+   breakpoints.init;
+   true->single_stepping;
+
+   (* the initial default command is 'step'; the initial default
+    * command must be non-empty since a non-empty string is
+    * expected in 'executeOneCommand' *)
+   'step'->last_command;
+
+   (* setup default option values *)
+   true->interp.doByteCode; (* do generate byte code and use it in execution *)
+   false->printSemAtt; (* print more info with mainparts,nameapls,...*)
+   true->print_warnings; (* do print warnings from static analysis *)
+   false->verbose_startup; (* do not print startup messages *)
+   false->kill_execution; (* not in the process of killing all threads *)
+   true->interp.setVerboseOutput; (* cmd for Emacs, or [default:] full text? *)
+   false->interp.setPrintByteCodeOrigin; (* show generating file/line? *)
+   interp.setupMonoColors; (* mostly works, and is better than nothing *)
+
+   (* read environment variables to set various options *)
+   interp.getEnvironment;
+
+   (* get command line args *)
+   (# argc: @integer;
+      msgdest: @text;
+      announce:
+        (# 
+        do (if verbose_startup then
+               (if filename[]<>NONE then
+                   '\nMain source code file: "'->msgdest.puttext;
+                   filename[]->msgdest.puttext;
+                   '"'->msgdest.putline
+                else
+                   '\n[No source code specified; exiting]'->msgdest.putline
+               if)
+           if)
+        #)
+   do
+      noOfArguments->argc;
+      (if argc
+       // 1 then
+          (msgdest[],false)->reportUsage;
+          msgdest[]->puttext;
+          (normal,'')->stop
+       else
+          (for i:(argc-1) repeat
+               ((i+1)->arguments,msgdest[],false)->useOptions
+          for)
+      if);
+      (if verbose_startup then
+          (* display various startup info *)
+          startupMessage;
+          announce;
+          msgdest[]->puttext
+      if)
+   #);
+   
+   (* see if we received a filename argument *)
+   (if filename[]=NONE then (normal,'')->stop if);
+   
+   (* parse, transform MPSAST to internal ast *)
+   filename[]->interp.init;
+   
+   (* insert interaction handler and commands if requested *)
+   (if interactive then
+       interp.setupCommands;
+       interp.setupInteractionCallback
+   if)
+
+-- GbetaBreakPointPrint:dopart --
+do
+   (if once then 'once '->output if);
+   (if not before then 'after '->output if);
+   (dest[],indentation,false)->l2ast.print
+
+-- GbetaBreakPointNew:dopart --
+do
+   (l2ast[],before,once)->(&breakpoint[]).init->bp[]
+
+-- GbetaBreakPointAdd:dopart --
+do
+   (l2ast[],before,once)->newBreakPoint->append
+
+-- GbetaSingleStepping:dopart --
+do
+   (if receivedSIGINT>0 then true->value if)
+   
+-- GbOptionLib:attributes --   
+
+accept: booleanValue
+  (# msgdest: ^stream;
+     ch: @char; (* option character *)
+     t: ^text; (* rest of argument *)
+     continue: @boolean
+  enter (msgdest[],ch,t[],continue)
+  do (if ch
+      // on_letter then (msgdest[],t[],continue)->set_on; true->value
+      // off_letter then (msgdest[],t[],continue)->set_off; true->value
+     if)
+  #);
+
+acceptName: booleanValue
+  (# msgdest: ^stream; (* where to output messages *)
+     t: ^text;
+     negated: @boolean;
+     arg: ^text; (* argument, if present *)
+     continue: @boolean; (* if error, should we stop gbeta? *)
+     setter: ##set_base
+  enter (msgdest[],t[],negated,arg[],continue)
+  do (if t.length < (name).length then
+         (* 't' may be a prefix *)
+         (if (1,t.length)->(name).sub->t.equal then
+             (* yes, this is the right option *)
+             (if negated then set_off##->setter## else set_on##->setter## if);
+             (msgdest[],arg[],continue)->setter; true->value
+         if)
+      else
+         (* 't' cannot be a prefix - then it must be an exact match *)
+         (if name->t.equal then
+             (* yes, this is the right option *)
+             (if negated then set_off##->setter## else set_on##->setter## if);
+             (msgdest[],arg[],continue)->setter; true->value
+         if)
+     if)
+  #)
+
+-- GbetaMainlib:attributes --
+
+inform: 
+  (# msgdest: ^stream;
+     msg: ^text;
+     selector: @char
+  enter (msgdest[],msg[],selector)
+  do (if verbose_startup then 
+         'Setting option `'->msgdest.puttext;
+         selector->msgdest.put;
+         '\': '->msgdest.puttext;
+         msg[]->msgdest.putline
+     if)
+  #);
+
+oneLetterMsg:
+  (# msgdest: ^stream;
+     ch: @char;
+     continue: @boolean
+  enter (msgdest[],ch,continue)
+  do 'Option "'->msgdest.puttext;
+     ch->msgdest.put;
+     '" takes a one-letter argument.\n'->msgdest.putline;
+     (msgdest[],continue)->reportUsage;
+     (if not continue then msgdest[]->puttext; (normal,'')->stop if)
+  #);
+
+gbOptionStd: gbOption
+  (# on_msg:< textValue;
+     off_msg:< textValue;
+     set_on::< (# do INNER; (msgdest[],on_msg,on_letter)->inform #);
+     set_off::< (# do INNER; (msgdest[],off_msg,off_letter)->inform #)
+  #);
+
+gbOptionOneLetterBase: gbOption
+  (# set_on::<
+       (# arg_ch: @char; msg: ^text
+       do (if not t.eos then
+              t.get->arg_ch;
+              INNER; (* use arg_ch, then set up msg *)
+              (msgdest[],msg[],on_letter)->inform
+           else
+              (msgdest[],on_letter,continue)->oneLetterMsg
+          if)
+       #)
+  #);
+
+gbOptionOneLetterOn: gbOptionOneLetterBase
+  (# off_msg:< textValue;
+     set_off::< (# do INNER; (msgdest[],off_msg,off_letter)->inform #)
+  #);
+
+gbOptionOneLetter: gbOptionOneLetterBase
+  (# set_off::<
+       (# arg_ch: @char; msg: ^text
+       do (if not t.eos then
+              t.get->arg_ch;
+              INNER; (* use arg_ch, then set up msg *)
+              (msgdest[],msg[],off_letter)->inform
+           else
+              (msgdest[],off_letter,continue)->oneLetterMsg
+          if)
+       #)
+  #);
+
+gbOptionAllLettersOn: gbOption
+  (# set_on::<
+       (# arg_ch: @char; msg: ^text
+       do L: (if not t.eos then
+                 t.get->arg_ch;
+                 INNER; (* use arg_ch, then set up msg *)
+                 (msgdest[],msg[],on_letter)->inform;
+                 restart L (* next arg *)
+             if)
+       #);
+     set_off::< (# do INNER; (msgdest[],off_msg,off_letter)->inform #);
+     off_msg:< textValue
+  #);
+
+optionInit:
+  (#
+  do options.init;
+     
+     &gbOptionStd
+     (# on_letter::(# do 'a'->value #);
+        name::(# do 'print-sematt'->value[] #);
+        on_msg::(# do 'Print semantic attributes'->value[] #);
+        off_msg::(# do 'Do not print semantic attributes'->value[] #);
+        explanation::
+          (# do 'print semantic Attributes for some AST nodes'->value[] #);
+        set_on::(# do true->printSemAtt #);
+        set_off::(# do false->printSemAtt #)
+     #)[]->options.append;
+
+     &gbOptionStd
+     (# on_letter::(# do 'b'->value #);
+        name::(# do 'bytecode'->value[] #);
+        on_msg::(# do 'Generate and execute byte-code'->value[] #);
+        off_msg::(# do 'Use closure based execution (no byte-code)'->value[] #);
+        explanation::(# do 'generate and execute Bytecode'->value[] #);
+        set_on::(# do true->interp.doByteCode #);
+        set_off::(# do false->interp.doByteCode #)
+     #)[]->options.append;
+
+     &gbOptionOneLetterOn
+     (# on_letter::(# do 'c'->value #);
+        name::(# do 'color-scheme'->value[] #);
+        explanation::
+          (# do 'select Coloring scheme for pretty-printing'->value[] #);
+        set_on::
+          (# do arg_ch->interp.setupColors;
+             ('Use coloring ',arg_ch)->colorExplain->msg[]
+          #);
+        set_off::(# do interp.setupMonoColors #);
+        off_msg::(# do 'Reset pretty-printing colors to monochrome'->value[] #)
+     #)[]->options.append;
+     
+     &gbOptionStd
+     (# on_letter::(# do 'e'->value #);
+        name::(# do 'print-early'->value[] #);
+        on_msg::(# do 'Print source code before static analysis'->value[] #);
+        off_msg::(# do 'Do not source code before static analysis'->value[] #);
+        explanation::
+          (# do 'print program Early, before static analysis'->value[] #);
+        set_on::(# do true->printEarly #);
+        set_off::(# do false->printEarly #)
+     #)[]->options.append;
+
+     &gbOptionOneLetter
+     (# on_letter::(# do 'f'->value #);
+        name::(# do 'codegen-flag'->value[] #);
+        explanation::(# do 'set Flag to control code generation'->value[] #);
+        set_on::
+          (# do 'set code generation flag for '->msg[];
+             (arg_ch,true)->interp.setCodegenFlag->msg.puttext
+          #);
+        set_off::
+          (# do 'reset code generation flag for '->msg[];
+             (arg_ch,false)->interp.setCodegenFlag->msg.puttext
+          #)
+     #)[]->options.append;
+
+     &gbOptionStd
+     (# on_letter::(# do 'g'->value #);
+        name::(# do 'save-bytecode'->value[] #);
+        on_msg::(# do 'Generate and save bytecode, then exit'->value[] #);
+        off_msg::(# do 'Do not save bytecode (just execute)'->value[] #);
+        explanation::
+          (# do 'Generate and save byte code, then exit'->value[] #);
+        set_on::(# do true->generateAndSaveByteCode #);
+        set_off::(# do false->generateAndSaveByteCode #)
+     #)[]->options.append;
+
+     &gbOptionStd
+     (# on_letter::(# do 'h'->value #);
+        name::(# do 'help'->value[] #);
+        on_msg::(# do 'Print out help/usage message'->value[] #);
+        off_msg::(# do 'Do not print out help/usage message'->value[] #);
+        explanation::(# do 'Print out help/usage message'->value[] #);
+        set_on::
+          (# do (msgdest[],true)->reportUsage;
+             (* if not verbose_startup we will not even see the
+              * help message that we just put into msgdest, so.. *)
+             true->verbose_startup
+          #);
+        set_off::(# do (*nothing*) #)
+     #)[]->options.append;
+
+     &gbOptionStd
+     (# on_letter::(# do 'i'->value #);
+        name::(# do 'interactive'->value[] #);
+        on_msg::(# do 'Run interactively (enable single-step etc)'->value[] #);
+        off_msg::(# do 'Do not run interactively'->value[] #);
+        explanation::(# do 'run Interactively (implies -nanmA)'->value[] #);
+        set_on::
+          (# do true->interactive;
+             false->printSemAtt;
+             'm'->interp.doShowNumber;
+          #);
+        set_off::(# do false->interactive #)
+     #)[]->options.append;
+
+     &gbOptionStd
+     (# on_letter::(# do 'l'->value #);
+        name::(# do 'lazy-analysis'->value[] #);
+        on_msg::(# do 'Perform static analysis lazily'->value[] #);
+        off_msg::(# do 'Perform full static analysis before run'->value[] #);
+        explanation::(# do 'perform static analysis Lazily'->value[] #);
+        set_on::(# do true->lazy_analysis #);
+        set_off::(# do false->lazy_analysis #)
+     #)[]->options.append;
+
+     &gbOptionOneLetter
+     (# on_letter::(# do 'n'->value #);
+        name::(# do 'print-ast-index'->value[] #);
+        explanation::
+          (# do 'print MPS ast index Numbers on selected nodes'->value[] #);
+        set_on::
+          (# do arg_ch->interp.doShowNumber;
+             ('Show MPS ast indices for ',arg_ch)->showNumberExplain->msg[]
+          #);
+        set_off::
+          (# do arg_ch->interp.dontShowNumber;
+             ('Do not show MPS ast indices for ',arg_ch)
+               ->showNumberExplain->msg[]
+          #)
+     #)[]->options.append;
+
+     &gbOptionOneLetter
+     (# on_letter::(# do 'o'->value #);
+        name::(# do 'observe'->value[] #);
+        explanation:: 
+          (# do 'Observe static analysis via various output'->value[] #);
+        set_on::
+          (# do arg_ch->interp.doObserve;
+             ('Observe interpreter internal actions for ',arg_ch)
+               ->observeExplain->msg[]
+          #);
+        set_off::
+          (# do arg_ch->interp.dontObserve;
+             ('Do not observe interpreter internal actions for ',arg_ch)
+               ->observeExplain->msg[]
+          #)
+     #)[]->options.append;
+
+     &gbOptionStd
+     (# on_letter::(# do 'p'->value #);
+        name::(# do 'print-filepos'->value[] #);
+        on_msg::(# do 'Print file-pos (used with Emacs)'->value[] #);
+        off_msg::(# do 'Print source code (used outside Emacs)'->value[] #);
+        explanation::
+          (# do 'print file Position during single-stepping (used in Emacs)'
+               ->value[]
+          #);
+        set_on::(# do false->interp.setVerboseOutput #);
+        set_off::(# do true->interp.setVerboseOutput #)
+     #)[]->options.append;
+
+     &gbOptionStd
+     (# on_letter::(# do 'r'->value #);
+        name::(# do 'print-running-time'->value[] #);
+        on_msg::(# do 'Enable running time measurements'->value[] #);
+        off_msg::
+          (# 
+          do 'Disable running time measurements (implies lazy codegen)'
+               ->value[] 
+          #);
+        explanation::
+          (# do 'enable Running time measurements and generate code eagerly'
+               ->value[]
+          #);
+        set_on::(# do true->interp.measureRunningTime #);
+        set_off::(# do false->interp.measureRunningTime #)
+     #)[]->options.append;
+
+     &gbOptionStd
+     (# on_letter::(# do 's'->value #);
+        name::(# do 'save-static-info'->value[] #);
+        on_msg::(# do 'Generate and save static info, then exit'->value[] #);
+        off_msg::(# do 'Do not save static info (just execute)'->value[] #);
+        explanation::
+          (# do 'generate and save Static information, then exit'->value[] #);
+        set_on::(# do true->generateAndSaveStaticInfo #);
+        set_off::(# do false->generateAndSaveStaticInfo #)
+     #)[]->options.append;
+
+     &gbOptionOneLetter
+     (# on_letter::(# do 't'->value #);
+        name::(# do 'trace'->value[] #);
+        explanation::
+          (# do 'activate Tracing for selected runtime events'->value[] #);
+        set_on::
+          (# do arg_ch->interp.doTrace;
+             ('Trace ',arg_ch)->traceExplain->msg[]
+          #);
+        set_off::
+          (# do arg_ch->interp.dontTrace;
+             ('Do not trace ',arg_ch)->traceExplain->msg[]
+          #)
+     #)[]->options.append;
+
+     &gbOptionStd
+     (# on_letter::(# do 'v'->value #);
+        name::(# do 'verbose'->value[] #);
+        common_msg: (# exit ' startup messages etc.' #);
+        on_msg::(# do 'Print'->value[]; common_msg->value.puttext #);
+        off_msg::(# do 'Do not print'->value[]; common_msg->value.puttext #);
+        explanation::
+          (# do 'be Verbose - print startup messages etc.'->value[] #);
+        set_on::(# do true->verbose_startup #);
+        set_off::(# do false->verbose_startup #)
+     #)[]->options.append;
+
+     &gbOptionStd
+     (# on_letter::(# do 'w'->value #);
+        name::(# do 'warnings'->value[] #);
+        on_msg::(# do 'Show warnings'->value[] #);
+        off_msg::(# do 'Suppress printing of warning warnings'->value[] #);
+        explanation::(# do 'print Warnings during static analysis'->value[] #);
+        set_on::(# do true->print_warnings #);
+        set_off::(# do false->print_warnings #)
+     #)[]->options.append;
+     
+     &gbOptionStd
+     (# on_letter::(# do 'v'->value #);
+        name::(# do 'version'->value[] #);
+        on_msg::(# do 'Show version'->value[] #);
+        off_msg::(# do 'Do not show version'->value[] #);
+        explanation::(# do 'print the Version number etc.'->value[] #);
+        set_on::(# do true->verbose_startup #);
+        set_off::(# do (*nothing*)#)
+     #)[]->options.append
+  #);
+
+reportError:
+  (# msg,description: ^text
+  enter (msg[],description[])
+  do (for 70 repeat '*'->screen.put for);
+     newline; newline;
+     msg[]->putline;
+     '\n\007There was a '->puttext;
+     description[]->puttext;
+     ' error'->puttext;
+     INNER
+  #);
+
+reportErrorRT: reportError (* report error during runtime *)
+  (# 
+  do '; interpretation aborted and restarted.'->putline;
+     newline
+  #);
+          
+reportErrorCD: reportError (* report error and close dest *)
+  (# dest: ^stream
+  enter dest[]
+  do '.'->putline; 
+     newline;
+     (if dest##<=file## then 
+         (# destfile: ^file
+         do dest[]->destfile[];
+            destfile.close;
+            destfile.delete
+         #)
+     if)
+  #);
+
+openDest:
+  (# dest: ^file
+  enter dest[]
+  do (* We cannot test the success/failure of a file operation
+      * such as the 'openWrite' below; we just have to check
+      * some properties before trying it. !! NB: if the file
+      * does not exist and the directory is not writeable
+      * then openWrite will kill us - this is not a civilized 
+      * way to stop and the case should be detected; it
+      * isn`t being detected, yet *)
+     (if (not dest.entry.exists) or
+         (dest.entry.exists 
+         and dest.entry.isFile 
+         and dest.entry.writeable) then
+         dest.openWrite
+      else
+         (* is not a file, or is not writeable *)
+         (# msg: ^text;
+         do (* !! NB: the following assumes that the file
+             * properties do not change during the execution
+             * of the tests *)
+            '\''->msg[];
+            dest.name->msg.puttext;
+            '\' '->msg.puttext;
+            (if not dest.entry.isFile then
+                'is not a file'->msg.puttext
+             else
+                (* must be the 'writeable' *)
+                'does not have write permission'->msg.puttext
+            if);
+            (* since we are _only_ producing this file, it 
+             * would not help us much to stay alive now *)
+            (failure,msg[])->stop
+         #)
+     if)
+  exit dest[]
+  #)
+
+-- GbetaMain:dopart --
+do
+   optionInit;
+   init;
+   setupSIGCHLD;
+   (if interactive then setupSIGINT if);
+      
+   (if true 
+    // generateAndSaveByteCode then
+       interp.errorScope
+       (# onStaticError::
+            (# do (msg[],'static analysis',dest[])->reportErrorCD #);
+          onDynamicError::
+            (# do (msg[],'run-time',dest[])->reportErrorCD #);
+          initdest:
+            (# name: ^text;
+               dest: ^file
+            do (interp.private.betaGroup.fullname).copy->name[];
+               name.chopExtension;
+               '.gbc'->name.append->(&file[]->dest[]).name;
+            exit dest[]->openDest
+            #);
+          dest: ^stream
+       do initdest->dest[]->interp.generateAndSaveByteCode
+       #)
+       
+    // generateAndSaveStaticInfo then
+       interp.errorScope
+       (# onStaticError::
+            (# do (msg[],'static analysis',dest[])->reportErrorCD #);
+          onDynamicError::
+            (# do (msg[],'run-time',dest[])->reportErrorCD #);
+          initdest:
+            (# name: ^text;
+               dest: ^file
+            do (interp.private.betaGroup.fullname).copy->name[];
+               name.chopExtension;
+               '.sti'->name.append->(&file[]->dest[]).name;
+            exit dest[]->openDest
+            #);
+          dest: ^stream
+       do 
+          initdest->dest[]->interp.generateAndSaveStaticInfo
+       #)
+       
+    else
+       (* execute the given program *)
+       interp.errorScope
+       (# onStaticError::(# do (msg[],'static analysis')->reportErrorRT #);
+          onDynamicError::(# do (msg[],'run-time')->reportErrorRT #)
+       do interp
+       #)
+   if)
+
+-- StaticErrors:dopart --
+do
+   (if staticErrorHandler##<>NONE then 
+       (msg[],solution[])->staticErrorHandler
+   if)
+
+-- GbetaHandleDoubleDecl:dopart --
+do
+   (* for interpretation it is just a static error *)
+   (# msg: @text
+   do (msg[],0,false,verboseOutput)->l2ast1.printWithContextBase
+      (# title::(# do 'OTHER'->value[] #)#);
+      '\nName declared twice in same main part'->msg.puttext;
+      (msg[],'(Re)move one of the declarations',l2ast2[])->staticError
+   #)
+
+-- DynamicErrors:dopart --
+do 
+   (# fullmsg: ^text
+   do (* 'dynamicErrorFormatter' formats a full err.msg in 'fullmsg', 
+       * using 'msg' which is the specific description of the 
+       * error as delivered when '...Error' was invoked *)
+      (if dynamicErrorFormatter##<>NONE then 
+          (&text[]->fullmsg[],thrd[],msg[])->dynamicErrorFormatter
+       else
+          (* no special formatting, then just deliver the core message *)
+          msg[]->fullmsg[]
+      if);
+      fullmsg[]->(&exitError[]).init->&unwind
+   #)
+
+-- ReInitialize:dopart --
+do
+   (* clean up the current execution universe *)
+   this(interpreterBase).private.primaryThread.private.currentComponents.scan
+   (# do current.currentStack.clear #);
+   this(interpreterBase).private.primaryThread.private.currentComponents.clear;
+   
+   (* create a fresh primary execution *)
+   (primaryRunCallback[],primaryStoppedCallback[])
+     ->instantiateExecutor
+     ->(this(interpreterBase).private.primaryExecutorObject[]
+       ,this(interpreterBase).private.primaryThread[]);
+   
+   (* install a meaningful default command *)
+   'restart'->last_command; 
+
+-- StartupMessage:dopart --
+do
+   'GBETA version '->puttext; version->puttext; 
+   ', copyright (C) 1997-2001 Erik Ernst.'->putline;
+   'This is free software, and you are welcome to redistribute it '->putline;
+   'under certain conditions; '->puttext;
+   'this software comes with ABSOLUTELY NO WARRANTY.'->putline;
+   'For details please see the file COPYING.'->putline;
+   (if interactive then
+       'To learn about available commands, type "help".'->putline
+   if);
+   newline
+
+-- ReportUsage:dopart --
+do
+   (# outln: (# enter msgdest.putline #);
+      out: (# enter msgdest.puttext #);
+      outch: (# enter msgdest.put #);
+      outnl: (# do msgdest.newline #)
+   do 
+      (if not continue then 
+          'Usage: '->out; (* 1->arguments->puttext; full path! *)
+          'gbeta [-<options>] <name of beta source file>'->outln
+      if);
+      'Options are ['->out;
+      options.scan(# do current.on_letter->outch #);
+      '] for activation of features'->outln;
+      '        and ['->out;
+      options.scan(# do current.off_letter->outch #);
+      '] for deactivation of features'->outln;
+      'Long options can be negated by prefixing "no-" (e.g. "--no-bytecode")'
+        ->outln;
+
+      outnl;
+      options.scan
+      (# do '  -'->out; current.on_letter->outch; '\t'->outch;
+         current.explanation->outln;
+          '\tLong form:'->out; ' --'->out; current.name->outln;
+      #);
+
+      outnl;
+      '"c" takes a one letter arg, [acmn]'->outln;
+      '"f" takes a one letter arg [bilnopq*]'->outln;
+      '"N"/"n" takes a one letter arg, [AEadeimrw*]'->outln;
+      '"O"/"o" takes a one letter arg, [BCDEGILNOPSTWbcefgilnsvw*]'->outln;
+      '"T"/"t" takes a one letter arg, [EGIOSWXefilmnstuvx*]'->outln;
+      (if not continue then
+          outnl;
+          'Environment variables read upon startup;'->outln;
+          'they can be used instead of options -[NnOoTt]:'->outln;
+          '\tGBETA_SHOWNUMBER, GBETA_DONTSHOWNUMBER'->outln;
+          '\tGBETA_OBSERVE, GBETA_DONTOBSERVE'->outln;
+          '\tGBETA_TRACE, GBETA_DONTTRACE'->outln;
+          '\tGBETA_PRINTBYTECODEORIGIN'->outln
+      if)
+   #)
+
+-- UseOptions:dopart --
+do
+   (# ch: @char;
+      longoption: @boolean
+   do t.reset;
+      (if t.eos then
+          (msgdest[],continue)->reportUsage;
+          (if not continue then msgdest[]->puttext; (normal,'')->stop if)
+       else
+          false->longoption;
+          (if t.peek='-' then 
+              (1,1)->t.olddelete;
+              (if t.peek='-' then (1,1)->t.olddelete; true->longoption if)
+           else
+              (* no dashes, so this is a filename *)
+              t.copy->filename[];
+              t.clear (* done *)
+          if)
+      if);
+      L: (if not t.eos then
+             (if longoption then
+                 (# arg: ^text;
+                    negated: @boolean
+                 do (* find, extract, and remove 'arg' and '=', if present *)
+                    '='->t.findCh
+                    (# do (inx+1,t.length)->t.sub->arg[];
+                       arg.reset; (inx,t.length)->t.olddelete
+                    #);
+                    (* check for negation, "--no-..." *)
+                    (if t.length>=3 then
+                        (if ((1->t.inxget)='n') and ((2->t.inxget)='o') and 
+                            ((3->t.inxget)='-') then
+                            true->negated;
+                            (1,3)->t.olddelete
+                        if)
+                        (*else*)
+                        (* too short, could not be negated *)
+                    if);
+                    options.scan
+                    (#
+                    do (if (msgdest[],t[],negated,arg[],continue)
+                             ->current.acceptName then
+                           (* this option done, continue with the next *)
+                           t.clear;
+                           restart L
+                       if)
+                    #);
+                    (* none of the options accepted the string 't' *)
+                    'Unknown long option name "'->msgdest.puttext;
+                    t[]->msgdest.puttext;
+                    '"\n'->msgdest.putline;
+                    (msgdest[],continue)->reportUsage;
+                    (if not continue then
+                        msgdest[]->puttext;
+                        (normal,'')->stop
+                    if)
+                 #)
+              else
+                 t.get->ch;
+                 options.scan
+                 (# 
+                 do (if (msgdest[],ch,t[],continue)->current.accept then 
+                        (* this option done, continue with the next *)
+                        restart L
+                    if)
+                 #);
+                 
+                 (* none of the options accepted the letter 'ch' *)
+                 'Unknown option "'->msgdest.puttext;
+                 ch->msgdest.put;
+                 '"\n'->msgdest.putline;
+                 (msgdest[],continue)->reportUsage;
+                 (if not continue then msgdest[]->puttext; (normal,'')->stop if)
+             if)
+         if)
+   #)
+
+-- GbetaSetupColors:dopart --
+do
+   (* keep in sync with 'colorExplain' *)
+   (if ch
+    // 'm' // 'M' then setupMonoColors
+    // 'c' // 'C' // 'a' // 'A' then setupANSIColors
+    // 'n' // 'N' then setupNoColors
+   if)
+
+-- GbetaSetCodegenFlag:dopart --
+do
+   (if ch
+    // 'p' then value->staticPushPatternFlag; 'PUSH-static-ptn'->msg[]
+    // 'b' then value->staticPredefinedPatternFlag; 
+       'PUSH/INSTALL-ptn/obj_".." (basic patterns and objects)'->msg[]
+    // 'n' then value->staticCreateObjectFlag; 'NEW,_static-ptn->obj/tmp'->msg[]
+    // 'i' then value->staticInstallPatternFlag; 'INSTALL-static-ptn'->msg[]
+    // 'o' then value->staticInstallObjectFlag; 'INSTALL-static-obj'->msg[]
+    // 'q' then value->staticInstallQuaFlag; 'INSTALL-static-qua-ptn/obj'->msg[]
+    // 'l' then value->lazyInitFlag; 'lazy attribute initialization'->msg[]
+    // '*' then
+       value
+         ->staticPushPatternFlag
+         ->staticPredefinedPatternFlag
+         ->staticCreateObjectFlag
+         ->staticInstallPatternFlag
+         ->staticInstallObjectFlag
+         ->staticInstallQuaFlag
+         ->lazyInitFlag;
+       '* (all flags)'->msg[]
+    else
+       '(unknown code generation flag "'->msg[];
+       ch->msg.put;
+       '" - ignored)'->msg.puttext
+   if)
+
+-- GbetaDefaultDynErrFormatter:dopart --
+do
+   '\n**** Run-time error; offending thread killed.'->dest.putline;
+   msg[]->dest.putline;
+   (if (not verboseOutput) and (thrd.private.currentImp[]<>NONE) then
+       (dest[],thrd.private.currentImp[])->displayPos 
+   if)
+
+-- GbetaGetEnvironment:dopart --
+do
+   (# t: ^text
+   do '$(GBETA_OBSERVE)'->expandEnvVar
+      (# defaultValue::(# do ''->envvarvalue[] #)#)->t[];
+      t.scanAll(# do ch->interp.doObserve #);
+      
+      '$(GBETA_DONTOBSERVE)'->expandEnvVar
+      (# defaultValue::(# do ''->envvarvalue[] #)#)->t[];
+      t.scanAll(# do ch->interp.dontObserve #);
+      
+      '$(GBETA_TRACE)'->expandEnvVar
+      (# defaultValue::(# do ''->envvarvalue[] #)#)->t[];
+      t.scanAll(# do ch->interp.doTrace #);
+      
+      '$(GBETA_DONTTRACE)'->expandEnvVar
+      (# defaultValue::(# do ''->envvarvalue[] #)#)->t[];
+      t.scanAll(# do ch->interp.dontTrace #);
+      
+      '$(GBETA_SHOWNUMBER)'->expandEnvVar
+      (# defaultValue::(# do ''->envvarvalue[] #)#)->t[];
+      t.scanAll(# do ch->interp.doShowNumber #);
+      
+      '$(GBETA_DONTSHOWNUMBER)'->expandEnvVar
+      (# defaultValue::(# do ''->envvarvalue[] #)#)->t[];
+      t.scanAll(# do ch->interp.dontShowNumber #);
+      
+      '$(GBETA_PRINTBYTECODEORIGIN)'->expandEnvVar
+      (# defaultValue::(# do ''->envvarvalue[] #)#)->t[];
+      (t.length>0)->interp.setPrintByteCodeOrigin
+   #)
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

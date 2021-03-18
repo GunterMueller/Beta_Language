@@ -1,0 +1,201 @@
+ORIGIN 'eelib';
+INCLUDE 'attribute';
+INCLUDE 'attributelib';
+INCLUDE 'cintf';
+INCLUDE 'ctype';
+INCLUDE 'evaluation';
+INCLUDE 'namebitch';
+INCLUDE 'objectdesc';
+INCLUDE 'ad/tempden';
+INCLUDE 'att/pvariable';
+--- ExecutionEnvironmentPrivate: ObjectDescriptor ---
+(#
+   inserted: @AttributePtr;	(* list of inserted items *)
+   dynamic: @AttributePtr;	(* list of dynamic items *)
+   ev: @EvaluationPtr;		(* list of reduced "evaluations" *)
+   base: ^AttributeDenotation;
+   lastev: ^Evaluation;
+   hasQuaCheck: @Boolean;
+   hasRepQuaCheck: @Boolean;
+   noIA: @Boolean;		(* Don't insert attributes, if this is set. *)
+   rootset: @Boolean;		(* Should we save/restore root set pointer? *)
+#)
+
+
+--- ExecutionEnvironmentInit: ObjectDescriptor ---
+(#
+do
+   NONE->private.lastev[]->private.ev;
+   NONE->private.base[];
+   false->private.rootset;
+   false->private.hasQuaCheck->private.hasRepQuaCheck->private.noIA;
+#)
+
+
+--- ExecutionEnvironmentItem: ObjectDescriptor ---
+(#
+   od,od2: ^ObjectDescriptor;
+   nme: ^Name;
+   att: ^SimpleDecl;
+   type: @integer;
+do
+   ad.getpatt->od[];
+   getod->od2[];
+   (* first step: create a new name *)
+   &Name[]->nme[];
+
+   (* second step: create a new attribute for that name *)
+   (if dynamic or private.noIA then
+      (* dynamically created object *)
+      'dyn'->nme.mapname;
+      od2.private.ldyn+1->od2.private.ldyn->nme.mapname.putint;
+      (if od.isbasic then 0->type else 1->type; true->private.rootset if);
+      (nme[],ad[],type)->&TemporaryDecl->att[];
+      private.dynamic->att.next[];
+      att[]->private.dynamic;
+   else
+      (* inserted item *)
+      'ins'->nme.mapname;
+      od2.private.nsuper->nme.mapname.putint;
+      'p'->nme.mapname.put;
+      od2.private.lins+1->od2.private.lins->nme.mapname.putint;
+      (nme[],ad[],0)->&SimpleDecl->att[];
+      true->att.data_inline;
+      private.inserted->att.next[];
+      att[]->private.inserted;
+   if);
+
+   od[]->att.od[];
+   od2[]->att.encl[];
+   att.checkFollow;
+
+   (* third step: create a reference to that new attribute *)
+   (att[],dynamic or private.noIA)->&TemporaryDenotation->ad[];
+   (if private.base[]<>NONE then private.base[]->ad.copy->ad[] if);
+
+   (* fourth step: initialize the attribute *)
+   (if not dontinit then ad[]->att.DoInit->ev[] if);
+#)
+
+
+--- ExecutionEnvironmentDynamicPVariable: ObjectDescriptor ---
+(#
+   od2: ^ObjectDescriptor;
+   nme: ^Name;
+   att: ^PatternVariableDecl;
+   type: @integer;
+do
+   getod->od2[];
+   (* first step: create a new name *)
+   &Name[]->nme[];
+
+   (* second step: create a new attribute for that name *)
+   'dyn'->nme.mapname;
+   od2.private.ldyn+1->od2.private.ldyn->nme.mapname.putint;
+   (nme[],ad[])->&PatternVariableDecl->att[];
+   private.dynamic->att.next[];
+   att[]->private.dynamic;
+
+   ad.getpatt->att.od[];
+   od2[]->att.encl[];
+   att.checkFollow;
+
+   (* third step: create a reference to that new attribute *)
+   (att[],true)->&TemporaryDenotation->ad[];
+   (if private.base[]<>NONE then private.base[]->ad.copy->ad[] if);
+
+   (* fourth step: initialize the attribute *)
+   (if not dontinit then (ad[],att[])->&PVariableFromVirtual->ev[] if);
+#)
+
+
+--- ExecutionEnvironmentMarkQua: DoPart ---
+do true->private.hasQuaCheck;
+
+
+--- ExecutionEnvironmentMarkRepQua: DoPart ---
+do true->private.hasRepQuaCheck->private.hasQuaCheck;
+
+
+--- ExecutionEnvironmentMarkRootSet: DoPart ---
+do true->private.rootset
+
+
+--- ExecutionEnvironmentDisableIA: DoPart ---
+do true->private.noIA;
+
+
+--- ExecutionEnvironmentInsertionBase: DoPart ---
+do ad[]->private.base[];
+
+
+--- ExecutionEnvironmentAdd: DoPart ---
+do
+   (if ev[]<>NONE then
+      (if private.ev.ptr[]=NONE then
+	 ev[]->private.ev
+      else
+	 ev[]->private.lastev.next[];
+      if);
+      l: (if ev.next[]<>NONE then ev.next[]->ev[]; restart l if);
+      ev[]->private.lastev[]
+   if);
+
+--- ExecutionEnvironmentDoDo: DoPart ---
+do
+   head;
+   getod->od[];
+   private.dynamic.iterate (# do od[]->el.getcdecl->c_file.cstream.puttext #);
+   (if private.hasQuaCheck then
+      '    '->c_file.cstream.puttext;
+      cintf.const->c_file.cstream.puttext;
+      'struct pattern *qua;'->c_file.cstream.putline;
+   if);
+   (if private.hasRepQuaCheck then
+      '    int i;'->c_file.cstream.putline;
+   if);
+
+   (* JO If function has local references, then save root set state: *)
+   (if private.rootset then
+       '    int mstackbase = mgetstackcnt();\n'->c_file.cstream.puttext;
+   if);
+   (* JO *)
+
+   private.ev.recurse (# rc:: (# do el.DoDo #) #);
+
+   (* JO restore root set state, if necesssary: *)
+   (if private.rootset then
+       '    msetstackcnt(mstackbase);\n'->c_file.cstream.puttext;
+   if);
+   (* JO *)
+
+   tail;
+
+
+--- CompilerLib: Attributes ---
+PVariableFromVirtual: Evaluation
+  (#
+     (* Note: `ad' must denote an PatternVariableDecl.  The `os' field
+      * of that PatternVariableDecl must denote a VirtualDecl.
+      *)
+     ad: ^AttributeDenotation;
+     pvar: ^PatternVariableDecl;
+     DoDo::
+       (#
+          thead: ^AttributeDenotation
+       do
+	  pvar.os[]->thead[];
+	  ad.prec[]->thead.copy->thead[];
+	  '    (*'->c_file.cstream.puttext;
+	  ctype_genfunction->thead.putcexpr;
+	  ')((struct O'->c_file.cstream.puttext;
+	  thead.att.att.encl.private.mapname[]->c_file.cstream.puttext;
+	  ' *)'->c_file.cstream.puttext;
+	  ctype_objectptr->thead.prec.putcexpr;
+	  ', &'->c_file.cstream.puttext;
+	  ctype_pvariable->ad.putcexpr;
+	  ');\n'->c_file.cstream.puttext;
+       #);
+  enter (ad[],pvar[])
+  exit this(PVariableFromVirtual)[]
+  #);

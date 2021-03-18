@@ -1,0 +1,76 @@
+(* FILE ex8.gb *)
+-- betaenv:descriptor --
+(# 
+   cycle: (# do INNER; restart cycle #);
+   getch: 
+     (# s: @string 
+     do stdio->s; (if s.length=0 then SUSPEND (* kill *) if)
+     exit 1->s.at 
+     #);
+   symmetricCoroutineSystem:
+     (# symmetricCoroutine: component
+          (# resume:< 
+               (# 
+               do this(symmetricCoroutine)[]->next[];
+                  SUSPEND
+               #)
+          do INNER
+          #);
+        next: ^symmetricCoroutine;
+        run: cycle
+          (# active: ^symmetricCoroutine (* currently running *)
+          enter next[]
+          do (if (next[]->active[])=NONE then 
+                 leave run
+             if);
+             NONE->next[];
+             active; (* attach next component *)
+             (* active 'SUSPEND'ed, 'Resumed', or terminated *)
+          #)
+     do INNER
+     #);
+   converter: @symmetricCoroutineSystem
+     (# doubleA2B: @symmetricCoroutine
+          (# ch: @char
+          do cycle
+             (# 
+             do getch->ch;
+                (if ch='a' then 
+                    getch->ch;
+                    (if ch='a' then 'b'->doubleB2C.resume else
+                        'a'->doubleB2C.resume;
+                        ch->doubleB2C.resume
+                    if)
+                 else
+                    ch->doubleB2C.resume
+                if)
+             #)
+          #);
+        doubleB2C: @symmetricCoroutine
+          (# ch: @char;
+             resume::(# enter ch #)
+          do cycle
+             (#
+             do (if ch
+                 // 'b' then 
+                    doubleA2B.resume;
+                    (if ch='b' then 'c'->stdio else
+                        'b'->stdio;
+                        ch->stdio
+                    if)
+                 // '\n' then 
+                    SUSPEND
+                 else
+                    ch->stdio
+                if);
+                doubleA2B.resume
+             #)
+          #)
+     do doubleA2B[]->run
+     #)
+do 
+   'Enter one character + [ENTER] at a time; empty input quits;\n'->stdio;
+   'on the fly, "aa" becomes "b" and "bb" becomes "c".\n\n'->stdio;
+   converter
+#) 
+

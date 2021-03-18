@@ -1,0 +1,89 @@
+ORIGIN 'bfile';
+INCLUDE '~beta/containers/current/arrayContainer';
+INCLUDE '~beta/basiclib/current/file';
+INCLUDE '~beta/containers/current/sets';
+INCLUDE 'filelist';
+--- CompilerSlotBind: ObjectDescriptor ---
+(* list of all slots in all files and their binding *)
+(* for simple purposes only - no delete element *)
+arrayContainer
+(# 
+   element:: Text;
+   Top: @Integer;
+   Insert: (# e: ^element
+           enter e[]
+           do
+	      (* JS 'slotbind Insert'->putline; e[]->putline; *)
+              (if top>=capacity then
+                  capacityExtend
+              if);
+              Top+1->Top;
+              (e[],Top)->put;
+           #);
+   Less:: (# do left[]->right.less -> value #);  
+   SortAll: (# (* sorting of whole data structure *)
+            do Top->quickSort;   
+            #)
+   do Init
+#)
+
+
+--- CompilerGenSlotBind: ObjectDescriptor ---
+(# 
+   f: @file;
+   outname: ^text;
+   end:^text;
+   l:@integer;
+enter outname[]
+do 
+   fl.scan (# do 
+              (if current.Included or current.NeedsRecomp then
+                  'Generating slot bind map for '->puttext;
+                  current.filename[]->putLine;
+                  current.FragMap
+               else
+                  'Getting slot bind map for '->puttext;
+                  current.filename[]->putLine;
+                  current.GetSlotBind
+              if)
+           #);
+   outname.length->l;
+   (l-3,l)->outname.sub->end[];
+   (if '.bet'->end.equal then
+       (1,l-4)->outname.sub->outname[];
+   if);
+   '.sb'->(outname.copy).append->f.name;
+   f.openwrite;
+   slotBind.sortAll;
+   slotBind.scan (# do current[]->f.putline #);
+   f.close
+#)
+--- BETAfileGetSlotBind: ObjectDescriptor ---
+(# 
+   f: @file;
+   line:^text;
+   txt:^text;
+do 
+   '.fm'->(basename.copy).append->f.name;
+   f.openread;
+   readFile:
+     (# do (if f.eos=false then
+               f.getLine->line[];
+               line.reset;
+               &text[]->txt[];
+               line.getAtom->txt.puttext;
+               ' '->txt.puttext;
+               line.getAtom->txt.puttext;
+               '['->txt.puttext;
+               line.getAtom;
+               line.getAtom->txt.puttext;
+               '] <- '->txt.puttext;
+               filename[]->txt.puttext;
+               txt[]->slotbind.insert;
+               restart readFile;
+            else
+               leave readFile
+           if)
+     #);
+   f.close
+#)

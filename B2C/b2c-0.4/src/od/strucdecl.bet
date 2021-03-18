@@ -1,0 +1,170 @@
+ORIGIN 'cgen';
+INCLUDE 'funcdecl';
+INCLUDE 'genfunction';
+INCLUDE '../attributebitch';
+INCLUDE '../cintf';
+INCLUDE '../eebody';
+INCLUDE '../repetition';
+--- ObjectDescriptorPrivateLib: Attributes ---
+DoFieldDecl:
+  (# map: ^Outermap; pattod,od: ^ObjectDescriptor; cnst: @Boolean
+  enter (pattod[],cnst)
+  do
+     (if (super[]<>NONE) and (super[]<>objectPattern[]) then
+	(pattod[],cnst)->super.private.DoFieldDecl
+     if);
+     (if outernew and (super[]<>Repetition.pattern[]) then
+	pattod.private.om.om[outerindx].getpatt->od[];
+	(if od[]<>NONE then
+	   '    struct O'->c_file.cstream.puttext;
+	   od.private.mapname[]->c_file.cstream.puttext;
+	   ' *'->c_file.cstream.puttext;
+	   (if cnst then cintf.const->c_file.cstream.puttext if);
+	else
+	   '    '->c_file.cstream.puttext;
+	   cintf.void->c_file.cstream.puttext;
+	   ' *'->c_file.cstream.puttext;
+	   (if cnst then cintf.const->c_file.cstream.puttext if);
+	if);
+	'encl'->c_file.cstream.puttext;
+	outerindx->c_file.cstream.putint;
+	';\n'->c_file.cstream.puttext;
+
+        (* JO An Item breaking neverending loops in marking phase *)
+        (* Note that mlive isn't in repetitions fields *)
+        (if outerindx=1 then (* mlive may be only once in an object *)
+           '    int mlive;\n'->c_file.cstream.puttext;
+        if)
+        (* JO *)
+
+     if);
+
+     att.recurse
+       (# rc:: (# do pattod[]->el.getcdecl->c_file.cstream.puttext #) #);
+     doFunction.private.inserted.iterate
+       (# do pattod[]->el.getcdecl->c_file.cstream.puttext #);
+     genFunction.genee.private.inserted.iterate
+       (# do pattod[]->el.getcdecl->c_file.cstream.puttext #);
+  #);
+
+
+DoSuperOuterDecl:
+  (# name: ^text; od: ^ObjectDescriptor; const: @Boolean
+  enter (od[],const,name[])
+  do
+     (if od[]<>NONE then
+	cintf.const->c_file.cstream.puttext;
+	'struct P'->c_file.cstream.puttext;
+	od.private.mapname[]->c_file.cstream.puttext;
+     else
+	cintf.void->c_file.cstream.puttext;
+     if);
+     ' *'->c_file.cstream.puttext;
+     (if const then cintf.const->c_file.cstream.puttext if);
+     name[]->c_file.cstream.puttext;
+  #);
+
+(* JO Creation of call to individual marking functions *)
+DoMarkDo:
+  (# pattod: ^ObjectDescriptor;
+  enter pattod[]
+  do
+     (if (super[]<>NONE) and (super[]<>objectPattern[]) then
+        pattod[]->super.private.DoMarkDo
+     if);
+
+     att.recurse
+       (# rc:: (# do pattod[]->el.getmdef->c_file.cstream.puttext #) #);
+     doFunction.private.inserted.iterate
+       (# do pattod[]->el.getmdef->c_file.cstream.puttext #);
+     genFunction.genee.private.inserted.iterate
+       (# do pattod[]->el.getmdef->c_file.cstream.puttext #);
+  #);
+
+isrefrepel:
+  (# pattod: ^ObjectDescriptor; elisref:@Boolean;
+  enter (pattod[], elisref)
+  do
+     (if not elisref then
+        (if (super[]<>NONE) and (super[]<>objectPattern[]) then
+           (pattod[],elisref)->super.private.isrefrepel->elisref
+        if);
+
+        found:
+        (if not elisref then
+           att.recurse
+             (# rc:: (# do (if pattod[]->el.getisrefel->elisref then leave found if) #) #);
+        if);
+(*
+        doFunction.private.inserted.iterate
+          (# do pattod[]->el.getmdef->c_file.cstream.puttext #);
+       genFunction.genee.private.inserted.iterate
+          (# do pattod[]->el.getmdef->c_file.cstream.puttext #);
+*)
+     if);  
+  exit elisref
+  #);
+(* JO *)
+
+--- ObjectDescriptorDoCstrucDecl: DoPart ---
+do
+   (* write Object's C structure *)
+   'struct O'->c_file.cstream.puttext;
+   mapname[]->c_file.cstream.puttext;
+   ' {\n    '->c_file.cstream.puttext;
+   (this(ObjectDescriptor)[],true,'pattern;\n')->DoSuperOuterDecl;
+   (this(ObjectDescriptor)[],true)->DoFieldDecl;
+   '};\n'->c_file.cstream.puttext;
+
+   (* write Object's C structure again, without use of const for the
+    * enclosing pointers (the setup routines need this) *)
+   'struct I'->c_file.cstream.puttext;
+   mapname[]->c_file.cstream.puttext;
+   ' {\n    '->c_file.cstream.puttext;
+   (this(ObjectDescriptor)[],false,'pattern;\n')->DoSuperOuterDecl;
+   (this(ObjectDescriptor)[],false)->DoFieldDecl;
+   '};\n'->c_file.cstream.puttext;
+
+   (* declare Pattern's C structure *)
+   'struct P'->c_file.cstream.puttext;
+   mapname[]->c_file.cstream.puttext;
+   ' {\n    '->c_file.cstream.puttext;
+
+   (super[],false,'super;\n    ')->DoSuperOuterDecl;
+   (outer[],false,'outer;\n')->DoSuperOuterDecl;
+   '    int len;\n    int outerindx;\n    int (*function)'->c_file.cstream.puttext;
+   funcname[]->cintf.funcdecl;
+   ';\n    struct O'->c_file.cstream.puttext;
+   mapname[]->c_file.cstream.puttext;
+   ' *(*newf)'->c_file.cstream.puttext;
+   (if outer[]<>NONE then
+      outer.private.mapname[]->cintf.funcdecl;
+   else
+      NONE->cintf.funcdecl;
+   if);
+   ';\n'->c_file.cstream.puttext;
+
+   (* JO declaration of marking function M *)
+   '    int (*mark)'->c_file.cstream.puttext;
+   cintf.funcdecl;
+   ';\n'->c_file.cstream.puttext;
+   (* JO *)
+
+   vm.DoCDecl;
+   (* to add:
+    * - name of pattern
+    * - link to name of source file
+    * - offset to object list
+    * - object list
+    *)
+
+   '};\n'->c_file.cstream.puttext;
+
+   (* prototype for Pattern's C structure *)
+   'extern '->c_file.cstream.puttext;
+   cintf.const->c_file.cstream.puttext;
+   'struct P'->c_file.cstream.puttext;
+   mapname[]->c_file.cstream.puttext;
+   ' P'->c_file.cstream.puttext;
+   mapname[]->c_file.cstream.puttext;
+   ';\n'->c_file.cstream.puttext;

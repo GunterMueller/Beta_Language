@@ -1,0 +1,6 @@
+ORIGIN 'betaenv';
+-- program:merge --
+(#
+do 'Hello again!'->puttext;
+#)
+

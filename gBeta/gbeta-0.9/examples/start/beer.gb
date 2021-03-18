@@ -1,0 +1,21 @@
+(* FILE beer.gb *)
+
+ORIGIN 'betaenv'
+-- program:merge:gbeta --
+(* gbeta version of '99 bottles of Beer on the Wall' *)
+(#
+   line: integer
+     (# a:< string; b:< string; end:< boolean;
+        plural: (# exit (if value=1 then '' else 's' if)#);
+        punct: (# exit (if end then '.' else ',' if)#);
+     do (if value=0 then 'no more'->puttext else value->putint if);
+        ' bottle'+plural+' of beer'+a+punct+b->putline
+     #);
+   long: line(# a::(# do ' on the wall'->value #)#);
+   period: line(# end::(# do true->value #)#);
+   take: period(# b::(# do '\nTake one down, pass it around,'->value #)#)
+do
+   (for i:99 repeat
+        (100-i->long->take)-1->long&period; newline
+   for)
+#)

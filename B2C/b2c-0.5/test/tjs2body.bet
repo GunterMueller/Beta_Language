@@ -1,0 +1,3 @@
+ORIGIN 'tjs2'
+--- tjs2DoPart: DoPart ---
+do  'ahoj'->putline; inner   

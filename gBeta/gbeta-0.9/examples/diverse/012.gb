@@ -1,0 +1,9 @@
+(* note that this program does not execute any instructions: all 
+ * the actions are known statically, and they turn out to be NO-OPs 
+ * all of them, so every instruction (CALL/INNER) is eliminated 
+ * during code generation *)
+-- betaenv:descriptor --
+(#
+do integer(# do INNER #)->integer(# do INNER #)->integer(# do INNER #);
+#)
+

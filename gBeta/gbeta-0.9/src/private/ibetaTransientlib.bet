@@ -1,0 +1,329 @@
+(* FILE "./private/ibetaTransientlib.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaTransientlib.bet,v 1.20 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN '../ibetaIter';
+INCLUDE '../utils';
+BODY 'ibetaTransientlibbody'
+
+-- InterpreterBaseLib:attributes --
+
+(************************************************************** 
+ *                                                            *  
+ *                 Transient Coercion Support                 * 
+ *                                                            * 
+ **************************************************************)
+
+pairTransientsBase:
+  (* coerce the smaller transient into the bigger one *)
+  (# <<SLOT PairTransientsLib:attributes>>;
+     thrd: ^thread;
+     unwind: ##stackUnwinder;
+     l0tr1,l0tr2: ^l0Transient;
+     usageAst: ^l2AstNode
+  enter (thrd[],unwind##,l0tr1[],l0tr2[])
+  do INNER
+  exit (l0tr1[],l0tr2[])
+  #);
+
+pairTransientsArithBinOp: pairTransientsBase
+  (# <<SLOT PairTransientsArithBinOp:dopart>> #);
+pairTransientsModBinOp: pairTransientsBase
+  (# <<SLOT PairTransientsModBinOp:dopart>> #);
+pairTransientsRDivBinOp: pairTransientsBase
+  (# <<SLOT PairTransientsRDivBinOp:dopart>> #);
+pairTransientsEqNEqBinOp: pairTransientsBase
+  (# <<SLOT PairTransientsEqNEqBinOp:dopart>> #);
+pairTransientsUnEqBinOp: pairTransientsBase
+  (# <<SLOT PairTransientsUnEqBinOp:dopart>> #);
+pairTransientsAndOrBinOp: pairTransientsBase
+  (# <<SLOT PairTransientsAndOrBinOp:dopart>> #);
+
+transient_boolean2char:
+  (# l0trIn: ^l0TransientBoolean;
+     l0trOut: ^l0TransientChar
+  enter l0trIn[]
+  <<SLOT TransientBoolean2char:dopart>>
+  exit l0trOut[]
+  #);
+
+transient_boolean2integer:
+  (# l0trIn: ^l0TransientBoolean;
+     l0trOut: ^l0TransientInteger
+  enter l0trIn[]
+  <<SLOT TransientBoolean2integer:dopart>>
+  exit l0trOut[]
+  #);
+
+transient_boolean2real:
+  (# l0trIn: ^l0TransientBoolean;
+     l0trOut: ^l0TransientReal
+  enter l0trIn[]
+  <<SLOT TransientBoolean2real:dopart>>
+  exit l0trOut[]
+  #);
+
+transient_char2integer:
+  (# l0trIn: ^l0TransientChar;
+     l0trOut: ^l0TransientInteger
+  enter l0trIn[]
+  <<SLOT TransientChar2integer:dopart>>
+  exit l0trOut[]
+  #);
+
+transient_char2real:
+  (# l0trIn: ^l0TransientChar;
+     l0trOut: ^l0TransientReal;
+     i: @integer
+  enter l0trIn[]
+  <<SLOT TransientChar2real:dopart>>
+  exit l0trOut[]
+  #);
+
+transient_char2string:
+  (# l0trIn: ^l0TransientChar;
+     l0trOut: ^l0TransientString
+  enter l0trIn[]
+  <<SLOT TransientChar2string:dopart>>
+  exit l0trOut[]
+  #);
+
+transient_integer2boolean:
+  (# l0trIn: ^l0TransientInteger;
+     l0trOut: ^l0TransientBoolean
+  enter l0trIn[]
+  <<SLOT TransientInteger2boolean:dopart>>
+  exit l0trOut[]
+  #);
+
+transient_integer2char:
+  (# l0trIn: ^l0TransientInteger;
+     l0trOut: ^l0TransientChar
+  enter l0trIn[]
+  <<SLOT TransientInteger2char:dopart>>
+  exit l0trOut[]
+  #);
+
+transient_integer2real: 
+  (# l0trIn: ^l0TransientInteger;
+     l0trOut: ^l0TransientReal
+  enter l0trIn[]
+  <<SLOT TransientInteger2real:dopart>>
+  exit l0trOut[]
+  #);
+
+transient_real2integer:
+  (# l0trIn: ^l0TransientReal;
+     l0trOut: ^l0TransientInteger
+  enter l0trIn[]
+  <<SLOT TransientReal2integer:dopart>>
+  exit l0trOut[]
+  #);
+
+transient_string2char:
+  (# l0trIn: ^l0TransientString;
+     l0trOut: ^l0TransientChar
+  enter l0trIn[]
+  <<SLOT TransientString2char:dopart>>
+  exit l0trOut[]
+  #);
+
+transient_string2integer:
+  (# l0trIn: ^l0TransientString;
+     l0trOut: ^l0TransientInteger
+  enter l0trIn[]
+  <<SLOT TransientString2integer:dopart>>
+  exit l0trOut[]
+  #);
+
+transient_string2real:
+  (# l0trIn: ^l0TransientString;
+     l0trOut: ^l0TransientReal
+  enter l0trIn[]
+  <<SLOT TransientString2real:dopart>>
+  exit l0trOut[]
+  #);
+
+transient_repetition2string:
+  (# thrd: ^thread;
+     unwind: ##stackUnwinder;
+     l0trIn: ^l0TransientRepetition;
+     l0trOut: ^l0TransientString
+  enter (thrd[],unwind##,l0trIn[])
+  <<SLOT TransientRepetition2string:dopart>>
+  exit l0trOut[]
+  #);
+
+transient_many2boolean:
+  (# l0trIn: ^l0Transient;
+     l0trOut: ^l0TransientBoolean
+  enter l0trIn[]
+  <<SLOT TransientMany2boolean:dopart>>
+  exit l0trOut[]     
+  #);
+
+transient_many2char:
+  (# l0trIn: ^l0Transient;
+     l0trOut: ^l0TransientChar
+  enter l0trIn[]
+  <<SLOT TransientMany2char:dopart>>
+  exit l0trOut[]     
+  #);
+
+transient_many2integer: 
+  (# l0trIn: ^l0Transient;
+     l0trOut: ^l0TransientInteger
+  enter l0trIn[]
+  <<SLOT TransientMany2integer:dopart>>
+  exit l0trOut[]
+  #);
+
+transient_many2real: 
+  (# l0trIn: ^l0Transient;
+     l0trOut: ^l0TransientReal
+  enter l0trIn[]
+  <<SLOT TransientMany2real:dopart>>
+  exit l0trOut[]
+  #);
+
+transient_many2string: 
+  (# thrd: ^thread;
+     unwind: ##stackUnwinder;
+     l0trIn: ^l0Transient;
+     l0trOut: ^l0TransientString
+  enter (thrd[],unwind##,l0trIn[])
+  <<SLOT TransientMany2string:dopart>>
+  exit l0trOut[]
+  #);
+
+(************************************************************* 
+ *                                                           *  
+ *              Evaluation Special Case Support              * 
+ *                                                           * 
+ *************************************************************)
+
+enterOneValue:
+  (* Standard solution to the problem of using an enterIterator
+   * correctly for the insertion of one transient value;
+   * will execute 'ni' and insert exactly one value; 
+   * further bind 'context' to improve error messages *)
+  (# <<SLOT EnterOneValueLib:attributes>>;
+     context:< textValue;
+     thrd: ^thread;
+     unwind: ##stackUnwinder;
+     ni: ^enterIterator;
+     l0tr: ^l0Transient
+  enter (thrd[],unwind##,ni[],l0tr[])
+  <<SLOT EnterOneValue:dopart>>
+  #);
+
+exitOneValue:
+  (* Standard solution to the problem of using an exitIterator
+   * correctly for the extraction of one transient value;
+   * will execute 'xi' and obtain exactly one value; 
+   * further bind 'context' to improve error messages *)
+  (# <<SLOT ExitOneValueLib:attributes>>;
+     context:< textValue;
+     thrd: ^thread;
+     unwind: ##stackUnwinder;
+     xi: ^exitIterator;
+     l0tr: ^l0Transient
+  enter (thrd[],unwind##,xi[])
+  <<SLOT ExitOneValue:dopart>>   
+  exit l0tr[]
+  #);
+
+transientTransfer:
+  (* Standard solution to the problem of using an 
+   * exitIterator and an enterIterator correctly for
+   * the transfer of a number of values; will
+  (* transfer values from 'xi' to 'ni', and 
+   * report list length errors using 'context' *)
+  (# <<SLOT TransientTransferLib:attributes>>;
+     context:< textValue;
+     thrd: ^thread;
+     unwind: ##stackUnwinder;
+     xi: ^exitIterator;
+     ni: ^enterIterator
+  enter (thrd[],unwind##,xi[],ni[])
+  <<SLOT TransientTransfer:dopart>>
+  #);
+
+(************************************************************ 
+ *                                                          *  
+ *             Compilation Special Case Support             *
+ *                                                          * 
+ ************************************************************)
+
+generateEnterOneValue:
+  (* Standard solution to the problem of using an enterCompiler
+   * correctly for the insertion of one value; further bind 
+   * 'EmptyInput' and 'MultipleInputs' to handle these error
+   * conditions; returns the kind of value inserted *)
+  (# <<SLOT GenerateEnterOneValueLib:attributes>>;
+     EmptyInput:< exception;
+     MultipleInputs:< exception;
+     cplr: ^enterCompiler;
+     program: ^betaByteCodeList;
+     cInfo: ^compileInfo;
+     stran: ^staticTransient
+  enter (cplr[],program[],cInfo[])
+  <<SLOT GenerateEnterOneValue:dopart>>
+  exit stran[]
+  #);
+
+generateExitOneValue:
+  (* Standard solution to the problem of using an exitCompiler
+   * correctly for the extraction of one value; further bind 
+   * 'EmptyOutput' and 'MultipleOutputs' to handle these error
+   * conditions; returns the kind of value extracted *)
+  (# <<SLOT GenerateExitOneValueLib:attributes>>;
+     EmptyOutput:< exception;
+     MultipleOutputs:< exception;
+     cplr: ^exitCompiler;
+     program: ^betaByteCodeList;
+     cInfo: ^compileInfo;
+     stran: ^staticTransient
+  enter (cplr[],program[],cInfo[])
+  <<SLOT GenerateExitOneValue:dopart>>
+  exit stran[]
+  #)
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

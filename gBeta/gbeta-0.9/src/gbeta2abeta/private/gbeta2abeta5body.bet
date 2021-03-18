@@ -1,0 +1,154 @@
+(* FILE "./gbeta2abeta/private/gbeta2abeta6body.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: gbeta2abeta5body.bet,v 1.5 2001/07/01 21:44:10 eernst Exp $
+ *)
+
+ORIGIN 'gbeta2abetaAutogen';
+INCLUDE '~beta/basiclib/numberio';
+INCLUDE '../../beta2abeta/private/betaastbody';
+INCLUDE '../../utils';
+INCLUDE 'gbeta2abeta1body'
+
+-- gBeta2abetaLib:attributes --
+
+gTextConstCase: gBeta2abetaPrefix
+  (# name::(# do 'TextConst'->value[] #);
+     msg::(# do l2tcst->quote->value[] #);
+     node: ^TextConst;
+     theString: ^String;
+     t: ^text;
+     l2tcst: ^interpreterbase.l2TextConst
+  do mpsAst[]->node[];
+     (&ib.l2TextConst[]).init->l2tcst[];
+     node.getString->theString[];
+     theString.getText->t[];
+     t.interpretEscapes; t->l2tcst.value;
+     l2tcst[]->l2ast[]
+  #);
+
+gIntegerConstCase: gBeta2abetaPrefix
+  (# name::(# do 'IntegerConst'->value[] #);
+     msg::(# do l2icst->(&text[]->value[]).putint #);
+     node: ^IntegerConst;
+     theConst: ^Const;
+     l2icst: ^interpreterbase.l2IntegerConst;
+     l2rcst: ^interpreterbase.l2RealConst;
+     t: ^text
+  do mpsAst[]->node[];
+     node.getConst->theConst[];
+     theConst.getText->t[]; 
+     ' '->t.put; 0->t.pos; 
+     L: t.getNumber
+       (# softfail: 
+            (* we cannot make this a fatal error in the 
+             * parser by now, the normal error handling for 
+             * that in not in place; so we just make some
+             * noise and choose a default value *)
+            (# 
+            do t.lgth-1->t.lgth; (* delete the magic space again *)
+               'Could not parse the number "'->screen.puttext;
+               t[]->screen.puttext;
+               '"; defaulting to the integer value 0.'->screen.putline;
+               (&ib.l2IntegerConst[]).init->l2icst[];
+               l2icst[]->l2ast[];
+               leave L
+            #);
+          valueError::(# do softfail #);
+          syntaxError::(# do softfail #);
+          baseError::(# do softfail #);
+          integerValue::
+            (# 
+            do (&ib.l2IntegerConst[]).init->l2icst[];
+               value->l2icst.value;
+               l2icst[]->l2ast[]
+            #);
+          basedValue::<
+            (#
+            do (&ib.l2IntegerConst[]).init->l2icst[];
+               value->l2icst.value;
+               l2icst[]->l2ast[]
+            #);
+          realValue::<
+            (# 
+            do (&ib.l2RealConst[]).init->l2rcst[];
+               value->l2rcst.value;
+               l2rcst[]->l2ast[]
+            #)
+       #)
+  #);
+
+gSimpleIndexCase: gBeta2abetaPrefix
+  (# name::(# do 'SimpleIndex'->value[] #);
+     node: ^SimpleIndex;
+     l2sinx: ^interpreterbase.l2SimpleIndex
+  do (*test-focus (focus[],mpsAst[])->checkFocus;*)
+     mpsAst[]->node[];
+     (&ib.l2SimpleIndex[]).init->l2sinx[];
+     (focus[],node.getEvaluation,Evaluation##)
+       ->astOrSlotToLevelTwo
+       ->l2sinx.Evaluation[];
+     l2sinx[]->l2ast[]
+  #);
+
+gCodeItemsCase: gBeta2abetaPrefix
+  (# name::(# do 'CodeItems'->value[] #)
+  do 'CodeItems'->unsupported
+  #);
+
+gCodeStringCase: gBeta2abetaPrefix
+  (# name::(# do 'CodeString'->value[] #)
+  do 'CodeString'->unsupported
+  #);
+
+gCodeConstCase: gBeta2abetaPrefix
+  (# name::(# do 'CodeConst'->value[] #)
+  do 'CodeConst'->unsupported
+  #);
+
+gErrorDeclCase: gBeta2abetaPrefix
+  (# name::(# do 'ErrorDecl'->value[] #)
+  do 'ErrorDecl'->unsupported
+  #);
+
+gErrorImpCase: gBeta2abetaPrefix
+  (# name::(# do 'ErrorImp'->value[] #)
+  do 'ErrorImp'->unsupported
+  #)
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

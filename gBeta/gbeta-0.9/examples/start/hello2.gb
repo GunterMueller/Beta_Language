@@ -1,0 +1,8 @@
+(* FILE hello2.gb *)
+-- betaenv:descriptor --
+(# s: @string;
+   hello: (# exit 'Hello' #)
+do 'world!'->s;
+   hello+', '+s->stdio
+#) 
+

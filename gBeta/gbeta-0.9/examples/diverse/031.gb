@@ -1,0 +1,7 @@
+(* testing that gbeta can handle a case which gives
+ * a segmentation fault when executing the code generated
+ * by the BETA compiler; of course it works ;*)
+-- betaenv:descriptor --
+(# p: (# v:< (# do INNER #)#)
+do (&|p[]).v
+#)

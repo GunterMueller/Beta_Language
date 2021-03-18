@@ -1,0 +1,251 @@
+ORIGIN '~beta/basiclib/current/betaenv';
+INCLUDE 'objstream';
+INCLUDE 'mypathhandler';
+BODY 'cintf';
+BODY 'compilerbody';
+BODY 'fragmap';
+BODY 'fragment';
+BODY 'machine';
+BODY 'nametable';
+BODY 'parser';
+BODY 'slot';
+BODY 'slotbind';
+BODY 'specialdesc';
+
+--- lib: Attributes ---
+(* The main compiler pattern.  A Compiler maintains a list of files, the
+ * contents of these files, etc.  It has methods (in file compile.bet)
+ * for compiling a file or linking a BETA application. *)
+Compiler:
+  (#
+     <<SLOT CompilerLib: Attributes>>;
+     fl: @<<SLOT CompilerFileList: ObjectDescriptor>>;
+     ol: @<<SLOT CompilerObjectList: ObjectDescriptor>>;
+     tl: @<<SLOT CompilerTodoList: ObjectDescriptor>>;
+     el: @<<SLOT CompilerExternalList: ObjectDescriptor>>;
+     fc: @MyFilenameConverter;
+     sl: @<<SLOT CompilerSlotList: ObjectDescriptor>>;
+     nameTable: @<<SLOT CompilerNameTable: ObjectDescriptor>>;
+     errstream: ^stream;
+
+     mainorigin: ^BETAfile;
+     ObjectPattern: ^ObjectDescriptor; (* the generell superpattern *)
+     TextPattern: ^ObjectDescriptor; (* the text type *)
+     RealPattern: ^ObjectDescriptor; (* the Real type *)
+     IntegerPattern: ^ObjectDescriptor; (* the Integer type *)
+     CharPattern: ^ObjectDescriptor; (* the Char type *)
+     BooleanPattern: ^ObjectDescriptor; (* the Boolean type *)
+     ForLoopPattern: ^ObjectDescriptor; (* the forLoop superpattern *)
+     Repetition: @<<SLOT Repetition: ObjectDescriptor>>;
+
+     c_file: ^BETAfile;
+     slotlist: @SlotPtr;
+     cintf: @<<SLOT Cintf: ObjectDescriptor>>;
+     opt: @<<SLOT CompilerOptions: ObjectDescriptor>>;
+     mi: @<<SLOT MachineInfo: ObjectDescriptor>>;
+
+     slotbind: @<<SLOT CompilerSlotBind: ObjectDescriptor>>; 
+     (* JS map of slot binding *)
+     genSlotBind: @<<SLOT CompilerGenSlotBind: ObjectDescriptor>>; 
+     (* JS generate .sb - move this to attributes *)
+     
+     (* current execution environment; this is used during the reduction
+      * of expressions, for example to collect temporary variables *)
+     ee: ^ExecutionEnvironment;
+     odserial: @integer;
+
+     (* A pointer to the current label *)
+     currentLabel: @<<SLOT CompilerLabel: ObjectDescriptor>>;
+
+     init: <<SLOT CompilerInit: ObjectDescriptor>>;
+     SlotPtr: <<SLOT CompilerSlotPtr: ObjectDescriptor>>;
+     FragmentPtr: <<SLOT CompilerFragmentPtr: ObjectDescriptor>>;
+  #);
+
+
+(* lists of things, that have to be done *)
+todo:
+  (# first,last: ^item;
+     item:
+       (# func: ##Object; nxt: ^item
+       enter func##
+       do
+	  (if first[]=NONE then
+	     this(item)[]->first[]->last[]
+	  else
+	     this(item)[]->last.nxt[]->last[]
+	  if)
+       #);
+     doit:
+       (# ptr: ^item
+       do
+	  first[]->ptr[];
+	  init;
+	  loop: (if ptr[]<>NONE then
+	     ptr.func; ptr.nxt[]->ptr[]; restart loop
+	  if);
+       #);
+     init: (# do NONE->first[]->last[] #);
+  enter &item
+  #);
+
+
+--- CompilerLib: Attributes ---
+(* describe the contents of a BETA source file *)
+BETAfile:
+  (#
+     <<SLOT BETAfileLib: AttributeDecl>>;
+     filename: ^text;
+     basename: ^text;
+     basis: ^text;
+     hname: ^text;
+     cname: ^text;
+     oname: ^text;
+     lstname: ^text;
+     mainname: ^text;
+     firstFragName: @text; (* !!! this is yucky interface *)
+     frags: @FragmentPtr;
+     errs: @integer;
+     warns: @integer;
+     cstream: ^stream;
+     origin: ^BETAfile;
+     include: [1] ^BETAfile;
+     ninclude: @integer;
+     cinclude: [0] ^text;
+     nameMapper: @<<SLOT NameMapper: ObjectDescriptor>>;
+     lstring: @integer;
+
+     genfn: <<SLOT BETAfileGenfn: ObjectDescriptor>>;
+     active: @Boolean;
+     (* do we need to recompile this BETAfile? *)
+     needsRecomp: @Boolean;
+     (* does any file, that needs recompilation, include this file? *)
+     included: @Boolean;
+     (* modification times of the .bet, .h and .o file respective: *)
+     timeBet,timeH,timeO: @Integer;
+     open: <<SLOT BETAfileOpen: ObjectDescriptor>>;
+     parser: <<SLOT BETAfileParser: ObjectDescriptor>>;
+     bind: <<SLOT BETAfileBind: ObjectDescriptor>>;
+     check: <<SLOT BETAfileCheck: ObjectDescriptor>>;
+     print: <<SLOT BETAfilePrint: ObjectDescriptor>>;
+     cgen: <<SLOT BETAfileCgen: ObjectDescriptor>>;
+     
+     (* JS atributes for gererating local map and getting it from file *)
+     fragMap: <<SLOT BETAfileFragMap: ObjectDescriptor>>;
+     getSlotBind: <<SLOT BETAfileGetSlotBind: ObjectDescriptor>>;
+     
+     todoReduce: @todo;
+     todoExtra: @todo;
+     cstrucforw: @todo;
+     cfuncforw: @todo;
+     cstrucdecl: @todo;
+     cstrucdef: @todo;
+     cfunction: @todo;
+  enter (basename[],filename[])
+  do
+     0->errs->warns->ninclude->lstring;
+     false->active->needsRecomp->included;
+     0->timeBet->timeH->timeO;
+     todoReduce.init;
+     todoExtra.init;
+     cstrucforw.init;
+     cfuncforw.init;
+     cstrucdecl.init;
+     cstrucdef.init;
+     cfunction.init;
+     genfn;
+     nameMapper;
+  exit this(BETAfile)[]
+  #);
+
+
+(* BETAterm is the superpattern for storing the syntax tree *)
+BETAterm:
+  (#
+     <<SLOT BETAtermLib: Attributes>>;
+     encltype:< BETAterm;
+     print:< 
+       (# s: ^objstream; override:< BooleanValue
+       enter s[]
+       do
+          (if not(override) then
+	     INNER; (if msgp[]<>NONE then s[]->msgp.print if)
+	  if)
+       exit s[]
+       #);
+
+     msgp: ^BETAmsg;
+     encl: ^encltype;
+
+     checkFollow:< BooleanValue (# do INNER #);
+     checkComplete:< (# do INNER #);
+  do
+     (if encl[]<>NONE then 'Called this term twice'->putline if);
+     NONE->encl[];
+     NONE->msgp[];
+     INNER
+  #);
+
+
+(* A BETAmsg represents a warning or an error message *)
+BETAmsg: BETAterm
+  (#
+     t: ^text;
+     print::< (# te: @text; do INNER; t[]->te.append; te[]->s.error #);
+  enter t[]
+  do INNER
+  #);
+
+
+(* An ObjectSpecification declares an object.  It can have the
+   form of a pattern, a pattern name, a pattern variable etc. *)
+ObjectSpecification: BETAterm
+  (#
+     getod:< (# od: ^ObjectDescriptor do NONE->od[]; INNER exit od[] #);
+     getpatt:< (# od: ^ObjectDescriptor do NONE->od[]; INNER exit od[] #);
+     ispattern:< BooleanValue;
+     maybesubpattern:< BooleanValue;
+     maybenone:< BooleanValue;
+     isvirtual:< BooleanValue;
+     isref:< BooleanValue;
+     isrep:< BooleanValue;
+     ispvariable:< BooleanValue;
+     isbasic:< BooleanValue;
+     hasexpr:< BooleanValue;
+  do INNER
+  #);
+
+
+(* ObjectDescriptor, the representation of a pattern *)
+ObjectDescriptor: ObjectSpecification
+  (#
+     <<SLOT ObjectDescriptorLib: Attributes>>;
+     private: @<<SLOT ObjectDescriptorPrivate: ObjectDescriptor>>;
+     getod:: (# do this(ObjectDescriptor)[]->od[] #);
+
+     print::< (# <<SLOT ObjectDescriptorPrint: DoPart>> #);
+     checkName: (# <<SLOT ObjectDescriptorCheckName: DoPart>> #);
+     resolvePrefix: (# <<SLOT ObjectDescriptorResolvePrefix: DoPart>> #);
+     checkFollow:: (# <<SLOT ObjectDescriptorCheckFollow: DoPart>> #);
+     checkComplete::< (# <<SLOT ObjectDescriptorCheckComplete: DoPart>> #);
+     ispattern:: (# do true->value #);
+     isvirtual:: (# do false->value #);
+     isrep:: (# <<SLOT ObjectDescriptorIsrep: DoPart>> #);
+     isbasic:: (# <<SLOT ObjectDescriptorIsbasic: DoPart>> #);
+     isslot:< BooleanValue;
+  enter private
+  exit this(ObjectDescriptor)[]
+  #);
+
+
+(* Execution environment; either a DO part or an object creator
+ * function *)
+ExecutionEnvironment:
+   (#
+      <<SLOT ExecutionEnvironmentLib: Attributes>>;
+      private: @<<SLOT ExecutionEnvironmentPrivate: ObjectDescriptor>>;
+      init: <<SLOT ExecutionEnvironmentInit: ObjectDescriptor>>;
+      getod:< (# od: ^ObjectDescriptor do INNER exit od[] #);
+      head:< Object;
+      tail:< Object;
+   #);

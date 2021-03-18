@@ -1,0 +1,105 @@
+ORIGIN '~beta/terminal/current/form';
+--- Program: ObjectDescriptor ---
+FormEnv (#
+   ch: @char;
+   fld: ^default.field;
+   att: @attribute (# do red->bg; white->fg; #);
+   init::
+     (#
+     do
+	colorMode;
+	&quit[]->keyBottom;
+     #);
+
+   defaultType::
+     (#
+	attrField:: (# do cyan->bg; white->fg; true->bold #);
+	attrFieldFocus:: (# do red->bg; white->fg; true->bold #);
+	attrFieldSelect:: (# do white->fg;red->bg;true->bold;true->reverse #);
+     #);
+do
+   default.clear;
+   default.draw;
+   (1,1)->default.setpos;
+   'Hello, I am your new windowing environment.'->default.putline;
+
+   '\n\nPlease press ^E to exit the application: '->default.puttext;
+
+   (*
+   &default.field1[]->fld[];
+   'abra'->fld;
+   fld.focusIn;
+   *)
+   (&default.form1[]).focusIn;
+
+   l: (# do default.keyDo; restart l #);
+#)
+
+
+--- TerminalLib: Attributes ---
+quit: keyHandler
+  (#
+  do
+     (if key=3 then finish; 'You pressed CTRL-C!'->screen.putline; stop if);
+     (if key=5 then finish; 'You pressed CTRL-E!'->screen.putline; stop if);
+  #);
+echoEscape: keyHandler
+  (# do (if key=27 then '[ESC] '->default.puttext; done if) #);
+echoKey: keyHandler
+  (# do (if (key>' ') and (key<='~') then key->default.put; done if) #);
+
+
+--- lib: Attributes ---
+unixUser:
+  (#
+     id: @text;
+     passwd: @text;
+     name: @text;
+  #);
+
+
+--- FormWindowLib: Attributes ---
+field1: field
+  (#
+     pos:: (# do 10->x; 12->y; #);
+     len:: (# do 20->value #);
+  #);
+
+
+
+form1: form
+  (#
+     recordType:: unixUser;
+
+     f1: field
+       (#
+	  pos:: (# do (22,12)->(x,y) #); len:: (# do 8->value #);
+	  load:: (# do record.id[]->t[] #); store:: (# do t->record.id #);
+       #);
+     f2: field
+       (#
+	  pos:: (# do (22,13)->(x,y) #); len:: (# do 40->value #);
+	  load:: (# do record.name[]->t[] #); store:: (# do t->record.name #);
+       #);
+     f3: field
+       (#
+	  pos:: (# do (22,14)->(x,y) #); len:: (# do 8->value #); textlen:: len;
+	  load:: (# do record.passwd[]->t[] #);
+	  store:: (# do t->record.passwd #);
+       #);
+     init::
+       (#
+       do
+	  ( 1,12)->setPos; 'user identification:'->puttext;
+	  (11,13)->setPos; 'full name:'->puttext;
+	  (12,14)->setPos; 'password:'->puttext;
+	  &f1[]->addObject;
+	  &f2[]->addObject;
+	  &f3[]->addObject;
+
+	  &unixUser[]->record[];
+	  'kaip'->record.id;
+	  'Kai Petzke'->record.name;
+	  load;
+       #);
+  #);

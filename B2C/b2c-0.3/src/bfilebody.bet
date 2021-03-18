@@ -1,0 +1,84 @@
+ORIGIN 'bfile';
+INCLUDE 'objstream';
+INCLUDE '~beta/basiclib/current/file';
+--- BETAfileBind: ObjectDescriptor ---
+(# beg: @Fragment; fr,nfr: ^Fragment
+do 
+   frags->beg.next[];
+   beg[]->fr[];
+   loop: (if (fr.next[]->nfr[])<>NONE then
+      fr[]->nfr.bind; nfr[]->fr[]; restart loop
+   if);
+   beg.next[]->frags;
+#)
+
+
+--- BETAfileCheck: ObjectDescriptor ---
+(#
+do
+   frags.checkFollow;
+   frags.checkComplete;
+   todoReduce.doit;
+   todoExtra.doit;
+#)
+
+--- BETAfileGenfn: ObjectDescriptor ---
+(#
+do
+   '.lst'->(basename.copy).append->lstname[];
+   '.h'->(basename.copy).append->hname[];
+   '.c'->(basename.copy).append->cname[];
+   '.o'->(basename.copy).append->oname[];
+#)
+
+
+--- BETAfilePrint: ObjectDescriptor ---
+(#
+   f: @file
+do
+   lstname[]->f.name;
+   f.openwrite;
+   f[]->objstream->frags.print;
+   f.close;
+#)
+
+
+--- BETAfileCgen: ObjectDescriptor ---
+(#
+   f: @file
+do
+   hname[]->f.name;
+   f.openwrite;
+   f[]->cstream[];
+   '#ifndef BETA_'->cstream.puttext;
+   mainname[]->cstream.putline;
+   '#define BETA_'->cstream.puttext;
+   mainname[]->cstream.puttext;
+   ' 1'->cstream.putline;
+   '#include "'->cstream.puttext;
+   origin.hname[]->cstream.puttext;
+   '"'->cstream.putline;
+   (for i:ninclude repeat
+      '#include "'->cstream.puttext;
+      include[ninclude].hname[]->cstream.puttext;
+      '"'->cstream.putline;
+   for);
+   cstrucforw.doit;
+   cfuncforw.doit;
+   cstrucdecl.doit;
+   '#endif'->cstream.putline;
+   f.close;
+
+   cname[]->f.name;
+   f.openwrite;
+   f[]->cstream[];
+   (* !!! this should go to cintf one day *)
+   '#include "beta.h"\n'->cstream.puttext;
+   '#include "'->cstream.puttext;
+   hname[]->cstream.puttext;
+   '"'->cstream.putline;
+   cstrucdef.doit;
+   cfunction.doit;
+   f.close;
+   NONE->cstream[]
+#)

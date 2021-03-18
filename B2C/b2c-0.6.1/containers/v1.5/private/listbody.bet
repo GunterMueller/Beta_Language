@@ -1,0 +1,334 @@
+ORIGIN '../list';
+--- ListPrivatePair: ObjectDescriptor ---
+theCellType
+  (#
+  enter (succ[],pred[],elm[])
+  do
+     (if succ[]<>NONE then
+	this(privatePair)[]->succ.pred[]
+     else
+	this(privatePair)[]->privateTail[]
+     if);
+     (if pred[]<>NONE then
+	this(privatePair)[]->pred.succ[]
+     else
+	this(privatePair)[]->privateHead[]
+     if);
+  exit this(privatePair)[]
+  #)
+
+
+--- ListPrivateScanInit: DoPart ---
+do privateHead[]->p[]; NONE->position[]
+
+
+--- ListPrivateScanNxtel: DoPart ---
+do (if ((p[]->position[])<>NONE)->valid then p.elm[]->elm[]; p.succ[]->p[] if)
+
+
+(*************************
+ * insertion of elements *
+ *************************)
+--- ListPrepend: DoPart ---
+do (privateHead[],NONE,elm[])->&privatePair->newPosition[]
+--- ListAppend: DoPart ---
+do (NONE,privateTail[],elm[])->&privatePair->newPosition[]
+--- ListInsertBefore: DoPart ---
+do
+   (if position[]=NONE then
+      (NONE,privateTail[],elm[])->&privatePair->newPosition[]
+   else
+      (position[],position.pred[],elm[])->&privatePair->newPosition[]
+   if);
+--- ListInsertAfter: DoPart ---
+do
+   (if position[]=NONE then
+      (privateHead[],NONE,elm[])->&privatePair->newPosition[]
+   else
+      (position.succ[],position[],elm[])->&privatePair->newPosition[]
+   if);
+--- ListClear: DoPart ---
+do NONE->privateHead[]->privateTail[]; INNER
+
+
+(*************************
+ * Deletion of elements  *
+ *************************)
+--- ListDelete: DoPart ---
+do
+   NONE->deletedPosition[];
+   (if position[]=NONE then leave delete if);
+   (* consistency checks *)
+   (if position.pred[]=NONE then
+      (if position[]<>privateHead[] then
+	 illegalCellReferenceRaise; leave delete;
+      if);
+   else
+      (if position[]<>position.pred.succ[] then
+	 illegalCellReferenceRaise; leave delete;
+      if);
+   if);
+   (if position.succ[]=NONE then
+      (if position[]<>privateTail[] then
+	 illegalCellReferenceRaise; leave delete;
+      if);
+   else
+      (if position[]<>position.succ.pred[] then
+	 illegalCellReferenceRaise; leave delete;
+      if);
+   if);
+
+   (* actual deletion *)
+   (if position.pred[]=NONE then
+      position.succ[]->privateHead[]
+   else
+      position.succ[]->position.pred.succ[]
+   if);
+   (if position.succ[]=NONE then
+      position.pred[]->privateTail[]
+   else
+      position.pred[]->position.succ.pred[]
+   if);
+   NONE->position.pred[]->position.succ[];
+   position[]->deletedPosition[];
+--- ListDeleteBefore: DoPart ---
+do
+   (if position[]=NONE then
+      (if privateTail[]<>NONE then
+         privateTail[]->delete->deletedPosition[]
+      else
+         emptyRaise;
+      if);
+   else
+      (if position.pred[]=NONE then
+         illegalCellReferenceRaise
+      else
+	 position.pred[]->delete->deletedPosition[]
+      if);
+   if);
+--- ListDeleteAfter: DoPart ---
+do
+   (if position[]=NONE then
+      (if privateHead[]<>NONE then
+         privateHead[]->delete->deletedPosition[]
+      else
+         emptyRaise;
+      if);
+   else
+      (if position.succ[]=NONE then
+         illegalCellReferenceRaise
+      else
+	 position.succ[]->delete->deletedPosition[]
+      if);
+   if);
+
+
+(********************
+ * Copying lists.   *
+ ********************)
+--- ListCopyRangeExclusive: DoPart ---
+do
+   this(list)##->thislist##;
+   &thislist[]->lst[];
+   lst.init;
+   (if from[]=NONE then
+      privateHead[]->private[]
+   else
+      from.succ[]->private[]
+   if);
+   loop: (if private[]<>to[] then
+      (if private[]=NONE then
+	 (* we reached the end of the list without finding the "to" element *)
+	 NONE->lst[];
+	 illegalCellReferenceRaise;
+	 leave CopyRangeExclusive;
+      if);
+      (NONE,lst.privateTail[],private.elm[])->&lst.privatePair;
+      private.succ[]->private[];
+      restart loop;
+   if);
+--- ListConcatenate: DoPart ---
+do
+   (NONE,NONE)->CopyRangeExclusive->lst[];
+   theOther.scan (# do current[]->lst.append #);
+   INNER;
+--- ListSplitBefore: DoPart ---
+do
+   (if position[]<>NONE then
+      (NONE,position[])->privateCRE->preList[];
+      (position.pred[],NONE)->privateCRE->postList[];
+   else
+      (NONE,NONE)->privateCRE->preList[];
+      &privateCRE.thislist[]->postList[];
+      postList.init;
+   if);
+--- ListSplitAfter: DoPart ---
+do
+   (if position[]<>NONE then
+      (NONE,position.succ[])->privateCRE->preList[];
+      (position[],NONE)->privateCRE->postList[];
+   else
+      (NONE,NONE)->privateCRE->preList[];
+      &privateCRE.thislist[]->preList[];
+      preList.init;
+   if);
+
+
+(******************
+ * Querying lists *
+ ******************)
+--- ListSize: DoPart ---
+do
+   0->value;
+   privateHead[]->privatePtr[];
+   l: (if privatePtr[]<>NONE then
+      value+1->value; privatePtr.succ[]->privatePtr[]; restart l
+   if);
+--- ListScanMethodPrivate: ObjectDescriptor ---
+(# p,oldp: ^privatePair; pred: @where; #)
+--- ListScanMethodGetPosition: DoPart ---
+do private.oldp[]->position[]
+--- ListScanReverse: DoPart ---
+do
+   NONE->private.oldp[];
+   privateTail[]->private.p[];
+   start;
+   loop: (if (private.p[]->private.oldp[])<>NONE then
+      private.p.elm[]->current[];
+      private.p.pred[]->private.p[];
+      (if current[]->private.pred then INNER ScanReverse if);
+      restart loop;
+   if);
+   end;
+--- ListScanFrom: DoPart ---
+do
+   NONE->private.oldp[];
+   position[]->private.p[];
+   start;
+   loop: (if (private.p[]->private.oldp[])<>NONE then
+      private.p.elm[]->current[];
+      private.p.succ[]->private.p[];
+      (if current[]->private.pred then INNER ScanFrom if);
+      restart loop;
+   if);
+   end;
+--- ListScanReverseFrom: DoPart ---
+do
+   NONE->private.oldp[];
+   position[]->private.p[];
+   start;
+   loop: (if (private.p[]->private.oldp[])<>NONE then
+      private.p.elm[]->current[];
+      private.p.pred[]->private.p[];
+      (if current[]->private.pred then INNER ScanReverseFrom if);
+      restart loop;
+   if);
+   end;
+--- ListIterateMethodPrivate: ObjectDescriptor ---
+(# pred: @where; #)
+--- ListIterate: DoPart ---
+do
+   NONE->current[];
+   start;
+   privateHead[]->current[];
+   loop: (if current[]<>NONE then
+      (if current[]->privateIterate.pred then INNER iterate if);
+      current.succ[]->current[];
+      restart loop;
+   if);
+   end;
+--- ListIterateFrom: DoPart ---
+do
+   NONE->current[];
+   start;
+   position[]->current[];
+   loop: (if current[]<>NONE then
+      (if current[]->privateIterate.pred then INNER iterateFrom if);
+      current.succ[]->current[];
+      restart loop;
+   if);
+   end;
+--- ListIterateReverse: DoPart ---
+do
+   NONE->current[];
+   start;
+   privateTail[]->current[];
+   loop: (if current[]<>NONE then
+      (if current[]->privateIterate.pred then INNER iterateReverse if);
+      current.pred[]->current[];
+      restart loop;
+   if);
+   end;
+--- ListIterateReverseFrom: DoPart ---
+do
+   NONE->current[];
+   start;
+   position[]->current[];
+   loop: (if current[]<>NONE then
+      (if current[]->privateIterate.pred then INNER iterateReverseFrom if);
+      current.pred[]->current[];
+      restart loop;
+   if);
+   end;
+
+
+--- ListAt: DoPart ---
+do
+   NONE->position[];
+   find
+     (# predicate:: (# do (current[],elm[])->equal->value #)
+     do getPosition->position[];
+     #);
+--- ListLocatePrivate: ObjectDescriptor ---
+(# p: ^privatePair; pred: @predicate; #)
+--- ListLocate: DoPart ---
+do
+   NONE->position[];
+   privateHead[]->privateLocate.p[];
+   start;
+   loop: (if (privateLocate.p[]->position[])<>NONE then
+      privateLocate.p.succ[]->privateLocate.p[];
+      (if position[]->privateLocate.pred then INNER locate if);
+      restart loop;
+   if);
+   end;
+
+
+(**************************
+ * Modifying List Indexes *
+ **************************)
+--- ListIndexAdvance: ObjectDescriptor ---
+(#
+do
+   (if privatePtr[]=NONE then
+      privateHead[]->privatePtr[]
+   else
+      privatePtr.succ[]->privatePtr[]
+   if)
+#)
+--- ListIndexGoBack: ObjectDescriptor ---
+(#
+do
+   (if privatePtr[]=NONE then
+      privateTail[]->privatePtr[]
+   else
+      privatePtr.pred[]->privatePtr[]
+   if)
+#)
+--- ListIndexAdvanceBy: DoPart ---
+do
+   loop: (if n>0 then
+      n-1->n;
+      advance;
+      restart loop;
+   else
+      loop: (if n<0 then
+         n+1->n;
+	 goback;
+	 restart loop;
+      if)
+   if)
+--- ListFirst: DoPart ---
+do (if (privateHead[]->h[])=NONE then emptyRaise if);
+--- ListLast: DoPart ---
+do (if (privateTail[]->h[])=NONE then emptyRaise if);

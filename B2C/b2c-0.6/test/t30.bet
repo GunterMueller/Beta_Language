@@ -1,0 +1,5 @@
+ORIGIN '~beta/basiclib/current/betaenv';
+--- Program: ObjectDescriptor ---
+(#
+do (for i:10 repeat i->putint; newline for);
+#)

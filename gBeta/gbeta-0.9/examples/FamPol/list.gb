@@ -1,0 +1,14 @@
+ORIGIN 'betaenv';
+BODY 'listbody'
+
+-- lib:attributes --
+
+list:
+  (# <<SLOT ListLib:attributes>>;
+     element:< object;
+     append: (# e: ^element enter e[] <<SLOT listAppend:dopart>> #);
+     scan: (# current: ^element <<SLOT listScan:dopart>> #);
+     size: (# i: @integer <<SLOT listSize:dopart>> exit i #);
+     head: (# fail:< object; e: ^element <<SLOT listHead:dopart>> exit e[] #);
+     <<SLOT ListPrivate:attributes>>
+  #)

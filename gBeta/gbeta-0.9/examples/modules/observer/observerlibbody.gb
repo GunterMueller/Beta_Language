@@ -1,0 +1,13 @@
+ORIGIN 'observerlib'
+
+-- setPrivate:attributes --
+
+storage: [10]^element;
+top: @integer;
+
+-- SetInsert:dopart --
+do e[]->storage[top+1->top][]
+   
+-- SetScan:dopart --
+do (for i:top repeat storage[i][]->current[]; INNER for)
+   

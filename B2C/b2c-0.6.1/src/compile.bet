@@ -1,0 +1,213 @@
+ORIGIN 'bfile';
+INCLUDE 'filelist';
+INCLUDE 'machine';
+INCLUDE 'option';
+INCLUDE 'parser';
+INCLUDE 'systemjob';
+INCLUDE '~beta/basiclib/current/file';
+INCLUDE '~beta/sysutils/current/pathhandler';
+INCLUDE '~beta/unixlib/current/errorscreen';
+INCLUDE '~beta/unixlib/current/unixinterface';
+BODY 'nametable';
+--- CompilerLib: Attributes ---
+(* mark a filename as one, that has to be processed *)
+markfile: (# pair: @textpair enter pair do pair[]->tl.insert; #);
+
+
+(* A systemjob, whose searchPath virtual is bound to whether mi.ccomp
+ * is an absolute path or just an executable name: *)
+compilerJob: systemJob
+  (#
+     searchPath::
+       (#
+       do (if mi.ccomp.length>0 then (1->mi.ccomp.inxGet)<>'/'->value if);
+       #);
+  #);
+
+
+(* link all .o's into the final binary *)
+linkit:
+  (#
+     outname: ^text;
+     end: ^text;
+     bf: ^BETAfile;
+     l: @integer;
+     job: @compilerJob;
+  enter outname[]
+  do
+     outname.length->l;
+     (l-3,l)->outname.sub->end[];
+     (if '.bet'->end.equal then
+	(1,l-4)->outname.sub->outname[];
+     if);
+
+     'Linking: '->puttext;
+     outname[]->putline;
+
+     (* set up arg list for the compiler/linker: *)
+     job.init;
+     mi.ccomp[]->job.executable;
+     '-o'->job.arg;
+     outname[]->job.arg;
+     mi.copt->job.args;
+     ol.scan (# do current[]->job.arg #);
+     mi.lopt->job.args;
+
+     (if job.run<>0 then (failure,'Linking failed!')->stop if);
+  #);
+
+
+(* create a new BETAfile object, then open (and potentially also read,
+ * parse, check, optimize and compile) that file
+ *)
+compilefile:
+  (#
+     basename,filename,basis: ^text;
+     l,action: @integer;
+     end: ^text;
+     bf: ^BETAfile;
+     included: @boolean;
+     betentry,hentry,oentry: @DiskEntry;
+     doCompile: (# exit 0 #);
+     Circularity: (# exit 1 #);
+     Ignore: (# exit 2 #);
+  enter (filename[],basis[],included)
+  do
+     filename[]->basename[];
+     filename.length->l;
+     (l-3,l)->filename.sub->end[];
+     (if not ('.bet'->end.equal) then
+	'.bet'->filename.append;
+     if);
+     (filename[],basis[])->fc.convertFilePath->filename[];
+     filename.length->l;
+     (1,l-4)->filename.sub->basename[];
+
+     doCompile->action;
+     basename[]->fl.hashBasename->fl.scanIndexed
+       (#
+       do
+	  (if filename[]->current.filename.equal then
+	     current[]->bf[];
+	     (if current.active then
+		Circularity->action; INNER compilefile
+	     else
+		Ignore->action
+	     if)
+	  if);
+       #);
+
+     (if action
+       // Circularity then
+	  (failure,'Circularity in ORIGIN/INCLUDE directives!')->stop;
+       // doCompile then
+	  (basename[],filename[])->&BETAfile->bf[]->fl.insert;
+
+	  (* test, if we have to recompile *)
+	  filename[]->betentry.path;
+	  bf.hname[]->hentry.path;
+	  bf.oname[]->oentry.path;
+
+	  betentry.modtime->bf.timeBet;
+	  (if not (hentry.exists and oentry.exists) or opt.recompile then
+	     true->bf.needsRecomp
+	  else
+	     hentry.modtime->bf.timeH;
+	     oentry.modtime->bf.timeO;
+	     (if (bf.timeBet > bf.timeH) or (bf.timeH > bf.timeO) then
+		true->bf.needsRecomp
+	     if);
+	  if);
+	  included->bf.included;
+
+	  betentry.path.name.prefix->bf.mainname[];
+	  (for i:bf.mainname.length repeat
+	     (i->bf.mainname.inxget->ascii.LowCase,i)->bf.mainname.inxput
+	  for);
+	  betentry.path.head->basis[];
+	  (if basis[]=NONE then '.'->basis[] if);
+	  (if basis.length=0 then '.'->basis[] if);
+	  basis[]->bf.basis[];
+
+	  bf.open;
+	  bf.oname[]->ol.insert;
+     if);
+  exit bf[]
+  #);
+
+
+--- BETAfileOpen: ObjectDescriptor ---
+(#
+   oldcf: ^BETAfile;
+   msg: @text;
+   job: @compilerJob;
+do
+   c_file[]->oldcf[];
+   this(BETAfile)[]->c_file[];
+   'Opening file: '->puttext;
+   filename[]->putline;
+   (if parser<>0 then
+      (failure,'Compilation stopped due to parser errors!')->stop
+   if);
+
+   (if included or needsRecomp then
+      'Binding and Checking file: '->puttext;
+      filename[]->putline;
+      bind;
+      (if errs<>0 then
+	 print;
+	 'Some fragments could not be bound!\nSee file "'->msg;
+	 lstname[]->msg.append;
+	 '" for details!'->msg.append;
+	  (failure,msg[])->stop;
+        (* JS else
+        print; 
+        *)
+      if);
+      check;
+      (* JS
+      'Generating fragment and slot map'->putline; 
+      fragMap;
+      slotMap;*) 
+      (if (warns<>0) or (errs<>0) then
+	 print;
+	 (if errs<>0 then
+	    'Compilation stopped due to grammatical errors!\nSee file "'->msg;
+	    lstname[]->msg.append;
+	    '" for details!'->msg.append;
+	    (failure,msg[])->stop;
+	 if);
+      if);
+    (* JS
+    else
+       getSlotBind;*)
+   if);
+
+   (if needsRecomp then
+      'Generating C code in: '->puttext;
+      cname[]->putline;
+      cgen;
+
+      (* !!! clean this interface up *)
+      'Compiling: '->puttext;
+      cname[]->putline;
+
+      mi.ccomp[]->job.executable;
+      '-c'->job.arg;
+      mi.copt->job.args;
+
+      '-I.'->job.arg;
+      '-o'->job.arg;
+      oname[]->job.arg;
+      cname[]->job.arg;
+
+      (if job.run<>0 then
+	 'Compiling "'->msg;
+	 cname[]->msg.append;
+	 '" failed!'->msg.append;
+	 (failure,msg[])->stop;
+      if);
+   if);
+
+   oldcf[]->c_file[];
+#)

@@ -1,0 +1,210 @@
+ORIGIN 'qua';
+INCLUDE '../eelib';
+INCLUDE '../getcexprlib';
+INCLUDE '../objectdesc';
+INCLUDE '../option';
+INCLUDE '../ad/bitch';
+--- CompilerLib: Attributes ---
+DoQuaCheck: Evaluation
+  (#
+     ls,rs: ^AttributeDenotation;
+     DoDo::
+       (#
+	  getce: @ls.GetCexpr;
+	  t: @text;
+	  od: ^ObjectDescriptor;
+	  ad: ^AttributeDenotation;
+       <<SLOT DoQuaCheckDoDo: DoPart>>
+       #);
+  enter (ls[],rs[])
+  do ee.markQua
+  exit this(DoQuaCheck)[]
+  #);
+
+
+CmpEnclosing: Evaluation
+  (#
+     ls,rs: ^AttributeDenotation;
+     DoDo:: (# t: ^text <<SLOT CmpEnclosingDoDo: DoPart>> #);
+  enter (ls[],rs[])
+  exit this(CmpEnclosing)[]
+  #);
+
+
+--- QuaCheckDoPart: DoPart ---
+do
+   noqua: (if (ls[]<>NONE) and (rs[]<>NONE) then
+      (if (ls.getpatt->lod[])=NONE then leave noqua if);
+      (if (rs.getpatt->rod[])=NONE then leave noqua if);
+      false->doQua;
+      (* try to find a match, where the left side is a subpattern or a
+       * superpattern of the right side *)
+      fm:
+	(#
+	do
+	   lod.scanSuper
+	     (#
+	     do
+		(if current[]=rod[] then
+		   current.private.outerindx->index; leave fm
+		if)
+	     #);
+
+	   (if ls.maybesubpattern then
+	      rod.scanSuper
+		(#
+		do
+		   (if current[]=lod[] then
+		      true->doQua; current.private.outerindx->index; leave fm;
+		   if);
+		#);
+	   if);
+
+	   'Incompatible references - qualification check failed!'
+	     ->errorto.error;
+	   leave noqua
+	#);
+      NONE->ev[]->newev[];
+      virtqua: (if rs.isvirtual and not doQua then
+	 (if ls.isvirtual then
+	    ls.att.att.os[]->ad[];
+	    ls.prec[]->ad.copy->lencl[];
+	    rs.att.att.os[]->ad[];
+	    rs.prec[]->ad.copy->rencl[];
+	    (if lencl[]->rencl.isequal then
+	       (* DEBUG
+	       'Omitting QUA check on\nleft side: '->puttext;
+	       screen[]->lencl.write;
+	       '\nleft side got from appending: '->puttext;
+	       ls.att.att.os[]->ad[];
+	       screen[]->ad.write;
+	       screen.newline;
+	       'to: '->screen.puttext;
+	       screen[]->ls.prec.write;
+
+	       '\nright side: '->puttext;
+	       screen[]->rencl.write;
+	       screen.newline;
+	       *)
+	       leave virtqua
+	    if);
+	 if);
+	 true->doQua;
+      if);
+      (if doQua then
+	 INNER;
+	 rs[]->ad[];
+	 (* get underlying pattern for right side of qua check *)
+	 (if not ad.ispattern then
+	    (if ad.att.att.os## <= AttributeDenotation## then
+	       ad.att.att.os[]->ad[];
+	       rs.prec[]->ad.copy->ad[];
+	    if);
+	 if);
+	 (if ad.ispattern and not ad.ispvariable then
+	    (if ad.isvirtual then
+	       (* DEBUG *)
+	       'creating dynamic pattern variable for qua check!'->putline;
+	       ad[]->ee.dynamicPVariable->(ad[],ev[]);
+	       (ev[],newev[])->EvaluationJoin->newev[];
+	    if);
+	 if);
+	 (ls[],ad[])->&DoQuaCheck->ev[];
+	 newev[]->ev.next[];
+	 opt.warnQua->doQua;
+      if);
+      checkencl: (if not noencl then
+	 (if (lod[]=ObjectPattern[]) or (rod[]=ObjectPattern[]) then
+	    (* !!! this is buggy *)
+	    leave checkencl
+	 if);
+	 ls[]->lod.private.om.om[index].copy->lencl[];
+	 rs[]->rod.private.om.om[index].copy->rencl[];
+	 (if not (lencl[]->rencl.isequal) then
+	    (* DEBUG:
+	    (# bl: ^Backlevel; s: ^ObjStream
+	    do
+	       (if lencl##<=Backlevel## then
+		  'left od: '->puttext;
+		  lod.private.nme[]->puttext;
+		  newline;
+		  'left side: '->puttext;
+		  lencl[]->bl[];
+		  bl.startod.private.nme[]->puttext;
+		  (-bl.backlevel)->putint;
+		  newline;
+		  (if bl.prec[]<>NONE then 'prec[] <> NONE!'->putline if);
+		  screen[]->objstream->s[]->ls.print;
+		  s.newline;
+	       if);
+	       (if rencl##<=Backlevel## then
+		  'right od: '->puttext;
+		  rod.private.nme[]->puttext;
+		  newline;
+		  'right side: '->puttext;
+		  rencl[]->bl[];
+		  bl.startod.private.nme[]->puttext;
+		  (-bl.backlevel)->putint;
+		  newline;
+		  (if bl.prec[]<>NONE then 'prec[] <> NONE!'->putline if);
+		  screen[]->objstream->s[]->rs.print;
+		  s.newline;
+	       if);
+	    #);
+	    *)
+	    (lencl[],rencl[])->&CmpEnclosing->newev[];
+	    ev[]->newev.next[];
+	    newev[]->ev[];
+	    opt.warnQua->doQua;
+	 if);
+      if);
+      (if doQua then
+	 'A runtime qualification check is performed here!'->errorto.warn
+      if);
+   if)
+
+
+--- DoQuaCheckDoDo: DoPart ---
+do
+   (if ls.maybenone then
+      (*
+       * If ls.maybenone is true, then the C expression generated from ad
+       * must be an pointer.  It can be used directly in an if expression,
+       * to test, if that pointer is null.
+       *)
+      '    if('->c_file.cstream.puttext;
+      ctype_objectptr->ls.putcexpr;
+      ')'->c_file.cstream.putline;
+   if);
+   '    if((qua=(struct pattern *)'->c_file.cstream.puttext;
+   ctype_patternptr->ls.putcexpr;
+   ')!=(struct pattern *)'->c_file.cstream.puttext;
+   (if rs.isvirtual then
+      rs[]->ad[];
+      (* !!!
+      rs.att.att.os[]->ad[];
+      rs.prec[]->ad.copy->ad[];
+      *)
+      ctype_patternptr->ad.putcexpr
+   else
+      rs.getpatt->od[];
+      '&P'->c_file.cstream.puttext;
+      od.private.mapname[]->c_file.cstream.puttext;
+   if);
+   ')\n    while ((qua=qua->super)!=(struct pattern *)'->c_file.cstream.puttext;
+   (if rs.isvirtual then
+      ctype_patternptr->ad.putcexpr
+   else
+      '&P'->c_file.cstream.puttext;
+      od.private.mapname[]->c_file.cstream.puttext;
+   if);
+   ') if(!qua) qua_error(th);'->c_file.cstream.putline;
+
+
+--- CmpEnclosingDoDo: DoPart ---
+do
+   '    if((void *)('->c_file.cstream.puttext;
+   ctype_objectptr->ls.putcexpr;
+   ') != (void *)('->c_file.cstream.puttext;
+   ctype_objectptr->rs.putcexpr;
+   ')) encl_error(th);'->c_file.cstream.putline;

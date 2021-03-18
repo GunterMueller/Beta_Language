@@ -1,0 +1,47 @@
+[Kai's note: this is from a mail, that Jan Okrouhly, <okrouhly@zcu.cz>
+sent me.  I have marked all his changes in the source with JO.
+More information can be found in the file CTIMNE.JO, which is
+written in the Czech language.]
+
+I have been reading about some garbage collectors and about
+collector in the Mjolner BETA System. It was very important, but
+I had no so much time to implement something like its collector,
+so I have tried to implement only traditional mark&sweep garbage
+collector.  The implementation works well, but will have to be
+adapted when will be done call back functions (and components
+too?) in the b2c.
+
+
+Short description of my implementation of the mark&sweep
+collector to b2c:
+
+The Mark&Sweep algorithm runs in two phases: In the first all
+live objects are marked (so object data structures had been
+extended by integer item mlive) and in the second all not marked
+objects are reclaimed (so allocated objects are chained in a list).
+
+For the marking phase I modified b2c to create so called marking
+functions for each pattern (data structure of pattern is extended
+by address to its marking function which has as an argument
+pointer to the data structure of actually marked object).  The
+marking function sets mlive in the object data structure (if it
+is not set yet - this breaks neverending looping at circular data
+structures) and after that it calls the respective marking
+function on all object items in the object data structure, so
+marking is done recursively and thus is somewhat consuming the
+system stack.  The marking phase is started with all objects,
+that are in local variables (at stack) - pointers to them are
+saved in a list, which is updated, when a new local variable is
+set, or when a block is left in which local variables had been
+defined.
+
+The sweeping phase is invoked after the end of the first phase
+and it only walks through the list of objects and frees objects
+that aren't marked as live.
+
+As for fields of repetitions, they of course don't have the
+structure of objects, so I made another list of these allocated
+fields and when a repetition is marked, then these fields are
+also marked as live.  In case of repetitions of pointers to
+objects, the marking function of its members are called, too.
+You will see more datails in the source code.

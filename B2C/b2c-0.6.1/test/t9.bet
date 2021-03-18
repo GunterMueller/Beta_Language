@@ -1,0 +1,11 @@
+origin '~beta/basiclib/current/betaenv';
+include 'put5';
+---program: Descriptor---
+(* test, if inserted items in the exit part are handled correctly *)
+(#
+    A: (# exit (# do (99,114,97,122,121)->put5; exit 10 #) #);
+    B: (# do A->put; #);
+do
+    A->put;
+    B;
+#)

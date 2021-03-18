@@ -1,0 +1,29 @@
+ORIGIN '~beta/basiclib/current/betaenv';
+BODY 'objstreambody';
+--- lib: Attributes ---
+(* output objects to a stream *)
+objstream:
+  (#
+     <<SLOT objstreamLib: AttributeDecl>>;
+     s: ^stream;
+     top: ^level;
+     totpend: @integer;
+     toppend: ^level;
+     blpend: @boolean;
+
+     init: <<SLOT objstreamInit: Descriptor>>;
+     level: <<SLOT objstreamLevel: Descriptor>>;
+     append: (# t: ^text; enter t[] <<SLOT objstreamAppend: Dopart>> #);
+     error: (# t: ^text; enter t[] <<SLOT objstreamError: Dopart>> #);
+     newline: (# <<SLOT objstreamNewline: Dopart>> #);
+     newlevel:
+       (# l: @integer; t: ^text
+       enter (l,t[])
+       <<SLOT objstreamNewlevel: Dopart>>
+       #);
+     backlevel: <<SLOT objstreamBacklevel: Descriptor>>
+
+  enter s[]
+  do init
+  exit this(objstream)[]
+  #);

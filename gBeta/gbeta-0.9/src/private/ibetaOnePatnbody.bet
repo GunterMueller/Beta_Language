@@ -1,0 +1,145 @@
+(* FILE "./private/ibetaOnePatnbody.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaOnePatnbody.bet,v 1.23 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN 'ibetaOnebody';
+INCLUDE '../ibetaIter'
+
+(************************************************************ 
+ *                                                          * 
+ *                       l1IndexEntity                      *
+ *                                                          * 
+ ************************************************************)
+
+-- IndexEntityPrint:dopart --
+do
+   (* like integer, but enclosed in <> to signal "indexness" *)
+   ' = <'->output; value->dest.putint; '>'->output
+
+-- IndexEntityPrintShort:dopart --
+do
+   '=<'->output; value->dest.putint; '>'->output
+
+-- IndexEntityExecute:dopart --
+do
+   (* no action *)
+
+-- IndexEntityGetEnterIter:dopart --
+do
+   'Trying to assign a value to an index'
+     ->internalError
+
+-- IndexEntityGetExitIter:dopart --
+do
+   &exitOnce
+   (# l0tri: ^l0TransientInteger
+   do &l0TransientInteger[]->l0tri[]->l0tr[];
+      NONE->l0tr.usageAst[];
+      value->l0tri
+   #)[]->xi[]
+
+(************************************************************ 
+ *                                                          * 
+ *                    l1PatternRefEntity                    * 
+ *                                                          * 
+ ************************************************************)
+
+-- PatternRefEntityPrint:dopart --
+do
+   (if value[]=NONE then
+       ' = NONE'->output
+    else
+       ' --> '->output;
+       (dest[],indentation,false,NONE)->value.print
+   if)
+
+-- PatternRefEntityPrintShort:dopart --
+do
+   (if value[]=NONE then
+       '=NONE'->output
+    else
+       '-->'->output;
+       (dest[],indentation,false)->value.printShort
+   if)
+
+-- PatternRefEntityExecute:dopart --
+do
+   (if value[]<>NONE then 
+       (thrd[],unwind##)->value.execute
+    else
+       ('Trying to execute a NONE-valued pattern reference'
+       ,thrd[],unwind##)->refNoneError
+   if)
+
+-- PatternRefEntityGetEnterIter:dopart --
+do
+   (if value[]<>NONE then 
+       (thrd[],unwind##,stsub[],world[],usageAst[],execute)
+         ->value.getEnterIter
+         ->ni[]
+    else
+       ('Trying to assign via a NONE-valued pattern reference'
+       ,thrd[],unwind##)->refNoneError
+   if)
+
+-- PatternRefEntityGetExitIter:dopart --
+do
+   (if value[]<>NONE then 
+       (thrd[],unwind##,stsub[],world[],usageAst[])
+         ->value.getExitIter
+         ->xi[]
+    else
+       ('Trying to evaluate via a NONE-valued pattern reference'
+       ,thrd[],unwind##)->refNoneError
+   if)
+
+-- PatternRefEntityGetEnterExitIter:dopart --
+do
+   (if value[]<>NONE then 
+       (thrd[],unwind##,stsub[],world[],usageAst[])
+         ->value.getEnterExitIter
+         ->(ni[],xi[]);
+       this(l1PatternRefEntity)[]->ni.usageEntity[]->xi.usageEntity[]
+    else
+       ('Trying to assign-then-evaluate via a NONE-valued pattern reference'
+       ,thrd[],unwind##)->refNoneError
+   if)
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

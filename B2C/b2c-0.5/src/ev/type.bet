@@ -1,0 +1,29 @@
+ORIGIN '~beta/basiclib/current/betaenv.bet'
+--- lib: Attributes ---
+evtype_boolean: (# exit 4 #);
+evtype_char: (# exit 3 #);
+evtype_integer: (# exit 2 #);
+evtype_real: (# exit 1 #);
+evtype_unreduced: (# exit 0 #);
+evtype_ref: (# exit -1 #);
+evtype_rep: (# exit -2 #);
+evtype_strucref: (# exit -3 #);
+evtype_string: (# exit -4 #);
+
+evtype_name:
+  (# i: @integer; t: ^text
+  enter i
+  do
+     (if i
+     // -4 then 'String'->t[]
+     // -3 then 'Structure Reference'->t[]
+     // -2 then 'Repetition'->t[]
+     // -1 then 'Object Reference'->t[]
+     // 0 then 'Unreduced'->t[]
+     // 1 then 'Real'->t[]
+     // 2 then 'Integer'->t[]
+     // 3 then 'Char'->t[]
+     // 4 then 'Boolean'->t[]
+     if);
+  exit t[]
+  #);

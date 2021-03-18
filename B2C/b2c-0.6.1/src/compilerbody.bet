@@ -1,0 +1,35 @@
+ORIGIN 'compiler';
+INCLUDE 'filelist';
+INCLUDE 'bfile';
+INCLUDE 'option';
+INCLUDE 'repetition';
+INCLUDE 'machine';
+BUILD default 'misc.o' 'misc.c' '$CC -c $1 -o $0';
+--- CompilerInit: ObjectDescriptor ---
+(#
+do
+   fl.init;
+   sl.init;
+   ol.init;
+   el.init;
+   tl.init;
+   fc.init;
+   opt.init;
+   mi.init;
+   NONE->mainorigin[];
+   nameTable;
+   cintf;
+   0->odserial;
+   &ErrorScreen[]->errstream[];
+   NONE->slotlist;
+   NONE->ObjectPattern[];
+   NONE->IntegerPattern[];
+   NONE->Repetition.pattern[];
+   NONE->Repetition.new[];
+   NONE->Repetition.extend[];
+   NONE->Repetition.size[];
+   NONE->Repetition.alsize[];
+   NONE->Repetition.elsize[];
+   
+   slotbind; (* JS initialize *)
+#)

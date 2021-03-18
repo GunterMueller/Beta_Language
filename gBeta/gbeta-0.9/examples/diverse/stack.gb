@@ -1,0 +1,47 @@
+-- betaenv:descriptor --
+(# (* This example shows how the constraint based type analysis
+    * makes it possible to combine several patterns by doing
+    * just one top-level inheritance operation.  This is an 
+    * important reason why the constraint based inheritance 
+    * mechanism supports a deeper separation of concerns. 
+    *
+    * For a longer and better explanation, see 
+    * ftp://ftp.daimi.aau.dk/pub/empl/eernst/gbeta/papers/declinh.dvi
+    *
+    * The basic idea is that we separate the synchronization aspect
+    * and the sequential implementation aspect in the expression of
+    * a stack datatype which must be usable in a multithreaded 
+    * context.
+    *)
+
+   semaphore: 
+     (# (* Just an empty shell for now; should be predefined, will be! *)
+        P: (# #);
+        V: (# #);
+     #);
+   monitor: 
+     (# sem: @semaphore;
+        entry: (# do sem.P; INNER; sem.V #)
+     #); 
+   list: (# element:< object #);
+   stack: 
+     (# element:< object;
+        push:< (# e: ^element enter e[] do INNER #);
+        pop:< (# e: ^element do INNER exit e[] #);
+     #);
+   threadSafeStack: stack
+     (# mon: @monitor;
+        push::< mon.entry;
+        pop::< mon.entry;
+     #);
+   listStack: stack
+     (# storage: @list(# element::this(listStack).element #);
+        push::< (# do (* .. *) INNER #);
+        pop::< (# do (* .. *) INNER #);
+     #);
+   aux: (# v:< threadSafeStack #); aux2: @aux(# v::listStack #);
+   myStack: @aux2.v;
+do 
+   myStack.push;
+#)
+

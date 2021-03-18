@@ -1,0 +1,81 @@
+ORIGIN 'bfile';
+INCLUDE 'filelist';
+INCLUDE 'attribute';
+INCLUDE 'imperative';
+INCLUDE 'objectdesc';
+INCLUDE 'eelib';
+--- SlotDoPart: DoPart ---
+do
+   NONE->frag[];
+   this(Slot)[]->sl.insert;
+   c_file[]->bf[];
+   slotlist->next[];
+   this(Slot)[]->slotlist;
+   ph;
+   INNER
+
+
+--- SlotPrint: DoPart ---
+do
+   '<<SLOT '->s.append;
+   slottypename->s.append;
+   ': '->s.append;
+   t[]->s.append;
+   '>>'->s.append;
+
+
+--- SlotLib: Attributes ---
+setEnclLabel:
+  (# ignoreFirst: @Boolean; l: ^Label
+  enter ignoreFirst
+  do
+     currentLabel.l[]->l[];
+     (if ignoreFirst and (l[]<>NONE) then l.enclLabel[]->l[] if);
+     l[]->enclLabel[];
+     loop: (if l[]<>NONE then
+	true->l.sLeave.nonlocal;
+	true->l.sRestart.nonlocal;
+	l.enclLabel[]->l[];
+	restart loop;
+     if);
+  #);
+
+
+--- CompilerLib: Attributes ---
+ObjectDescriptorSlot: Slot
+  (#
+     slottype:: ObjectDescriptor
+       (#
+          print:: (# override:: (# do s[]->this(Slot).print; true->value #) #);
+	  isslot:: (# do true->value #);
+	  checkComplete:: (# do setEnclLabel #);
+       #);
+     slottypename:: (# do 'ObjectDescriptor'->t[] #);
+  do ph.private; ph.private.dofunction.disableInsertedAttributes
+  #);
+
+
+AttributeSlot: Slot
+  (#
+     slottype:: Attribute
+       (#
+          print:: (# override:: (# do s[]->this(Slot).print; true->value #) #);
+	  checkComplete:: (# do setEnclLabel #);
+       #);
+     slottypename:: (# do 'Attributes'->t[] #);
+  #);
+
+
+DoPartSlot: Slot
+  (#
+     slottype:: Imperative
+       (#
+	  encltype:: ObjectDescriptor;
+	  print:: (# override:: (# do s[]->this(Slot).print; true->value #) #);
+	  isslot:: (# do true->value #);
+	  checkFollow:: (# do 0->encl.private.innerVirtual #);
+	  checkComplete:: (# do true->setEnclLabel #);
+	  DoDo:: (# imp: @ImperativePtr do frag.frag[]->imp; imp.DoDo #);
+       #);
+     slottypename:: (# do 'DoPart'->t[] #);
+  #);

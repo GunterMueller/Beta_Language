@@ -1,0 +1,143 @@
+(* FILE "./beta2abeta/generate-beta2abetabody.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: generate-beta2abetabody.bet,v 1.25 2001/07/01 21:44:10 eernst Exp $
+ *)
+
+ORIGIN  '~beta/basiclib/systemenv';
+INCLUDE '~beta/basiclib/file';
+INCLUDE 'generatelib';
+
+-- program:descriptor --
+systemenv
+(#
+   f: @file;
+
+   doPrefix:
+     (#
+     do 'private/beta2abetaAutogen.bet'->f.name;
+        f.openWrite;
+        'ORIGIN  \'../beta2abeta\';'->f.putline;
+        'BODY \'beta2abetabody\';'->f.putline;
+        f.newline;
+        '-- beta2abetaDopart:dopart --'->f.putline;
+        'do'->f.putline;
+        '   ('->f.puttext; 'if mpsAst##'->f.putline;
+        (* .. arghhh! '(if' in a string confuses beta-mode! *)
+     #);
+
+   doSuffix:
+     (#
+     do '    else'->f.putline;
+        '       (failure,\'Found unknown node in ast!\')->stop;'->f.putline;
+        '   if'->f.puttext; ');'->f.putline;
+        f.close;
+     #);
+
+   doRealWork:
+     (# betaAstHandler: @betaAstInterface;
+        betaGroup: ^betaAstHandler.fragmentgroup;
+        conc,cate: @text;
+     do (* Initialization *)
+        betaAstHandler.init;
+        'betacfl'->betaAstHandler.open->betaGroup[];
+
+        (* Traversal of the given fragment group *)
+        betaGroup.splitScan
+        (# onForm::
+             (# theForm: ^betaAstHandler.fragmentform;
+                theAttributesForm: ^betaAstHandler.beta.AttributesForm;
+                theAttributes: ^betaAstHandler.beta.Attributes;
+
+             do current[]->theForm[];
+                theForm.root[]->theAttributesForm[];
+                theAttributesForm.getAttributes->theAttributes[];
+                theAttributes.scan
+                (#
+                do
+                   (if current## <= betaAstHandler.theGrammar.patternDecl## then
+                       current[]->betaAstHandler.theGrammar.processBeta
+                       (# onConcrete::
+                            (#
+                            do '    // '->conc.puttext;
+                               id[]->conc.puttext;
+                               '## then'->conc.putline;
+                               '       <<SLOT '->conc.puttext;
+                               id[]->conc.puttext;
+                               'Case:descriptor>>'->conc.putline;
+                            #);
+                          onCategorical::
+                            (#
+                            do '    // '->cate.puttext;
+                               id[]->cate.puttext;
+                               '##'->cate.putline;
+                            #);
+                       #);
+                    (* else: could check for _what_ weird stuff *)
+                   if);
+                #);
+             #);
+           (* ignore 'onLink' and 'onGroup' and 'onOther' cases *)
+        #);
+        conc[]->f.puttext;
+
+        (* Removed the following:  (1) It only improves diagnostics in
+         * an unexpected situation.  (2) It causes code generation 
+         * problems (address register overflow) on some architectures.
+         * 
+         * (1,cate.length-1)->cate.sub->f.puttext; {* drop last newline *}
+         * ' then'->f.putline;
+         * '       (failure,\'Instance of abstract class in AST!\')->stop;'
+         *   ->f.putline;
+         *)
+
+        (* Finalization *)
+        (* !!! crashes, but not strictly necessary: betaAstHandler.shutdown; *)
+     #);
+do
+   (* prepare file, and output prefix part *)
+   doPrefix;
+
+   (* use the 'beta' treeLevel pattern to generate the bulk of the file *)
+   doRealWork;
+
+   (* finish the file *)
+   doSuffix;
+#)
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

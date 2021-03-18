@@ -1,0 +1,13 @@
+ORIGIN '../basiclib/v1.4/betaenv'
+--- program : objectdescriptor ---
+(# 
+   R:[10] @integer;
+   i: @integer;   
+do 
+   loop: 
+     (if i<=5 then 
+         i+1->i;
+         1->R.extend;
+         restart loop 
+     if)
+#)

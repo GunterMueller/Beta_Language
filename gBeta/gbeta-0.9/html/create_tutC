@@ -1,0 +1,7 @@
+#!/bin/sh
+
+rm -f tutC.tmp
+grep begin_tut tut[1-9].m4 tut1[0-9].m4 |\
+    sed 's/^[^(]*(/_tut_toc_entry(/' > tutC.tmp
+cat tutC.pre tutC.tmp tutC.post > tutC.m4
+rm -f tutC.tmp

@@ -1,0 +1,91 @@
+ORIGIN 'fragment';
+INCLUDE 'attributelib';
+INCLUDE 'objectdesc';
+--- DoPartFragmentBind: DoPart ---
+do
+   boundto.ph.encl[]->od[];
+   frag[]->imp[];
+   loop: (if imp[]<>NONE then
+      od[]->imp.encl[]; imp.next[]->imp[]; restart loop
+   if);
+   od.private.doFunction.DoDo##->c_file.cfunction;
+   od.private.doFunction.disableInsertedAttributes;
+
+
+--- DoPartFragmentCheckCompleteAfter: DoPart ---
+do od.private.lab.deassign
+--- DoPartFragmentCheckComplete: DoPart ---
+do
+   boundto.ph.encl[]->od[];
+   od.private.lab.assign;
+   reduce##->c_file.todoReduce
+
+
+--- DoPartFragmentReduce: DoPart ---
+do
+   boundto.ph.encl[]->od[];
+   frag[]->od.private.doprt.ptr[];
+   od.private.doFunction[]->ee[];
+   od.private.lab.reduce (# do this(reduce).od.private.doprt.reduce #);
+   (* The assignment to te[] is a workaround for a Mjølner compiler bug *)
+   boundto.ph[]->te[]->od.private.doprt.ptr[];
+
+
+--- ObjectDescriptorFragmentBind: DoPart ---
+do
+   (* the assignment to te[] is a workaround for Mjolner compiler error *)
+   boundto.ph[]->te[]->od[];
+   this(ObjectDescriptorFragment)[]->frag.encl[];
+   od.encl[]->encl[];
+   od.private.mapname->frag.private.mapname;
+   od.private.nme[]->frag.private.nme[];
+   (if encl[]<>NONE then
+      (if encl## <= Attribute## then
+	 encl[]->a[];
+	 (* DEBUG 'Replacing ObjectDescriptor slot of '->puttext;
+	 a.names.ptr.str[]->puttext;
+	 ' with Fragment!'->putline; *)
+	 frag[]->a.od[]->a.os[];
+      if);
+   if);
+
+   (* DEBUG
+   'ObjectDescriptor Fragment '->puttext;
+   t[]->puttext;
+   ' bound to Attribute '->puttext;
+   encl[]->a[];
+   a.names.ptr.str[]->putline;
+   'Enclosing OD: '->puttext;
+   a.encl.private.mapname[]->putline;
+
+   frag[]->te[];
+   'Names of Objectdescriptors: '->puttext;
+   loop: (if true
+     // te[]=NONE then
+     // te## <= ObjectDescriptor## then
+	te[]->od[];
+	od.private.mapname[]->puttext;
+	' '->put;
+	te.encl[]->te[];
+	restart loop;
+     else
+	te.encl[]->te[];
+	restart loop
+     if);
+   screen.newline; *)
+
+
+--- AttributeFragmentBind: DoPart ---
+do
+   NONE->boundto.frag[];
+   frag[]->att;
+   boundto.ph.encl[]->att.encl;
+   att.iterate
+     (#
+     do
+	(if not (el## <= PatternDecl##) then
+	   'An Attribute slot may only hold Pattern Declarations!'
+	     ->el.error;
+	if);
+	el.checkName;
+     #);

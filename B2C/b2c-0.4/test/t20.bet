@@ -1,0 +1,31 @@
+ORIGIN '../basiclib/v1.4/betaenv';
+--- program: ObjectDescriptor ---
+(* test, how fragments and labels work together *)
+(# done: @boolean;
+do
+   block1: <<SLOT od1: ObjectDescriptor>>;
+   false->done;
+   block2:
+     (# <<SLOT Block2Lib: Attributes>>
+     do
+	'block2 reached'->puttext;
+	(if done then 
+	   ' the second time'->putline;
+	else
+	   ' the first time'->putline; true->done; rbl2;
+	if);
+     #);
+#)
+
+
+--- od1: ObjectDescriptor ---
+(#
+do
+   'this is line 1'->putline;
+   leave block1;
+   'this is line 2 (and should not be printed)'->putline;
+#)
+
+
+--- Block2Lib: Attributes ---
+rbl2: (# do restart block2 #);

@@ -1,0 +1,214 @@
+ORIGIN 'fragparser';
+INCLUDE 'compile';
+--- FragparserReadHeaders: ObjectDescriptor ---
+(#
+   next: @integer;
+   PropertyName: (# do exit 0 #);
+   StringList: (# do exit 1 #);
+   IntegerList: (# do exit 2 #);
+   AnyValue: (# do exit 3 #);
+   FragmentSeen: (# do exit 4 #);
+   IncludeOrFragment: (# do exit 5 #);
+
+   bf: ^BETAfile;
+   property: @integer;
+   pname: @text;
+do
+   0->ninclude;
+   NONE->origin[];
+   f.openread;
+   1->line->col;
+   PropertyName->next;
+   loop: (if gettoken
+     // token.eos then
+        'Unexpected End Of File!'->error; leave loop
+     // token.name then
+	(if next
+	  // PropertyName then
+	     gettoken.s->pname;
+	     (if true
+	       // 'origin'->pname.equalNCS then 0->property; StringList->next
+	       // 'include'->pname.equalNCS then 1->property; StringList->next
+	       // 'body'->pname.equalNCS then 2->property; StringList->next
+	       else
+		  'Warning: unknown property \''->errstream.puttext;
+		  pname[]->errstream.puttext;
+		  '\' ignored!\n'->errstream.puttext;
+		  AnyValue->next;
+		  -1->property;
+	     if);
+	     (if (property<>0) and (origin[]=NONE) then
+		leave loop;
+	     if);
+	  // FragmentSeen then
+	     IncludeOrFragment->next;
+	     gettoken.s->pname;
+	  // AnyValue then (* do nothing *)
+	  else 'Unexpected name!'->error;
+	if);
+	restart loop
+     // token.intConst then
+        (if next
+	  // IntegerList then
+	  // AnyValue then (* do nothing *)
+	  else 'Unexpected integer value!'->error;
+        if);
+	restart loop
+     // token.textConst then
+        (if next
+	  // StringList then
+	     (if property
+	       // 0 then
+	          (if origin[]<>NONE then
+		     'Multiple ORIGIN!'->error; leave loop
+		  if);
+		  (gettoken.s.copy,basis[],needsRecomp)->compilefile
+		    (#
+		    do
+		       (if (bf[]<>this(BETAfile)[]) then
+			  (* default action: complain about circularity! *)
+		       else
+			  (if mainorigin[]=NONE then
+			     (* we found the main origin *)
+			     bf[]->mainorigin[];
+			  if);
+			  (if bf[]<>mainorigin[] then
+			     'Only one file can have itself as origin!'->error;
+			     leave loop;
+			  if);
+		          Ignore->action;
+		       if);
+		    #)->origin[];
+		  (if origin.timeBet > timeH then true->needsRecomp if);
+	       // 1 then
+	          (gettoken.s.copy,basis[],needsRecomp)->compilefile
+		    ->bf[];
+		  (if bf.timeBet > timeH then true->needsRecomp if);
+		  ninclude+1->ninclude;
+		  (if ninclude >= include.range then 5->include.extend if);
+		  bf[]->include[ninclude][];
+	       // 2 then (gettoken.s.copy,basis[])->markfile
+	     if)
+	  // AnyValue then (* do nothing *)
+	  // IncludeOrFragment then
+	     (if 'include'->pname.equalNCS then
+	        1->property;
+		StringList->next;
+	     else
+	        'Syntax error!'->error;
+	     if);
+	  else 'Unexpected integer value!'->error;
+        if);
+	restart loop
+     // token.colon then
+        (if next = IncludeOrFragment then
+	   pname->firstFragName;
+	   leave loop;
+	else
+	   'A \':\' is not expected here!'->error;
+	if);
+	restart loop
+     // token.semicolon then
+        (if (next=StringList) or (next=IntegerList) or (next=AnyValue) then
+	   PropertyName->next;
+	else
+	   'A \';\' is not expected here!'->error;
+	if);
+	restart loop
+     // token.fragment then
+	(if (property<>0) and (origin[]=NONE) then leave loop; if);
+        (if (next=FragmentSeen) or (next=IncludeOrFragment) then
+	   'Starting a fragment in a fragment?'->error
+	else
+	   FragmentSeen->next
+	if);
+	restart loop
+     // token.fragblock then
+        (if next=FragmentSeen then
+	   PropertyName->next
+	else
+	   'Unexpected [[!'->error
+	if);
+	restart loop
+     if);
+
+   (if origin[]=NONE then
+      'The first property specified must be ORIGIN!'->error;
+   if)
+#)
+
+
+--- FragparserGettoken: ObjectDescriptor ---
+(# s: @text; c: @char; tok: @integer
+do
+   ''->s;
+   token.eos->tok;
+   loop: (#
+     do
+	(if f.eos then leave loop if);
+	f.peek->c;
+	(if tok
+	  // token.name then
+	     (if (c->ascii.isLetter) or (c->ascii.isDigit) or (c = '_') then
+		advance->s.put; restart loop
+	     if);
+	  // token.intConst then
+	     (if (c->ascii.isDigit) then advance->s.put; restart loop if)
+	  // token.textConstStart then
+	     advance;
+	     (if c='\'' then
+		token.textConst->tok; restart loop
+	     else
+		c->s.put;
+		(if c='\\' then token.textConstBackslash->tok if);
+		restart loop
+	     if);
+	  // token.textConstBackslash then
+	     advance->s.put; token.textConstStart->tok
+	  // token.textConst then
+	     (* string with double '' in the middle - replace by single ' *)
+	     (if c='\'' then
+		advance->s.put;
+		token.textConstStart->tok;
+		restart loop
+	     if);
+	  // token.fragmentStart then
+	     (if c='-' then
+		advance; token.fragment->tok; restart loop
+	     else
+		'Single \'-\'!'->error; token.eos->tok; restart loop
+	     if);
+	  // token.fragment then
+	     (if c='-' then advance; restart loop if)
+	  // token.fragblock then
+	     (if c='[' then
+		advance
+	     else
+		'Single ''[''!'->error; token.eos->tok; restart loop
+	     if);
+	  // token.eos then
+	     advance;
+	     (if true
+	       // (c->ascii.isLetter) or (c = '_') then
+		  c->s.put; token.name->tok; restart loop
+	       // c->ascii.isDigit then c->s.put; token.intConst->tok
+	       // c='''' then token.textConstStart->tok; restart loop
+	       // c=':' then token.colon->tok
+	       // c=';' then token.semicolon->tok
+	       // c='-' then token.fragmentStart->tok; restart loop
+	       // c='[' then token.fragblock->tok; restart loop
+	       // c->ascii.isSpace then restart loop
+	       else 'Unknown character!'->error; restart loop
+	     if);
+	if)
+     #);
+   (if tok
+     // token.textConstBackslash
+     // token.textConstStart then
+	'Unfinished string constant!'->error;
+	token.eos->tok
+     // token.fragmentStart then
+	token.eos->tok
+   if);
+exit tok
+#)

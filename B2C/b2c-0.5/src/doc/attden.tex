@@ -1,0 +1,39 @@
+In the last chapter, we have seen, how the compiler treats the
+static or definitory aspects of BETA.  This chapter now
+describes, how the compiler handles references to the defined
+patterns, objects or variables.  As all declarations are
+called ``attributes'' in BETA, references to such declarations
+are called ``attribute denotations''.
+
+\section{Types of Attribute Denotations}
+Probably the most common attribute denotation is a variable,
+object or pattern directly denotated by its name:
+\begin{quote}\begin{verbatim}(# x,y,z: @integer
+do x+y->z
+#);
+person: (# name,adress: @text #);
+student: person
+  (# studentID: @integer; subject: @text #);
+\end{verbatim}\end{quote}
+In this example, we see several attribute denotations.  Some
+specify a type (like \cq{integer} or \cq{text}), some denote
+variables (as in the expression \cqq{x+y->z}) or specify a
+pattern's superpattern.
+
+This is not the only possible attribute denotation.  Another
+common case is called ``remote'', where an attribute is denoted
+as ``{\it object\/}{\tt .}{\it name\/}''.  Here, {\it name\/}
+must be a name declared in the pattern that defines {\it
+object\/}.  The BETA language as described in the BETA book also
+allows to use remotes of the type ``{\it pattern\/}{\tt .}{\it
+name\/}''.  This has not yet been implemented in the compiler.
+
+Remotes may be nested, as in ``{\tt {\it object1\/}.{\it
+object2\/}.{\it object3\/}.{\it name\/}}''.
+
+A special case of remote is the ``computed remote'', where a BETA
+evaluation computes the {\it object\/} of a remote at run time.
+See section \ref{comprem} to see, how they have been implemented.
+
+Further types of attribute denotations are indexes into
+repetitions and the construct \cqq{THIS({\it Object\/})}.

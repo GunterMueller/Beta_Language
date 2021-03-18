@@ -1,0 +1,278 @@
+ORIGIN 'parser';
+INCLUDE 'fragment';
+INCLUDE 'slot';
+INCLUDE 'attden';
+INCLUDE 'attributebitch';
+INCLUDE 'attributelib';
+INCLUDE 'objectdesc';
+INCLUDE 'evaluationlib';
+INCLUDE 'imperative';
+INCLUDE 'evaluationimp';
+INCLUDE 'innerimp';
+INCLUDE 'virt/decl';
+INCLUDE 'ad/backlevel';
+INCLUDE 'ad/nameapl';
+INCLUDE 'ad/indexed';
+INCLUDE 'att/pvariable';
+INCLUDE 'imp/generalif';
+INCLUDE 'imp/labelled';
+INCLUDE 'imp/leave';
+INCLUDE 'imp/simpleif';
+INCLUDE '~beta/sysutils/current/objinterface';
+
+--- ParserInit: DoPart ---
+do
+   ( 0,PushNone##)->install2beta0;
+   ( 1,AddName##)->install2beta0;
+   ( 2,AddAttribute##)->install2beta0;
+   ( 3,AddImperative##)->install2beta0;
+   ( 4,AddEvaluation##)->install2beta0;
+   ( 5,CreateObjectDescriptor##)->install2beta0;
+   ( 6,CreateNoEnterObjectDescriptor##)->install2beta0;
+   ( 7,CreatePatternDecl##)->install2beta0;
+   ( 8,CreateEvalList##)->install2beta0;
+   ( 9,CreateAssignmentEvaluation##)->install2beta0;
+   (10,CreatePlusExp##)->install2beta0;
+   (11,CreateMinusExp##)->install2beta0;
+   (12,CreateTimesExp##)->install2beta0;
+   (13,CreateRealDivExp##)->install2beta0;
+   (14,CreateIntDivExp##)->install2beta0;
+   (15,CreateModExp##)->install2beta0;
+   (16,CreateAndExp##)->install2beta0;
+   (17,CreateOrExp##)->install2beta0;
+   (18,CreateXorExp##)->install2beta0;
+   (19,CreateNotExp##)->install2beta0;
+   (20,CreateNoneExp##)->install2beta0;
+   (21,CreateUnaryPlusExp##)->install2beta0;
+   (22,CreateUnaryMinusExp##)->install2beta0;
+   (23,CreateEvaluationImp##)->install2beta0;
+   (24,CreateObjectReference##)->install2beta0;
+   (25,CreateStructureReference##)->install2beta0;
+   (26,CreateEqExp##)->install2beta0;
+   (27,CreateNeExp##)->install2beta0;
+   (28,CreateLtExp##)->install2beta0;
+   (29,CreateLeExp##)->install2beta0;
+   (30,CreateGtExp##)->install2beta0;
+   (31,CreateGeExp##)->install2beta0;
+   (32,CreateIndexed##)->install2beta0;
+   (33,CreateRepetitionSlice##)->install2beta0;
+   (34,CreatePatternVariableDecl##)->install2beta0;
+   (35,CreateAlternative##)->install2beta0;
+   (36,CreateCaseSelection##)->install2beta0;
+   (37,AddAlternative##)->install2beta0;
+   (38,AddSelection##)->install2beta0;
+
+   ( 1,CreateName##)->install2beta1;
+   ( 2,CreateNameApl##)->install2beta1;
+   ( 3,CreateRemote##)->install2beta1;
+   ( 4,CreateSimpleDecl##)->install2beta1;
+   ( 5,CreateVirtualDecl##)->install2beta1;
+   ( 6,CreateInnerImp##)->install2beta1;
+   ( 7,CreateIntegerConst##)->install2beta1;
+   ( 8,CreateRealConst##)->install2beta1;
+   ( 9,CreateObjectEvaluation##)->install2beta1;
+   (10,CreateRepetitionDecl##)->install2beta1;
+   (11,CreateSimpleIfImp##)->install2beta1;
+   (12,CreateLeaveImp##)->install2beta1;
+   (13,CreateRestartImp##)->install2beta1;
+   (14,CreateLabelledImp##)->install2beta1;
+   (15,CreateStringConst##)->install2beta1;
+   (16,CreateThisObject##)->install2beta1;
+   (17,CreateGeneralIfImp##)->install2beta1;
+
+   (1,CreateFragment##)->install2beta2;
+   (2,CreateSlot##)->install2beta2;
+
+
+--- ParserLib: Attributes ---
+(* fragments and slots *)
+CreateFragment: parser2beta2
+  (# f: ^Fragment; t: @text;
+  do
+     (if arg2=0 then firstFragName->t else arg2->cstring->t; if);
+     (if arg1
+       // 0 then t->&ObjectDescriptorFragment->f[]
+       // 1 then t->&AttributeFragment->f[]
+       // 2 then t->&DoPartFragment->f[]
+     if);
+     pop->f.frag[];
+     frags->f.next[];
+     f[]->frags;
+  #);
+CreateSlot: parser2beta2
+  (# t: @text
+  do
+     arg2->cstring->t;
+     (if arg1
+       // 0 then t->&ObjectDescriptorSlot->push
+       // 1 then t->&AttributeSlot->push
+       // 2 then t->&DoPartSlot->push
+     if);
+  #);
+PushNone: parser2beta0 (# do NONE->push #);
+
+
+(* object descriptors *)
+CreateObjectDescriptor: parser2beta0
+  (# prefix, prtenter, prtdo, prtexit: ^BETAterm; att,att2: ^Attribute
+  do
+     pop->prtexit[];
+     pop->prtdo[];
+     pop->prtenter[];
+     (if (pop->att[]->att2[])<>NONE then
+	loop: (if att2.next[]<>NONE then att2.next[]->att2[]; restart loop if);
+        pop->att2.next[];
+     else
+        pop->att[];
+     if);
+     pop->prefix[];
+     (prefix[],att[],prtenter[],prtdo[],prtexit[])->&ObjectDescriptor->push
+  #);
+CreateNoEnterObjectDescriptor: parser2beta0
+  (# prefix, prtdo, prtexit: ^BETAterm; att: ^Attribute
+  do
+     pop->prtexit[];
+     pop->prtdo[];
+     pop->att[];
+     pop->prefix[];
+     (prefix[],att[],NONE,prtdo[],prtexit[])->&ObjectDescriptor->push
+  #);
+
+
+(* Attributes *)
+CreatePatternDecl: parser2beta0
+  (# od: ^ObjectDescriptor
+  do pop->od[]; (pop, od[])->&PatternDecl->push
+  #);
+CreateVirtualDecl: parser2beta1
+  (# os: ^ObjectSpecification
+  do pop->os[]; (pop, os[], arg1)->&VirtualDecl->push
+  #);
+CreateSimpleDecl: parser2beta1
+  (# os: ^ObjectSpecification
+  do pop->os[]; (pop, os[], arg1)->&SimpleDecl->push
+  #);
+CreateRepetitionDecl: parser2beta1
+  (# os: ^ObjectSpecification; ev: ^Evaluation
+  do pop->os[]; pop->ev[]; (pop, os[], arg1, ev[])->&RepetitionDecl->push
+  #);
+CreatePatternVariableDecl: parser2beta0
+  (# ad: ^AttributeDenotation
+  do pop->ad[]; (pop, ad[])->&PatternVariableDecl->push
+  #);
+AddAttribute: parser2beta0
+  (# a,b: ^Attribute
+  do
+     (if (pop->a[]->b[])<>NONE then
+	loop: (if b.next[]<>NONE then b.next[]->b[]; restart loop if);
+        pop->b.next[];
+	a[]->push
+     if)
+  #);
+
+
+(* Subpatterns of Evaluation *)
+CreateIntegerConst: parser2beta1 (# do arg1->&IntegerConst->push #);
+CreateRealConst: parser2beta1 (# do arg1->cstring->&RealConst->push #);
+CreateStringConst: parser2beta1 (# do arg1->cstring->&StringConst->push #);
+CreateRepetitionSlice: parser2beta0
+  (# from,to: ^Evaluation
+  do pop->to[]; pop->from[]; (pop,from[],to[])->&RepetitionSlice->push
+  #);
+CreateAssignmentEvaluation: parser2beta0
+  (# rs: ^Transaction do pop->rs[]; (pop,rs[])->&AssignmentEvaluation->push #);
+CreateEqExp: parser2beta0
+  (# rs: ^Expression do pop->rs[]; (pop,rs[])->&EqExp->push #);
+CreateNeExp: parser2beta0
+  (# rs: ^Expression do pop->rs[]; (pop,rs[])->&NeExp->push #);
+CreateLtExp: parser2beta0
+  (# rs: ^Expression do pop->rs[]; (pop,rs[])->&LtExp->push #);
+CreateLeExp: parser2beta0
+  (# rs: ^Expression do pop->rs[]; (pop,rs[])->&LeExp->push #);
+CreateGtExp: parser2beta0
+  (# rs: ^Expression do pop->rs[]; (pop,rs[])->&GtExp->push #);
+CreateGeExp: parser2beta0
+  (# rs: ^Expression do pop->rs[]; (pop,rs[])->&GeExp->push #);
+CreatePlusExp: parser2beta0
+  (# rs: ^Expression do pop->rs[]; (pop,rs[])->&PlusExp->push #);
+CreateMinusExp: parser2beta0
+  (# rs: ^Expression do pop->rs[]; (pop,rs[])->&MinusExp->push #);
+CreateTimesExp: parser2beta0
+  (# rs: ^Expression do pop->rs[]; (pop,rs[])->&TimesExp->push #);
+CreateRealDivExp: parser2beta0
+  (# rs: ^Expression do pop->rs[]; (pop,rs[])->&RealDivExp->push #);
+CreateIntDivExp: parser2beta0
+  (# rs: ^Expression do pop->rs[]; (pop,rs[])->&IntDivExp->push #);
+CreateModExp: parser2beta0
+  (# rs: ^Expression do pop->rs[]; (pop,rs[])->&ModExp->push #);
+CreateAndExp: parser2beta0
+  (# rs: ^Expression do pop->rs[]; (pop,rs[])->&AndExp->push #);
+CreateOrExp: parser2beta0
+  (# rs: ^Expression do pop->rs[]; (pop,rs[])->&OrExp->push #);
+CreateXorExp: parser2beta0
+  (# rs: ^Expression do pop->rs[]; (pop,rs[])->&XorExp->push #);
+CreateNotExp: parser2beta0 (# do pop->&NotExp->push #);
+CreateNoneExp: parser2beta0 (# do &NoneExp->push #);
+CreateUnaryPlusExp: parser2beta0 (# do pop->&UnaryPlusExp->push #);
+CreateUnaryMinusExp: parser2beta0 (# do pop->&UnaryMinusExp->push #);
+CreateEvalList: parser2beta0 (# do pop->&EvalList->push #);
+CreateObjectEvaluation: parser2beta1
+  (# do (pop,arg1)->&ObjectEvaluation->push #);
+CreateObjectReference: parser2beta0 (# do pop->&ObjectReference->push #);
+CreateStructureReference: parser2beta0 (# do pop->&StructureReference->push #);
+AddEvaluation: parser2beta0
+  (# ev: ^Evaluation
+  do (if (pop->ev[])<>NONE then pop->ev.next[]; ev[]->push if)
+  #);
+
+
+(* Imperatives *)
+CreateEvaluationImp: parser2beta0 (# do pop->&EvaluationImp->push #);
+CreateInnerImp: parser2beta1 (# do arg1->cstring->&InnerImp->push #);
+CreateSimpleIfImp: parser2beta1
+  (# thenpart,elsepart: ^Imperative
+  do
+     (if arg1<>0 then pop->elsepart[] if);
+     pop->thenpart[];
+     (pop,thenpart[],elsepart[])->&SimpleIfImp->push
+  #);
+CreateGeneralIfImp: parser2beta1
+  (# elsepart: ^Imperative; alt: ^Alternative
+  do
+     (if arg1<>0 then pop->elsepart[] if);
+     pop->alt[];
+     (pop,alt[],elsepart[])->&GeneralIfImp->push
+  #);
+CreateAlternative: parser2beta0
+  (# imp: ^Imperative do pop->imp[]; (pop,imp[])->&Alternative->push #);
+AddAlternative: parser2beta0
+  (# alt: ^Alternative
+  do (if (pop->alt[])<>NONE then pop->alt.next[]; alt[]->push if)
+  #);
+CreateCaseSelection: parser2beta0 (# do pop->&CaseSelection->push #);
+AddSelection: parser2beta0
+  (# sel: ^CaseSelection
+  do (if (pop->sel[])<>NONE then pop->sel.next[]; sel[]->push if)
+  #);
+CreateLeaveImp: parser2beta1 (# do arg1->cstring->&LeaveImp->push #);
+CreateRestartImp: parser2beta1 (# do arg1->cstring->&RestartImp->push #);
+CreateLabelledImp: parser2beta1
+  (# do (arg1->cstring,pop)->&LabelledImp->push #);
+AddImperative: parser2beta0
+  (# imp: ^Imperative
+  do (if (pop->imp[])<>NONE then pop->imp.next[]; imp[]->push if)
+  #);
+
+
+(* Names *)
+CreateName: parser2beta1 (# do arg1->cstring->&Name->push #);
+AddName: parser2beta0
+  (# na: ^Name do (if (pop->na[])<>NONE then pop->na.next[]; na[]->push if) #);
+
+
+(* attribute denotations *)
+CreateNameApl: parser2beta1 (# do arg1->cstring->&NameApl->push #);
+CreateRemote: parser2beta1 (# do (arg1->cstring, pop)->&Remote->push #);
+CreateIndexed: parser2beta0
+  (# ev: ^Evaluation do pop->ev[]; (pop,ev[])->&Indexed->push #);
+CreateThisObject: parser2beta1 (# do arg1->cstring->&ThisObject->push #);

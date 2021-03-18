@@ -1,0 +1,67 @@
+(* FILE aex7.gb*)
+-- betaenv:descriptor --
+(# 
+   loop:
+     (# _while:< boolean
+     do (if _while then INNER; restart loop if)
+     #);
+   
+   file: (* an artificial file with two lines of text! *)
+     (# name: @string;
+        count: @integer;
+        eof: (# exit count=2 #);
+        openRead: (# do 0->count #);
+        getLine: 
+          (# s: @string 
+          do (if count+1->count // 1 then 'one'->s // 2 then 'two'->s if)
+          exit s
+          #)
+     #);
+   list: (* an artificial singleton list *)
+     (# element:< object;
+        init: object;
+        theElement: ^element;
+        scan: (# current: ^element do theElement[]->current[]; INNER #)
+     #);
+   
+   myfile: @file;
+   mylist: @list(# element::string #);
+   
+   (* define the iterator interface *)
+   iterator: (# theLine: @string do INNER #);
+   
+   (* define concrete iterators *)
+   fileIterator: iterator
+     (# do loop
+        (# _while::(# do not myfile.eof->value #) 
+        do myfile.getLine->theLine;
+           INNER fileIterator
+        #)
+     #);
+   listIterator: iterator
+     (# do mylist.scan
+        (# do current->this(listIterator).theLine;
+           INNER listIterator
+        #)
+     #);
+   inputIterator: iterator
+     (# do loop
+        (# _while::(# do (theLine<>'quit')->value #)
+        do stdio->theLine; INNER inputIterator
+        #)
+     #);
+   
+   linePrinter:
+     (# anIterator: ##iterator
+     enter anIterator##
+     do anIterator(# do theLine+'\n'->stdio #)
+     #);
+do
+   'somename'->myfile.name;
+   myfile.openRead;
+   mylist.init; 'a string'->&mylist.theElement;
+   fileIterator##->linePrinter;
+   listIterator##->linePrinter;
+   'Type strings and [ENTER].  Type "quit" to quit\n'->stdio;
+   inputIterator##->linePrinter
+#)

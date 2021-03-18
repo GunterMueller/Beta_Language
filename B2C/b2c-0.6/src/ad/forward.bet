@@ -1,0 +1,12 @@
+ORIGIN '../attden';
+BODY 'forwardbody';
+--- CompilerLib: Attributes ---
+(* "normal" AttributeDenotation, where specification goes from global
+ * to detail.  Most Denotations are like this, while a few, like
+ * Backlevel, have to be treated specially *)
+ForwardDenotation: AttributeDenotation
+  (#
+     type::< ForwardDenotation;
+     copy::< (# <<SLOT ForwardDenotationCopy: DoPart>> #);
+  do INNER
+  #);

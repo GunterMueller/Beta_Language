@@ -1,0 +1,88 @@
+ORIGIN 'decl';
+INCLUDE '../attributebitch';
+INCLUDE '../ctype';
+INCLUDE '../namebitch';
+INCLUDE '../objectdesc';
+INCLUDE '../ad/bitch';
+--- AttributePtrCheckFollow: DoPart ---
+do
+   (if el##<=VirtualDecl## then
+      (# vd: ^VirtualDecl do el[]->vd[]; vd.assign #)
+   if);
+   (if not(el##<=PatternOrVirtualDecl##) then
+      el.resolve;
+      (if el.checkFollow then true->value if)
+   if)
+
+
+--- AttributePtrCheckComplete: ObjectDescriptor ---
+iterate
+  (#
+  do
+     (if el##<=PatternOrVirtualDecl## then el.resolve; el.checkFollow if);
+     el.checkComplete
+  #)
+
+
+--- VirtualDeclLib: Attributes ---
+assign:
+  (# vd: ^VirtualDecl
+  do
+     (if type>0 then
+        vprefix.resolve;
+        (if ((vprefix.att.att[]->vd[])<>NONE) then vd.vtindx->vtindx if);
+     if);
+     (vtindx,this(VirtualDecl)[]->vp)->encl.private.vm.set->vtindx;
+  #);
+
+
+--- VirtualDeclTryPrefix: DoPart ---
+do NONE->vd[]; (if type>0 then vprefix.tryResolve; vprefix.att.att[]->vd[] if)
+
+
+--- VirtualDeclCheckName: DoPart ---
+do
+   (if (od[]<>NONE) and (type>0) then
+      (if od.private.prefix[]=NONE then vprefix[]->od.private.prefix[] if)
+   if)
+
+
+--- VirtualDeclCheckFollow: DoPart ---
+do
+   (if os.checkFollow then true->value if);
+   (if od[]=NONE then os.getod->od[] if);
+   (if type>0 then
+      vprefix.resolve;
+
+      (* test, that vprefix actually appears in the Superpattern list of od *)
+      cv: (if (vprefix.att.att[]<>NONE) then
+	 (if (od[]<>NONE) then
+	    od.ScanSuper
+	      (# do (if current[]=vprefix.att.att.od[] then leave cv if) #);
+	    'This pattern is not a subpattern of the preceeding virtual declaration!'->os.error;
+	 if)
+      if);
+   if);
+
+   (if od[]<>NONE then
+      (if od.private.sd[]<>NONE then
+	 'You cannot use special descriptors in a virtual declaration!'
+	   ->od.error
+      if);
+      (* !!! decide, if this check is needed or not
+      (if od.isslot then
+	 'You cannot use a slot in a virtual declaration!'->od.error
+      if);
+      *)
+   if)
+
+
+--- VirtualDeclCheckComplete: DoPart ---
+do vp.setVirtname
+
+
+--- VirtualDeclGetcexpr: DoPart ---
+do
+   'pattern->virt'->t.append;
+   vtindx->t.putint;
+   ctype_genfunction->ctype;

@@ -1,0 +1,182 @@
+
+
+
+
+
+
+
+<HTML>
+<HEAD><TITLE>gbeta Tutorial:: Co-routines</TITLE></HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF"
+  LINK="#0000FF" VLINK="#800080" ALINK="#FF00FF">
+<TABLE WIDTH="100%">
+<TR><TD ALIGN="right">
+<TABLE><TR ALIGN="center">
+  <TD><A HREF="tutorial_index9.html" TARGET="display"><IMG SRC="left.gif"></A></TD>
+  <TD><A HREF="tutorial_index11.html" TARGET="display"><IMG SRC="right.gif"></A></TD>
+</TR></TABLE></TD></TR>
+<TR><TD ALIGN="left"><H1>Tutorial: Co-routines</H1></TD></TR>
+</TABLE>
+<P><HR></P>
+<TABLE><TR><TD WIDTH="25%">&nbsp;</TD><TD WIDTH="50%">
+
+<P>
+Co-routine sequencing is sometimes considered as a "poor mans
+concurrency."  This is hardly fair, since there is a trade off between
+the need for concurrency control and the flexibility in
+synchronization.  Co-routines represent the trade-off where
+synchronization is simple, since "almost everything is a critical
+region."  Using concurrency makes it harder to ensure correct sharing
+of data, but on the other hand it its sometimes easier to ensure
+progress in the program as a whole, because some thread will run as
+long as any thread can do anything.  
+</P>
+
+<P>
+In both cases, the modeling relation sometimes strongly suggests that
+alternating (co-routine) sequencing or concurrent sequencing is the
+natural approach to take.  After all, the world <EM>is</EM> massively
+concurrent!  On the other hand, it gets more complicated, or at least
+less customary, for the programmer to understand what is going on.
+</P>
+
+<H3>How does it look?</H3>
+<P>
+Both to get co-routine sequencing and concurrent sequencing,
+the notion of <I>component</I> is needed.  A traditional BETA
+syntax for expressing this is the <CODE>"|"</CODE> marker, e.g.:
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>&lt;Names&gt; ":" "@" "|" &lt;Merge&gt;</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+This syntax has been preserved in <B>gbeta</B>, even though it has been
+reinterpreted.  The full set of declarations was listed 
+<A HREF="tutorial_index3.html" TARGET="display">earlier</A>, and they all include the <CODE>"|"</CODE>. 
+</P>
+
+<P>
+In traditional BETA, the concept of component is at the same level as
+the concept of object, i.e. objects and components are fundamentally
+different things.  In <B>gbeta</B>, the notion of component has been
+subordinated the notion of types, and the component properties
+(notably the posession of an execution stack) is associated with a 
+<A HREF="tutorial_index16.html" TARGET="display">basic pattern</A> called <CODE>component</CODE>.  The
+<CODE>"|"</CODE> marker is reinterpreted as a type constraint which
+ensures that <CODE>component</CODE> is present.
+</P>
+
+<H3>Example 8</H3>
+<P>
+As an example, we take a very famous algorithm which demonstrates that
+co-routines is sometimes the most natural expression of alternating
+processes, a slight variation of the version from 
+<A HREF="tutorial_index1.html" TARGET="display"><I>Object-Oriented Programming in the BETA Programming Language</I></A>:
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE><SMALL>
+(* FILE ex8.gb *)
+-- betaenv:descriptor --
+(# 
+   cycle: (# do INNER; restart cycle #);
+   getch: 
+     (# s: @string 
+     do stdio-&gt;s; (if s.length=0 then SUSPEND (* kill *) if)
+     exit 1-&gt;s.at 
+     #);
+   symmetricCoroutineSystem:
+     (# symmetricCoroutine: component
+          (# resume:&lt; 
+               (# 
+               do this(symmetricCoroutine)[]-&gt;next[];
+                  SUSPEND
+               #)
+          do INNER
+          #);
+        next: ^symmetricCoroutine;
+        run: cycle
+          (# active: ^symmetricCoroutine (* currently running *)
+          enter next[]
+          do (if (next[]-&gt;active[])=NONE then 
+                 leave Run
+             if);
+             NONE-&gt;next[];
+             active; (* attach next component *)
+             (* active 'SUSPEND'ed, 'Resumed', or terminated *)
+          #)
+     do INNER
+     #);
+   converter: @symmetricCoroutineSystem
+     (# doubleA2B: @symmetricCoroutine
+          (# ch: @char
+          do cycle
+             (# 
+             do getch-&gt;ch;
+                (if ch='a' then 
+                    getch-&gt;ch;
+                    (if ch='a' then 'b'-&gt;doubleB2C.resume else
+                        'a'-&gt;doubleB2C.resume;
+                        ch-&gt;doubleB2C.resume
+                    if)
+                 else
+                    ch-&gt;doubleB2C.resume
+                if)
+             #)
+          #);
+        doubleB2C: @symmetricCoroutine
+          (# ch: @char;
+             resume::(# enter ch #)
+          do cycle
+             (#
+             do (if ch
+                 // 'b' then 
+                    doubleA2B.resume;
+                    (if ch='b' then 'c'-&gt;stdio else
+                        'b'-&gt;stdio;
+                        ch-&gt;stdio
+                    if)
+                 // '\n' then 
+                    SUSPEND
+                 else
+                    ch-&gt;stdio
+                if);
+                doubleA2B.resume
+             #)
+          #)
+     do doubleA2B[]-&gt;run
+     #)
+do 
+   'Enter one character + [ENTER] at a time; empty input quits;\n'-&gt;stdio;
+   'on the fly, "aa" becomes "b" and "bb" becomes "c".\n\n'-&gt;stdio;
+   converter
+#)</PRE></TD></TR>
+  </TABLE>
+</P>
+</P>
+
+<P>
+Naturally, the <A HREF="tutorial_index11.html" TARGET="display">next</A> topic is concurrency. 
+</P>
+
+</TD><TD WIDTH="20%">&nbsp;</TD></TR></TABLE>
+<P><HR></P>
+<SMALL>
+  <I>
+    <CENTER>
+      <STRONG>Signed by: </STRONG>
+      <A HREF="mailto:eernst@cs.auc.dk">eernst@cs.auc.dk</A>.
+      Last Modified:  3-Jul-01
+<BR>
+    </CENTER>
+  </I>
+</SMALL>
+</BODY>
+</HTML>
+

@@ -1,0 +1,14 @@
+Differences between b2c and Mjolner BETA system (incomplete list!):
+
+Compiler:
+
+
+
+BETAenv basic library:
+- text.copy of b2c will set the copied text's stream position to the
+  same as the original, while Mjolner sets it to the end.
+- text.sub of b2c will set the copied text's stream position to the
+  same character, if possible, as the original, while Mjolner sets it
+  to the end of the new text.
+
+- Exception handling.

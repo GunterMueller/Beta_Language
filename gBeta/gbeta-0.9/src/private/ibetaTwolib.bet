@@ -1,0 +1,530 @@
+(* FILE "./private/ibetaTwolib.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaTwolib.bet,v 1.39 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN '../ibetaTwo';
+INCLUDE 'basicinterplib';
+INCLUDE 'ibetaTransientlib';
+BODY 'ibetaTwolibbody'
+
+(************************************************************* 
+ *                                                           * 
+ *                 l2ReferenceSpecification                  *
+ *                                                           * 
+ *************************************************************)
+
+-- ReferenceSpecificationLib:attributes --
+
+localStaticType:
+  (# stype: ^staticType;                (* Never NONE *)
+     position: @runtimePath             (* Analysis starts here! *)
+  <<SLOT ReferenceSpecificationLocalType:dopart>>
+  exit stype[]
+  #)
+
+(************************************************************* 
+ *                                                           * 
+ *                      l2AttributeDecl                      *
+ *                                                           * 
+ *************************************************************)
+
+-- AttributeDeclLib:attributes --
+
+getTheNameDcl:
+  (* Extract _the_ name of this decl; if the decl specifies
+   * more than one name, 'staticError' is invoked *)
+  (# l2ndcl: ^l2NameDcl                 (* Never NONE *)
+  <<SLOT AttributeDeclGetTheNameDcl:dopart>>
+  exit l2ndcl[]
+  #)
+
+(************************************************************* 
+ *                                                           * 
+ *                          l2VDecl                          *
+ *                                                           * 
+ *************************************************************)
+
+-- InterpreterBaseLib:attributes --
+
+virtualChain: list
+  (# <<SLOT VirtualChainLib:attributes>>;
+     print: printBase
+       (# element_nl: @boolean
+       enter element_nl
+       <<SLOT VirtualChainPrint:dopart>> 
+       #);
+     observe: observeBase(# <<SLOT VirtualChainObserve:dopart>> #);
+     insert: 
+       (# l2vdcl: ^l2VDecl
+       enter l2vdcl[]
+       <<SLOT VirtualChainInsert:dopart>>
+       #);
+     isSublist: booleanValue
+       (* returns true iff 'other' is a sublist of this virtual chain *)
+       (# other: ^virtualChain;
+          myPos: ^theCellType
+       enter other[]
+       <<SLOT VirtualChainIsSublist:dopart>>
+       #);
+     isFinal: (# exit hasFinalDecl #);
+     checkShape: 
+       (* Check that this virtual chain is well-formed; if it is 
+        * not, invoke a static error on the given 'usageAst' *)
+       (# usageAst: ^l2AstNode          (* Used for diagnostics *)
+       enter usageAst[]
+       <<SLOT VirtualChainCheckShape:dopart>>
+       #);
+     init::(# exit this(virtualChain)[] #);
+     element::l2VDecl;
+     (* private *)
+     hasFinalDecl: @boolean
+  #)
+
+-- VDeclLib:attributes --
+
+gatherVirtualChain:
+  (* Deliver the chain (list) of virtual declarations 
+   * associated with this one *)
+  (# sptype: ^staticPatternType;
+     vchain: ^virtualChain
+  enter sptype[]
+  <<SLOT VDeclGatherVirtualChain:dopart>>
+  exit vchain[]
+  #)
+
+(************************************************************ 
+ *                                                          * 
+ *                     l2EvaluationList                     * 
+ *                                                          * 
+ ************************************************************)
+
+-- EvaluationListLib:attributes --
+
+getOCPByTransient:
+  (* A special remark is needed on 'errorAst' and 'generatingAst' 
+   * here: 'errorAst' is used during error handling and it 
+   * should be a piece of syntax that is suitable to present 
+   * to the user when the evaluation list produces anything other 
+   * than one object reference (e.g., the empty list, or two 
+   * integers, etc.); the reason why we cannot use this(evallist)
+   * in error messages is that an l2EvaluationList is not an 
+   * l2AstNode.  On the other hand, 'generatingAst' is used as
+   * the identity of the resulting temporary static substance - 
+   * so it should be kept distinct from other ast nodes used
+   * as the identity af a temporary *)
+  (# errorAst: ^l2AstNode;		(* Never NONE *)
+     context: ^staticContext;		(* Never NONE *)
+     world: ^staticContextDB;		(* Never NONE *)
+     usageAst: ^l2AstNode;		(* Used for diagnostics *)
+     generatingAst: ^l2AstNode;		(* Static identity of tmp.object *)
+     stocp: ^staticOCP			(* Never NONE *)
+  enter (errorAst[],context[],world[],usageAst[],generatingAst[])
+  <<SLOT EvaluationListGetOCPByTransient:dopart>>
+  exit stocp[]
+  #);
+
+localOCPByTransient:
+  (# l2ast: ^l2AstNode;			(* Never NONE *)
+     generatingAst: ^l2AstNode;		(* Static identity of tmp.object *)
+     usageAst: ^l2AstNode;		(* Used for diagnostics *)
+     stocp: ^staticOCP			(* Never NONE *)
+  enter (l2ast[],usageAst[],generatingAst[])
+  <<SLOT EvaluationListLocalOCPByTransient:dopart>>
+  exit stocp[]
+  #);
+
+execute:
+  (# thrd: ^thread;                     (* Current thread of execution *)
+     unwind: ##stackUnwinder;
+     dContext: ^substanceSlice
+  enter (thrd[],unwind##,dContext[])
+  <<SLOT EvaluationListExecute:dopart>>
+  #);
+
+getEnterIter: syntaxCreateEnterIter
+  (# <<SLOT EvaluationListGetEnterIter:dopart>> #);
+
+getExitIter: syntaxCreateExitIter
+  (# <<SLOT EvaluationListGetExitIter:dopart>> #);
+
+getEnterExitIter: syntaxCreateEnterExitIter
+  (# <<SLOT EvaluationListGetEnterExitIter:dopart>> #)
+
+(*********************************************************** 
+ *                                                         * 
+ *                          l2Imp                          *
+ *                                                         * 
+ ***********************************************************)
+
+-- ScopeSpecImpLib:attributes --
+
+bindNames: 
+  (# position: @runtimePath             (* Analysis starts here! *)
+  <<SLOT ScopeSpecImpBindNames:dopart>> 
+  #)
+
+-- GeneralIfImpLib:attributes --
+
+TransientList: list(# element::l0Transient #)
+
+(************************************************************
+ *                                                          *
+ *                       l2Expression                       *
+ *                                                          *
+ ************************************************************)
+
+-- ExpressionLib:attributes --
+
+wrapSingletonStaticTransient:
+  (* Given a static transient, ensure that it it enclosed 
+   * in one outermost static sublist transient *)
+  (# stran: ^staticTransient;
+     sstran: ^staticSublistTransient
+  enter stran[]
+  <<SLOT ExpressionWrapSingletonStaticTransient:dopart>>
+  exit sstran[]
+  #)
+
+(************************************************************ 
+ *                                                          * 
+ *                    l2FinalStaticItem                     * 
+ *                                                          * 
+ ************************************************************)
+
+-- FinalStaticItemLib:attributes --
+
+getVirtualDecl:
+  (# l2vsit: ^l2VirtualStaticItem
+  <<SLOT FinalStaticItemGetVirtualDecl:dopart>>
+  exit l2vsit[]
+  #)
+
+(************************************************************ 
+ *                                                          * 
+ *                        l2UnaryExp                        * 
+ *                                                          * 
+ ************************************************************)
+
+-- UnaryExpGetExitLib:attributes --
+
+unaryExit: exitOnce
+  (# <<SLOT UnaryExitLib:attributes>>;
+     context:< textValue; (* name of operation *)
+     l0trOp: ^l0Transient; (* transient value to operate on *)
+     sub_xi: ^exitIterator;
+     prepare::(# <<SLOT UnaryExitPrepare:dopart>> #);
+     cleanup::(# <<SLOT UnaryExitCleanUp:dopart>> #)
+  <<SLOT UnaryExit:dopart>>
+  #)
+
+(************************************************************ 
+ *                                                          * 
+ *                         l2BinExp                         * 
+ *                                                          * 
+ ************************************************************)
+
+-- BinExpGetExitLib:attributes --
+
+binaryExit: exitOnce
+  (# <<SLOT BinaryExitLib:attributes>>;
+     context:< textValue; (* name of operation *)
+     getThrd:<
+       (# value: ^thread                (* thread which created this iter *)
+       do INNER
+       exit value[]
+       #);
+     l0tr1,l0tr2: ^l0Transient;         (* transient values to operate on *)
+     sub_xi1,sub_xi2: ^exitIterator;
+     prepare::(# <<SLOT BinaryExitPrepare:dopart>> #);
+     cleanup::(# <<SLOT BinaryExitCleanUp:dopart>> #)
+  <<SLOT BinaryExit:dopart>>
+  #);
+
+binaryExitCoerceArith:  binaryExit(# <<SLOT BinaryExitCoerceArith:dopart>> #);
+binaryExitCoerceMod:    binaryExit(# <<SLOT BinaryExitCoerceMod:dopart>> #);
+binaryExitCoerceRDiv:   binaryExit(# <<SLOT BinaryExitCoerceRDiv:dopart>> #);
+binaryExitCoerceEqNEq:  binaryExit(# <<SLOT BinaryExitCoerceEqNEq:dopart>> #);
+binaryExitCoerceUnEq:   binaryExit(# <<SLOT BinaryExitCoerceUnEq:dopart>> #);
+binaryExitCoerceAndOr:  binaryExit(# <<SLOT BinaryExitCoerceAndOr:dopart>> #)
+
+(************************************************************
+ *                                                          *
+ *                       l2Reference                        *
+ *                                                          *
+ ************************************************************)
+
+-- ReferenceLib:attributes --
+
+obtainObject:
+  (# thrd: ^thread;                     (* Current thread of execution *)
+     unwind: ##stackUnwinder;           (* Never NONE *)
+     dContext: ^substanceSlice;         (* Never NONE *)
+     renew: @boolean;
+     l1obj: ^l1ObjectEntity             (* Never NONE *)
+  enter (thrd[],unwind##,dContext[],renew)
+  <<SLOT ReferenceObtainObject:dopart>>
+  exit l1obj[]
+  #)
+
+(***********************************************************
+ *                                                         *
+ *                    l2RepetitionSlice                    *
+ *                                                         *
+ ***********************************************************)
+
+-- RepetitionSliceLib:attributes --
+
+getIterBase:
+  (# thrd: ^thread;
+     unwind: ##stackUnwinder;
+     stsub: ^staticSubstance;
+     world: ^staticContextDB;
+     dContext: ^substanceSlice;
+     aden_ent: ^l1Entity;
+     l1rep: ^l1RepetitionEntity;
+     sContext: ^staticContext;
+     rep_stsub: ^staticSubstance;
+     l0tri: ^l0TransientInteger;
+     lowIndex,highIndex: @integer
+  enter (thrd[],unwind##,stsub[],world[],dContext[])
+  <<SLOT RepetitionSliceGetIterBase:dopart>>
+  #)
+
+(************************************************************
+ *                                                          *
+ *                  Byte Code and Coercion                  *
+ *                                                          *
+ ************************************************************)
+
+-- EvaluationLib:attributes --
+
+binCoerceBase:
+  (# fail: (# <<SLOT BinCoerceBaseFail:dopart>> #);
+     program: ^betaByteCodeList;
+     insPos: ^betaByteCode;
+     leftSTran,rightSTran,resultSTran: ^staticTransient;
+  enter (program[],insPos[],leftSTran[],rightSTran[])
+  do INNER
+  exit resultSTran[]
+  #);
+
+binEqCoerce: binCoerceBase
+  (* Coercion for relational operators like "=" and "<>".
+   * 
+   *   "=" means coercion not needed
+   *   "*" means coercion impossible
+   *   "<type>" means coercion arrives here for both
+   * 
+   *      | bool | char | int  | real | str  | str1 | oref | ptn  | none  
+   * --------------------------------------------------------------------
+   * bool |  =   |  *   |  *   |  *   |  *   |  *   |  *   |  *   |  *
+   * --------------------------------------------------------------------
+   * char |  *   |  =   | int  |  *   | str  | char |  *   |  *   |  *
+   * --------------------------------------------------------------------
+   * int  |  *   | int  |  =   | real |  *   | int  |  *   |  *   |  *
+   * --------------------------------------------------------------------
+   * real |  *   |  *   | real |  =   |  *   |  *   |  *   |  *   |  *
+   * --------------------------------------------------------------------
+   * str  |  *   | str  |  *   |  *   |  =   | str  |  *   |  *   |  *
+   * --------------------------------------------------------------------
+   * str1 |  *   | char | int  |  *   | str  |  =   |  *   |  *   |  *
+   * --------------------------------------------------------------------
+   * oref |  *   |  *   |  *   |  *   |  *   |  *   |  =   |  *   | oref
+   * --------------------------------------------------------------------
+   * ptn  |  *   |  *   |  *   |  *   |  *   |  *   |  *   |  =   | ptn
+   * --------------------------------------------------------------------
+   * none |  *   |  *   |  *   |  *   |  *   |  *   | oref | ptn  |  =
+   * --------------------------------------------------------------------
+   * 
+   * The implementation deals with the cases in a left-to-right then
+   * top-to-bottom manner.  Note that we cannot simplify the code 
+   * significantly by using the fact that this table is symmetric, 
+   * because of little differences in the generated code--because the 
+   * operands are located in different positions on the stack
+   *)
+  (# <<SLOT BinEqCoerce:dopart>> #);
+
+binInEqCoerce: binCoerceBase
+  (* Coercion for relational operators like "<" and ">=".
+   * 
+   *   "=" means coercion not needed
+   *   "*" means coercion impossible
+   *   "<type>" means coercion arrives here for both
+   * 
+   *      | bool | char | int  | real | str  | str1 | ptn
+   * ------------------------------------------------------
+   * bool |  =   |  *   |  *   |  *   |  *   |  *   |  *   
+   * ------------------------------------------------------
+   * char |  *   |  =   | int  |  *   | str  | char |  *   
+   * ------------------------------------------------------
+   * int  |  *   | int  |  =   | real |  *   | int  |  *   
+   * ------------------------------------------------------
+   * real |  *   |  *   | real |  =   |  *   |  *   |  *   
+   * ------------------------------------------------------
+   * str  |  *   | str  |  *   |  *   |  =   | str  |  *   
+   * ------------------------------------------------------
+   * str1 |  *   | char | int  |  *   | str  |  =   |  *   
+   * ------------------------------------------------------
+   * ptn  |  *   |  *   |  *   |  *   |  *   |  *   |  =   
+   * ------------------------------------------------------
+   * 
+   * The implementation deals with the cases in a left-to-right then
+   * top-to-bottom manner.  Note that we cannot simplify the code 
+   * significantly by using the fact that this table is symmetric, 
+   * because of little differences in the generated code--because the 
+   * operands are located in different positions on the stack
+   *)
+  (# <<SLOT BinInEqCoerce:dopart>> #);
+
+binPlusCoerce: binCoerceBase
+  (* Coercion for operator "+".
+   * 
+   *   "=" means coercion not needed
+   *   "*" means coercion impossible
+   *   "<type>" means coercion arrives here for both
+   * 
+   *      | char | int  | real | str  | str1 
+   * ----------------------------------------
+   * char | int  | int  |  *   | str  | int  
+   * ----------------------------------------
+   * int  | int  |  =   | real |  *   | int  
+   * ----------------------------------------
+   * real |  *   | real |  =   |  *   |  *   
+   * ----------------------------------------
+   * str  | str  |  *   |  *   |  =   | str
+   * ----------------------------------------
+   * str1 | int  | int  |  *   | str  | int
+   * 
+   * The implementation deals with the cases in a left-to-right then
+   * top-to-bottom manner.  Note that we cannot simplify the code 
+   * significantly by using the fact that this table is symmetric, 
+   * because of little differences in the generated code--because the 
+   * operands are located in different positions on the stack
+   *)
+  (# <<SLOT BinPlusCoerce:dopart>> #);
+
+binArithCoerce: binCoerceBase
+  (* Coercion for operators "-", "*", "div".
+   * 
+   *   "=" means coercion not needed
+   *   "*" means coercion impossible
+   *   "<type>" means coercion arrives here for both
+   * 
+   *      | char | int  | real | str1 
+   * ---------------------------------
+   * char | int  | int  |  *   | int  
+   * ---------------------------------
+   * int  | int  |  =   | real | int  
+   * ---------------------------------
+   * real |  *   | real |  =   |  *   
+   * ---------------------------------
+   * str1 | int  | int  |  *   | int
+   * 
+   * The implementation deals with the cases in a left-to-right then
+   * top-to-bottom manner.  Note that we cannot simplify the code 
+   * significantly by using the fact that this table is symmetric, 
+   * because of little differences in the generated code--because the 
+   * operands are located in different positions on the stack
+   *)
+  (# <<SLOT BinArithCoerce:dopart>> #);
+
+binModCoerce: binCoerceBase
+  (* Coercion for operator "mod".
+   * 
+   *   "=" means coercion not needed
+   *   "*" means coercion impossible
+   *   "<type>" means coercion arrives here for both
+   * 
+   *      | char | int  | str1 
+   * --------------------------
+   * char | int  | int  | int  
+   * --------------------------
+   * int  | int  |  =   | int  
+   * --------------------------
+   * str1 | int  | int  | int
+   * 
+   * The implementation deals with the cases in a left-to-right then
+   * top-to-bottom manner.  Note that we cannot simplify the code 
+   * significantly by using the fact that this table is symmetric, 
+   * because of little differences in the generated code--because the 
+   * operands are located in different positions on the stack
+   *)
+  (# <<SLOT BinModCoerce:dopart>> #);
+
+binRDivCoerce: binCoerceBase
+  (* Coercion for operator "/".
+   * 
+   *   "=" means coercion not needed
+   *   "*" means coercion impossible
+   *   "<type>" means coercion arrives here for both
+   * 
+   *      | char | int  | real | str1 
+   * ---------------------------------
+   * char | real | real |  *   | real 
+   * ---------------------------------
+   * int  | real | real | real | real 
+   * ---------------------------------
+   * real |  *   | real |  =   |  *   
+   * ---------------------------------
+   * str1 | real | real |  *   | real
+   * 
+   * The implementation deals with the cases in a left-to-right then
+   * top-to-bottom manner.  Note that we cannot simplify the code 
+   * significantly by using the fact that this table is symmetric, 
+   * because of little differences in the generated code--because the 
+   * operands are located in different positions on the stack
+   *)
+  (# <<SLOT BinRDivCoerce:dopart>> #);
+
+binBoolCoerce: binCoerceBase
+  (* Coercion for boolean operators "or", "and", "xor".
+   * 
+   *      | bool 
+   * ------------
+   * bool | bool 
+   * ------------
+   * 
+   * The implementation simply checks that the 
+   * operands are actually boolean values, it
+   * never coerces anything
+   *)
+  (# <<SLOT BinBoolCoerce:dopart>> #)
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

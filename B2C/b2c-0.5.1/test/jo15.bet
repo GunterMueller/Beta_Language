@@ -1,0 +1,95 @@
+ORIGIN '../basiclib/v1.4/betaenv';
+INCLUDE 'put5';
+--- program: ObjectDescriptor ---
+(#
+   point:
+     (# x,y: @integer; print: (# do (40,53+x,44,43+y,41)->put5; 10->put #);
+     enter (x,y)
+     do x-5->x; y+5->y; INNER
+     exit (x,y)
+     #);
+   t1,t2: @text;
+   extrapoint: point (# #);
+   p1,p2: ^point;
+   r0: [1] @Integer;
+   r1: [1] @Integer;
+   r2,r3: [x] ^point;
+   r4: [1] ^extrapoint;
+   x: (# a: @integer do 5->a exit a #);
+   xx: (# a: @integer do 4->a exit a #);
+   five: (# exit 1+4 #);
+   cute: (# p: @r3[&xx].print do p #);
+   so: (# p: @r3[five].print do p #);
+   c: @integer;
+   taker: [1] ^cute;
+do
+   r1.range+64->c->put;
+   r2.range+64->c->put;
+   33->r1[1];
+   r1[1]->put;
+   &point[]->r2[1][]->p1[];
+   &point[]->p2[];
+   (10,23)->r2[1];
+   (r2[1].x+r2[1].y)->put;
+   &point[]->r2[x][];
+   (102,10)->r2[x];
+   r2[2+3].x->put;
+   10->p1.x;
+   20->p1.y;
+   p1->p2;
+   10->put;
+   &point[]->r3[1][];
+   &point[]->r3[2][];
+   &point[]->r3[3][];
+   &point[]->r3[4][];
+   &extrapoint[]->r3[5][];
+   (1,1)->r3[1];
+   (2,2)->r3[2];
+   (3,3)->r3[3];
+   (4,4)->r3[xx];
+   (5,5)->r3[5];
+   r3[2].print;
+   1->r3.extend;
+   &so;
+   cute;
+   (r3[6][]<>NONE)+48->put;
+   44->put;
+   r3.range+48->put;
+   10->put;
+   r3[5][]->r4[1][];
+   r4->r3;
+   r3->r4;
+   r3.range+48->put;
+   10->put;
+   1->r0[1];
+   r0->r1;
+   r4[r1[1]].print;
+   49->t1.put;
+   t1[]->puttext;
+   10->put;
+   50->t1.put;
+   t1->t2;
+   51->t2.put;
+   58->t2.put;
+   t2.length->t2.putint;
+   10->t2.put;
+   t2[]->puttext;
+   -1234567890->putint;
+   10->put;
+
+   1000->taker.extend;
+   1000->taker.extend;
+   1000->taker.extend;
+   1000->taker.extend;
+
+   50->t1.put;
+   t1->t2;
+   51->t2.put;
+   58->t2.put;
+   t2.length->t2.putint;
+   10->t2.put;
+   t2[]->puttext;
+   -1234567890->putint;
+   10->put;
+ 
+#)

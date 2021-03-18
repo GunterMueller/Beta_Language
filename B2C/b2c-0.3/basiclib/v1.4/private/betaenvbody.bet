@@ -1,0 +1,18 @@
+ORIGIN '../betaenv';
+--- BetaenvStop: DoPart ---
+do
+   (if msg[]<>NONE then msg[]->putline if);
+   (if why=failureTrace then
+      'Sorry, cannot generate stack traces yet!'->putline
+   if);
+   (if why=normal then 0->doexit if);
+   1->doexit;
+
+
+--- BetaenvException: DoPart ---
+do
+   failureTrace->termCode;
+   INNER;
+   (if not continue then
+      '\nBETA runtime EXCEPTION:\n'->msg.prepend; (termCode, msg[])->stop
+   if);

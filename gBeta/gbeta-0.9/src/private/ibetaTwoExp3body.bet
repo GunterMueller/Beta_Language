@@ -1,0 +1,1824 @@
+(* FILE "./private/ibetaTwoExp3body.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaTwoExp3body.bet,v 1.19 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN 'ibetaTwobody';
+INCLUDE 'ibetaCommonlib';
+INCLUDE 'ibetaTwolib';
+INCLUDE 'ibetaOnelib';
+INCLUDE 'ibetaSlicelib'
+
+(************************************************************* 
+ *                                                           * 
+ *                     l2ObjectReference                     * 
+ *                                                           * 
+ *************************************************************)
+
+-- ObjectReferencePrint:dopart --
+do
+   (dest[],indentation,false)->Reference.print;
+   '[]'->output
+
+-- ObjectReferenceScanImpl:dopart --
+do
+   (preCB[],postCB[])->Reference.scanImpl
+
+-- ObjectReferenceGetTranOut:dopart -- 
+do
+   (* !! should we do some coercion here? 
+    * What if the static substance has a wrong type? *)
+   (# stsub: ^staticSubstance;
+      stocp: ^staticOCP;
+      strep: ^staticRepetition
+   do (context[],world[],this(l2ObjectReference)[])
+        ->Reference.getStaticSubstance
+        ->stsub[];
+      (if true 
+       // stsub##<=staticRepetition## then 
+          stsub[]->strep[];
+          (strep.pathTo[],strep.RepetitionDecl[],true
+          ,strep.stocp.sptype[]->(&staticORefTransient[]).init,false)
+            ->(&staticRepeatedTransient[]).init
+            ->stran[]
+          
+       // stsub##<=staticOCP## then
+          stsub[]->stocp[];
+          stocp.sptype[]
+            ->(&staticORefTransient[]).init
+            ->stran[]
+       else
+          (# msg: ^text
+          do 'Attempt to obtain a reference to '->msg[];
+             (stsub.typename).withIndefArticle->msg.puttext;
+             (msg[]
+             ,'Use an object, an object reference, or a repetition'
+             ,this(l2ObjectReference)[])->staticError
+          #)
+      if)
+   #)
+
+-- ObjectReferenceGetTranIn:dopart --
+do
+   (# fail:
+        (# stsub: ^staticSubstance; msg: ^text
+        enter stsub[]
+        do 'Attempt to use '->msg[];
+           (stsub.typename).withIndefArticle->msg.puttext;
+           ' for reference assignment'->msg.puttext;
+           (msg[]
+           ,'Use a dynamic object reference or a repetition of references'
+           ,this(l2ObjectReference)[])->staticError
+        #);
+      stsub: ^staticSubstance;
+      strep: ^staticRepetition;
+      stocp: ^staticOCP;
+      qual: ^staticPatternType;
+      qualExact: @boolean
+   do (if Reference##<=l2ComputedObjectEvaluation## then 
+          (* a computed object evaluation delivers an anonymous 
+           * object reference, so we cannot assign it (it would 
+           * be "the reference equivalent of 5->a+b") *)
+          ('Attempt to reference assign to a computed object evaluation'
+          ,'Use an object denotation or a dynamic object generation'
+          ,this(l2ObjectReference)[])->staticError
+      if);
+      (context[],world[],this(l2ObjectReference)[])
+        ->Reference.getStaticSubstance
+        ->stsub[];
+      (if true 
+       // stsub##<=staticRepetition## then 
+          stsub[]->strep[];
+          (* make sure that the receiving repetition is dynamic *)
+          (if strep.stocp.sptype.kind<>objectRefTypeKind then
+              ('Reference-assignment to repetition of objects'
+              ,'Use a repetition of dynamic references'
+              ,this(l2ObjectReference)[])->staticError
+          if);
+          (* construct the static info about the value accepted *)
+          (strep.pathTo[]
+          ,strep.RepetitionDecl[]
+          ,true
+          ,(strep.pathTo[],strep.qual[],strep.qualExact)
+            ->(&staticOQuaTransient[]).init
+          ,false)
+            ->(&staticRepeatedTransient[]).init
+            ->stran[]
+       // stsub##<=staticOCP## then
+          stsub[]->stocp[];
+          (if stocp.sptype.kind=objectRefTypeKind then
+              (context[],world[],this(l2ObjectReference)[])
+                ->Reference.getStaticQuaType
+                ->(qual[],qualExact);
+              (stocp.pathTo[],qual[],qualExact)
+                ->(&staticOQuaTransient[]).init
+                ->stran[]
+           else
+              stsub[]->fail
+          if)
+       else
+          stsub[]->fail
+      if)
+   #)
+
+-- ObjectReferenceGetCplr:dopart --
+do
+   &exeCompiler
+   (# generate::
+        (# sptype: ^staticPatternType
+        do (context[],world[],usageAst[],program[],cInfo[],true,false)
+             ->Reference.generateGetObject
+             ->sptype[];
+           ('ibetaTwoExp3body.bet/159',sptype[]->(&staticORefTransient[]).init)
+             ->(&discardCode[]).init
+             ->program.append
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- ObjectReferenceGetEnterCplr:dopart --
+do
+   (* reference assignment *)
+   (if true
+    // Reference##<=l2RepetitionSlice## then 
+       (* repeated reference assignment, "r: [10] ^text; do ..->r[2:4][]" *)
+       (# l2rsli: ^l2RepetitionSlice;
+          ref_stsub: ^staticSubstance;
+          l2oden: ^l2ObjectDenotation;
+          strep: ^staticRepetition
+       do Reference[]->l2rsli[];
+          (context[],world[],this(l2ObjectReference)[])
+            ->l2rsli.getStaticSubstance
+            ->ref_stsub[];
+          (if true 
+           // ref_stsub##<=staticRepetition## then 
+              ref_stsub[]->strep[];
+              &enterOnceCompiler
+              (# generate::
+                   (# rep_stran: ^staticRepeatedTransient
+                   do (strep.pathTo[],strep.RepetitionDecl[],true
+                      ,(strep.pathTo[],strep.qual[],strep.qualExact)
+                        ->(&staticOQuaTransient[]).init
+                      ,false)
+                        ->(&staticRepeatedTransient[]).init
+                        ->rep_stran[];
+                      (* adjust *)
+                      l2rsli.Low[]->rep_stran.lo[];
+                      l2rsli.High[]->rep_stran.hi[];
+                      context.pathTo[]->rep_stran.boundsPathTo[];
+                      (* deliver *)
+                      rep_stran[]->stran[];
+                   #)
+              #)[]->nc[];
+              (&staticIntegerTransient[]).init
+                ->l2rsli.Low.exitSTran[]
+                ->l2rsli.High.exitSTran[]
+           else
+              (# msg: ^text
+              do 'Attempt to obtain a repetition slice from '->msg[];
+                 (context.typename).withIndefArticle->msg.puttext;
+                 (msg[]
+                 ,'Use a repetition as \'R\' in \'R[_:_]\''
+                 ,this(l2ObjectReference)[])->staticError
+              #)
+          if)
+       #)
+       
+    // Reference##<=l2ComputedObjectEvaluation## then
+       (* something like "..->factory![]" -- not supported: the "!" 
+        * and "[]" would cancel each other out and we would have 
+        * an ordinary ref. assignment (to the obj.ref in the relevant
+        * exit list) or we would have a genuinely computed object 
+        * and then we could not expect to find the attribute: so it 
+        * is silly or impossible.. *)
+       ('Attempt to ref-assign to a computed object evaluation ("..->x![]")'
+       ,'Use an object reference for reference assignment'
+       ,usageAst[])->staticError
+       
+    // Reference##<=l2ObjectDenotation## then 
+       (* e.g. "..->l2ast.scope[]" *)
+       (# ref_stsub: ^staticSubstance;
+          strep: ^staticRepetition
+       do (context[],world[],this(l2ObjectReference)[])
+            ->Reference.getStaticSubstance
+            ->ref_stsub[];
+          (if true 
+           // ref_stsub##<=staticRepetition## then
+              (* reference evaluation of rep, "r: [10] @text do ..->r[].." *)
+              ref_stsub[]->strep[];
+              &enterOnceCompiler
+              (# generate::
+                   (# do (strep.pathTo[],strep.RepetitionDecl[],true
+                      ,(strep.pathTo[],strep.qual[],strep.qualExact)
+                        ->(&staticOQuaTransient[]).init
+                      ,false)
+                        ->(&staticRepeatedTransient[]).init
+                        ->stran[]
+                   #)
+              #)[]->nc[]
+              
+           // ref_stsub##<=staticOCP## then
+              &enterOnceCompiler
+              (# generate::
+                   (# qual: ^staticPatternType;
+                      qualExact: @boolean
+                   do (context[],world[],this(l2ObjectReference)[]
+                      ,program[],cInfo[])
+                        ->Reference.generatePutObject
+                        ->(qual[],qualExact);
+                      (ref_stsub.pathTo[],qual[],qualExact)
+                        ->(&staticOQuaTransient[]).init
+                        ->stran[]
+                   #)
+              #)[]->nc[] 
+              
+           else
+              (# msg: ^text
+              do 'Attempt to obtain a reference to '->msg[];
+                 (context.typename).withIndefArticle->msg.puttext;
+                 (msg[]
+                 ,'Use an object, an object reference, or a repetition'
+                 ,this(l2ObjectReference)[])->staticError
+              #)
+          if)
+       #)
+       
+    // Reference##<=l2DynamicItemGeneration## then 
+       (* this is "..->&p[]", and we do not support 
+        * that; what should it mean?!? *)
+       ('Attempt to reference-assign a dynamic item generation'
+       ,'Use an object reference or a repetition'
+       ,this(l2ObjectReference)[])->staticError
+       
+    // Reference##<=l2DynamicComponentGeneration## then 
+       (* this is "..->&|p[]", and we do not support 
+        * that; what should it mean?!? *)
+       ('Attempt to reference-assign a dynamic component generation'
+       ,'Use an object reference or a repetition'
+       ,this(l2ObjectReference)[])->staticError
+       
+    else
+       'Unexpected kind of reference'
+         ->internalError
+   if)
+
+-- ObjectReferenceGetExitCplr:dopart --
+do
+   (* obtaining an object reference from "something" *)
+   (if true
+    // Reference##<=l2RepetitionSlice## then 
+       (* something like "r: [10] @text do r[a:b][]->.." *)
+       (# l2rsli: ^l2RepetitionSlice;
+          ref_stsub: ^staticSubstance;
+          l2oden: ^l2ObjectDenotation;
+          strep: ^staticRepetition
+       do Reference[]->l2rsli[];
+          (context[],world[],this(l2ObjectReference)[])
+            ->l2rsli.getStaticSubstance
+            ->ref_stsub[];
+          (if true 
+           // ref_stsub##<=staticRepetition## then 
+              ref_stsub[]->strep[];
+              &exitOnceCompiler
+              (# generate::
+                   (# rep_stran: ^staticRepeatedTransient
+                   do (strep.pathTo[],strep.RepetitionDecl[],true
+                      ,strep.stocp.sptype[]->(&staticORefTransient[]).init
+                      ,false)
+                        ->(&staticRepeatedTransient[]).init
+                        ->rep_stran[];
+                      (* adjust *)
+                      l2rsli.Low[]->rep_stran.lo[];
+                      l2rsli.High[]->rep_stran.hi[];
+                      context.pathTo[]->rep_stran.boundsPathTo[];
+                      (* deliver *)
+                      rep_stran[]->stran[];
+                   #)
+              #)[]->xc[];
+              (&staticIntegerTransient[]).init
+                ->l2rsli.Low.exitSTran[]
+                ->l2rsli.High.exitSTran[]
+           else
+              (# msg: ^text
+              do 'Attempt to obtain a repetition slice from '->msg[];
+                 (context.typename).withIndefArticle->msg.puttext;
+                 (msg[]
+                 ,'Use a repetition as \'R\' in \'R[_:_]\''
+                 ,this(l2ObjectReference)[])->staticError
+              #)
+          if)
+       #)
+       
+    // Reference##<=l2ComputedObjectEvaluation## then 
+       (* used in places like "factory![]->.."; this looks 
+        * complicated but is trivial since "!" and "[]" and
+        * cancel out each other; we might decide that it is
+        * too silly, but it is not hard so we just do it *)
+       (# l2coev: ^l2ComputedObjectEvaluation
+       do Reference[]->l2coev[];
+          (context[],world[],usageAst[])
+            ->l2coev.Reference.getExitCompiler
+            ->xc[]
+       #)
+       
+    // Reference##<=l2ObjectDenotation## then 
+       (# ref_stsub: ^staticSubstance;
+          l2oden: ^l2ObjectDenotation;
+          strep: ^staticRepetition
+       do (context[],world[],this(l2ObjectReference)[])
+            ->Reference.getStaticSubstance
+            ->ref_stsub[];
+          (if true 
+           // ref_stsub##<=staticRepetition## then 
+              (* reference evaluation of rep, "r: [10] @text do r[]->.." *)
+              ref_stsub[]->strep[];
+              &exitOnceCompiler
+              (# generate::
+                   (# do (strep.pathTo[],strep.RepetitionDecl[],true
+                      ,strep.stocp.sptype[]->(&staticORefTransient[]).init
+                      ,false)
+                        ->(&staticRepeatedTransient[]).init
+                        ->stran[]
+                   #)
+              #)[]->xc[]
+
+           // ref_stsub##<=staticOCP## then
+              Reference[]->l2oden[];
+              &exitOnceCompiler
+              (# generate::
+                   (# do (context[],world[],usageAst[]
+                      ,program[],cInfo[],true,false)
+                        ->l2oden.ObjectSpecifications.generateGetObject
+                        ->(&staticORefTransient[]).init
+                        ->stran[]
+                   #)
+              #)[]->xc[]
+              
+           else
+              (# msg: ^text
+              do 'Attempt to obtain a reference to '->msg[];
+                 (context.typename).withIndefArticle->msg.puttext;
+                 (msg[]
+                 ,'Use an object, an object reference, or a repetition'
+                 ,this(l2ObjectReference)[])->staticError
+              #)
+          if)
+       #)
+       
+    // Reference##<=l2DynamicItemGeneration## then 
+       (* "&z[]->.."; create/renew and deliver ref., but do not execute *)
+       (# l2digen: ^l2DynamicItemGeneration
+       do Reference[]->l2digen[];
+          &exitOnceCompiler
+          (# generate::
+               (# do (context[],world[],usageAst[],program[],cInfo[],true,true)
+                    ->l2digen.ObjectSpecifications.generateGetObject
+                    ->(&staticORefTransient[]).init
+                    ->stran[]
+               #)
+          #)[]->xc[]
+       #)
+       
+    // Reference##<=l2DynamicComponentGeneration## then 
+       (* "&|p[]->.."; create and deliver ref., do not execute; 
+        * not that renew is not supported here since "|p" is an
+        * (implicit) pattern merge, so "p" is coerced to a ptn *)
+       &exitOnceCompiler
+       (# generate::
+            (# l2dcgen: ^l2DynamicComponentGeneration;
+               stsub: ^staticSubstance;
+               stocp: ^staticOCP;
+               sptype: ^staticPatternType
+            do Reference[]->l2dcgen[];
+               (context[],world[],usageAst[],program[],cInfo[],true)
+                 ->l2dcgen.ObjectSpecifications.generateGetPattern
+                 ->sptype[];
+               'ibetaTwoExp3body.bet/346'
+                 ->(&ensureComponentCode[]).init
+                 ->program.append;
+               sptype.copy->sptype[];
+               sptype.prefixWithComponent;
+               'ibetaTwoExp3body.bet/349'
+                 ->(&createObjectCode[]).init
+                 ->program.append;
+               (objectTypeKind,usageAst[])
+                 ->sptype.coerce
+                 ->(&staticORefTransient[]).init
+                 ->stran[];
+               (* TYPE_COERCION: obtained an object as an instance 
+                * of a pattern.  The pattern of the object will 
+                * then be exactly the same pattern as the one which 
+                * was instantiated; no need to adjust 
+                * staticallyKnown[Bottom] here *)
+            #)
+       #)[]->xc[]
+       
+    else
+       'Unexpected kind of reference'
+         ->internalError
+   if)
+
+-- ObjectReferenceGetEnterExitCplr:dopart --
+do
+   (if true
+    // Reference##<=l2RepetitionSlice## then 
+       (* repeated reference transfer, "r: [10] ^text; do ..->r[2:4][]->" *)
+       (# l2rsli: ^l2RepetitionSlice;
+          srtype: ^staticRepetitionType
+       do Reference[]->l2rsli[];
+          l2rsli.AttributeDenotation.localStaticType->srtype[];
+          (if srtype.entryType.kind
+           // objectTypeKind // objectRefTypeKind then
+              (* no temporaries, so independent enter/exit cplr.s will work *)
+              (context[],world[],usageAst[],false)->getEnterCompiler->nc[];
+              (context[],world[],usageAst[])->getExitCompiler->xc[]
+           else
+              (* temps. needed; independent generation of cplr.s incorrect *)
+              'ibetaTwoExp3body.bet/491'->notyet; (* !!! *)
+          if)
+       #)
+       
+    // Reference##<=l2ComputedObjectEvaluation## then
+       (* see comment for similar case with the enter compiler *)
+       ('Attempt to ref-assign-then-eval to a comp.obj.eval. ("..->x![]->..")'
+       ,'Use an object reference when reference assignment is involved'
+       ,usageAst[])->staticError
+       
+    // Reference##<=l2ObjectDenotation## then 
+       (* e.g. "..->mytext[]->.." *)
+       (# fail:
+            (# stsub: ^staticSubstance; msg: ^text
+            enter stsub[]
+            do 'Attempt to use '->msg[];
+               (stsub.typename).withIndefArticle->msg.puttext;
+               ' for reference transfer (->x[]->)'->msg.puttext;
+               (msg[]
+               ,'Use a dynamic object reference or a repetition of references'
+               ,this(l2ObjectReference)[])->staticError
+            #);
+          ref_stsub: ^staticSubstance;
+          strep: ^staticRepetition;
+          stocp: ^staticOCP
+       do 
+          (context[],world[],this(l2ObjectReference)[])
+            ->Reference.getStaticSubstance
+            ->ref_stsub[];
+          (if true 
+           // ref_stsub##<=staticRepetition## then 
+              ref_stsub[]->strep[];
+              (* make sure that the receiving repetition is dynamic *)
+              (if strep.stocp.sptype.kind<>objectRefTypeKind then 
+                  ('Reference-assignment to repetition of objects'
+                  ,'Use a repetition of dynamic references'
+                  ,this(l2ObjectReference)[])->staticError
+              if);
+              (* construct the compiler for accepting an assigned
+               * rep.ref and delivering again, '..->R[]->..' *)
+              'ibetaTwoExp3body.bet/430'->notyet; (* !!! *)
+          
+           // ref_stsub##<=staticOCP## then
+              ref_stsub[]->stocp[];
+              (if stocp.sptype.kind=objectRefTypeKind then
+                  (* construct a compiler for accepting an assigned o.ref *)
+                  &enterOnceCompiler
+                  (# generate::
+                       (# qual: ^staticPatternType;
+                          qualExact: @boolean
+                       do (context[],world[]
+                          ,usageAst[],program[],cInfo[])
+                            ->Reference.generatePutObject
+                            ->(qual[],qualExact);
+                          (stocp.pathTo[],qual[],qualExact)
+                            ->(&staticOQuaTransient[]).init
+                            ->stran[]
+                       #)
+                  #)[]->nc[];
+                  &exitOnceCompiler
+                  (# generate::
+                       (# do (context[],world[]
+                          ,usageAst[],program[],cInfo[],true,false)
+                            ->Reference.generateGetObject
+                            ->(&staticORefTransient[]).init
+                            ->stran[]
+                       #)
+                  #)[]->xc[]
+               else
+                  context[]->fail
+              if)
+           else
+              context[]->fail
+          if)
+       #)
+       
+    // Reference##<=l2DynamicItemGeneration## then 
+       (* this is "..->&p[]", and we do not support 
+        * that; what should it mean?!? *)
+       ('Attempt to reference-assign a dynamic item generation'
+       ,'Use an object reference or a repetition'
+       ,this(l2ObjectReference)[])->staticError
+       
+    // Reference##<=l2DynamicComponentGeneration## then 
+       (* this is "..->&|p[]", and we do not support 
+        * that; what should it mean?!? *)
+       ('Attempt to reference-assign a dynamic component generation'
+       ,'Use an object reference or a repetition'
+       ,this(l2ObjectReference)[])->staticError
+       
+    else
+       'Unexpected kind of reference'
+         ->internalError
+   if)
+
+-- ObjectReferenceClosureExecute:dopart --
+do
+   (* just get hold of and then ignore the denoted object; 
+    * this may e.g. create an object from a pattern giving
+    * some desired side-effects *)
+   (thrd[],unwind##,dContext[],false)
+     ->Reference.obtainObjectRef
+
+-- ObjectReferenceGetEnterIter:dopart --
+do
+   (# l2oden: ^l2ObjectDenotation;
+      l2rsli: ^l2RepetitionSlice;
+      l1ent: ^l1Entity;
+      l1oref: ^l1ObjectRefEntity;
+      l1rep: ^l1RepetitionEntity
+   do 
+      (* obtain the object reference that we should assign to *)
+      (if true 
+       // Reference##<=l2ObjectDenotation## then 
+          Reference[]->l2oden[];
+          (thrd[],unwind##,dContext[])
+            ->l2oden.ObjectSpecifications.lookup
+            ->l1ent[];
+          (if true 
+           // l1ent##<=l1ObjectRefEntity## then 
+              l1ent[]->l1oref[];
+              (* deliver an iterator that will assign to it *)
+              &enterOnce
+              (# l0tror: ^l0TransientObjectRef
+              do (if true 
+                  // l0tr##<=l0TransientObjectRef## then 
+                     l0tr[]->l0tror[];
+                     (if l0tror.value[]<>NONE then 
+                         (* check qualifications before assigning *)
+                         (if l1oref.Exact then
+                             (if not ((l0tror).private.pattern[]
+                                   ->l1oref.qual.equal) then 
+                                 ('Qualification error in reference assignment'
+                                 ,thrd[],unwind##)->qualificationError
+                             if)
+                          else
+                             (if not ((l0tror).private.pattern[]
+                                   ->l1oref.qual.lessequal) then 
+                                 ('Qualification error in reference assignment'
+                                 ,thrd[],unwind##)->qualificationError
+                             if)
+                         if)
+                     if); 
+                     l0tror->l1oref.value[]
+                  // l0tr##<=l0TransientNoneRef## then 
+                     NONE->l1oref.value[]
+                  else
+                     'Trying to object-reference-assign with a non-obj-ref'
+                       ->internalError
+                 if)
+              #)[]->ni[];
+              this(l2ObjectReference)[]->ni.usageAst[]
+              
+           // l1ent##<=l1RepetitionEntity## then 
+              l1ent[]->l1rep[];
+              (* deliver an iterator that will do it *)
+              (* NB: this is new syntax for repeated reference assignment! *)
+              &enterOnce
+              (# extractTransient: @
+                   (# other_entry: ^l1Entity;
+                      l0tr: ^l0Transient;
+                      l0tror: ^l0TransientObjectRef;
+                      l1obj: ^l1ObjectEntity;
+                      l1oref: ^l1ObjectRefEntity;
+                      i: @integer
+                   enter i
+                   do 
+                      (thrd[],unwind##,i)->l0trrep.value.get
+                        ->other_entry[];
+                      (if l0trrep.reference then
+                          (* extract an object reference from l0trrep.value *)
+                          (if true
+                           // other_entry##<=l1ObjectEntity## then 
+                              other_entry[]->l1obj[]
+                           // other_entry##<=l1ObjectRefEntity## then 
+                              other_entry[]->l1oref[];
+                              l1oref->l1obj[]
+                           else
+                              'repeated-ref-evaluating rep of non-obj(ref)'
+                                ->internalError
+                          if)
+                       else
+                          (* extract an iterator from l0trrep.value *)
+                          (thrd[],unwind##
+                          ,(thrd[],unwind##,l0trrep.stocp[]
+                          ,l0trrep.world[],l0trrep.usageAst[])
+                            ->other_entry.getExitIter)
+                            ->exitOneValue
+                          (# context::
+                               (# do 'ibetaTwoExp3body.bet/548'->value[] #)
+                          #)->l0tr[];
+                          (if l0tr##<=l0TransientObjectRef## then
+                              l0tr[]->l0tror[];
+                              l0tror->l1obj[]
+                           else
+                              'repetition did not deliver an object reference'
+                                ->internalError
+                          if)
+                      if)
+                   exit l1obj[]
+                   #);
+                 
+                 l0trrep: ^l0TransientRepetition;
+                 my_entry: ^l1Entity;
+                 l1obj: ^l1ObjectEntity;
+                 l1oref: ^l1ObjectRefEntity;
+                 count: @integer
+              do (if true 
+                  // l0tr##<=l0TransientRepetition## then 
+                     l0tr[]->l0trrep[];
+                     (if (l0trrep.high<l0trrep.low) then
+                         (* empty repetition given, empty l1rep too *)
+                         0->l1rep.value.new
+                      else
+                         (* at least one transfer requested *)
+                         
+                         (* renew the entries of l1rep;
+                          * !!! performance alert: we should reuse 
+                          * as many entries as possible *)
+                         (l0trrep.high-l0trrep.low+1)
+                           ->count
+                           ->l1rep.value.new;
+                         (thrd[],unwind##,1,count)->l1rep.renewEntries;
+                         (thrd[],unwind##,1)->l1rep.get->my_entry[];
+                         (* test once and for all that entries are orefs *)
+                         (if not ( my_entry##<=l1ObjectRefEntity## ) then
+                             (* static analysis should have prevented this *)
+                             'reference-assigning to rep of non-orefs'
+                               ->internalError
+                         if);
+                         
+                         (* do the actual repeated ref.assignment *)
+                         (for i:l0trrep.value.value.range repeat
+                              (if (l0trrep.low<=i) and (i<=l0trrep.high) then
+                                  (* within range of elements to evaluate *)
+                                  
+                                  (* drag something out of l0trrep *)
+                                  i->extractTransient->l1obj[];
+                                  (* reference assign it to l1rep *)
+                                  (thrd[],unwind##,i-l0trrep.low+1)
+                                    ->l1rep.get
+                                    ->l1oref[];
+                                  l1obj[]->l1oref
+                               (* else: *)
+                                  (* outside requested range: no action *)
+                              if)
+                         for)
+                     if)
+                  else
+                     'Trying to repeated-reference-assign with non-repetition'
+                       ->internalError
+                 if)
+              #)[]->ni[];
+              this(l2ObjectReference)[]->ni.usageAst[]
+           else
+              'Trying to reference-assign to inappropriate entity'
+                ->internalError
+          if)
+          
+       // Reference##<=l2RepetitionSlice## then
+          Reference[]->l2rsli[];
+          (thrd[],unwind##,stsub[],world[],dContext[])->l2rsli.getIterBase
+          (# 
+          do (* NB: this is new syntax for sliced repeated ref. assignment *)
+             &enterOnce
+             (# extractTransient: @
+                  (# other_entry: ^l1Entity;
+                     l0tr: ^l0Transient;
+                     l0tror: ^l0TransientObjectRef;
+                     l1obj: ^l1ObjectEntity;
+                     l1oref: ^l1ObjectRefEntity;
+                     i: @integer
+                  enter i
+                  do 
+                     (thrd[],unwind##,i)->l0trrep.value.get
+                       ->other_entry[];
+                     (if l0trrep.reference then
+                         (* extract an object reference from l0trrep.value *)
+                         (if true
+                          // other_entry##<=l1ObjectEntity## then 
+                             other_entry[]->l1obj[]
+                          // other_entry##<=l1ObjectRefEntity## then 
+                             other_entry[]->l1oref[];
+                             l1oref->l1obj[]
+                          else
+                             'repeated-ref-evaluating rep of non-obj(ref)'
+                               ->internalError
+                         if)
+                      else
+                         (* extract an iterator from l0trrep.value *)
+                         (thrd[],unwind##
+                         ,(thrd[],unwind##,l0trrep.stocp[]
+                         ,l0trrep.world[],l0trrep.usageAst[])
+                           ->other_entry.getExitIter)
+                           ->exitOneValue
+                         (# context::
+                              (# do 'ibetaTwoExp3body.bet/654'->value[] #)
+                         #)->l0tr[];
+                         (if l0tr##<=l0TransientObjectRef## then
+                             l0tr[]->l0tror[];
+                             l0tror->l1obj[]
+                          else
+                             'repetition did not deliver an object reference'
+                               ->internalError
+                         if)
+                     if)
+                  exit l1obj[]
+                  #);
+                
+                l0trrep: ^l0TransientRepetition;
+                my_entry: ^l1Entity;
+                l1obj: ^l1ObjectEntity;
+                l1oref: ^l1ObjectRefEntity;
+                count: @integer
+             do 
+                (if l0tr##<=l0TransientRepetition## then 
+                    l0tr[]->l0trrep[];
+                    (if (l0trrep.high<l0trrep.low) then
+                        (* empty repetition given: remove dest. slice *)
+                        (if highIndex<lowIndex then 
+                            (* dest. slice already empty, no action *)
+                         else
+                            (* cut out destination slice *)
+                            (# tmp: [l1rep.value.range]^l1Entity;
+                               inx,offset: @integer
+                            do (for i:l1rep.value.range repeat
+                                    l1rep.value[i][]->tmp[i][]
+                               for);
+                               (l1rep.value.range-highIndex+lowIndex-1)
+                                 ->count
+                                 ->l1rep.value.new;
+                               1->inx;
+                               L: (if (inx<lowIndex) and 
+                                      (inx<=l1rep.value.range) then
+                                      tmp[inx][]->l1rep.value[inx][];
+                                      inx+1->inx;
+                                      restart L
+                                  if);
+                               highIndex+1->inx; 
+                               highIndex-lowIndex+1->offset;
+                               L: (if inx<=tmp.range then
+                                      tmp[inx][]->l1rep.value[inx-offset][];
+                                      inx+1->inx;
+                                      restart L
+                                  if)
+                            #)
+                        if)
+                     else
+                        (* at least one transfer requested *)
+                        
+                        (# tmp: [l1rep.value.range]^l1Entity;
+                           inx,oldSliceLen,newSliceLen: @integer
+                        do 
+                           (* save all entries *)
+                           (for i:l1rep.value.range repeat
+                                l1rep.value[i][]->tmp[i][]
+                           for);
+                           
+                           (* compute new length, allocate entries *)
+                           highIndex-lowIndex+1->oldSliceLen;
+                           l0trrep.high-l0trrep.low+1->newSliceLen;
+                           l1rep.value.range-oldSliceLen+newSliceLen
+                             ->l1rep.value.new;
+                           
+                           (* transfer lower segment of entries *)
+                           1->inx;
+                           L: (if (inx<lowIndex) and
+                                  (inx<=l1rep.value.range) then
+                                  tmp[inx][]->l1rep.value[inx][];
+                                  inx+1->inx;
+                                  restart L
+                              if);
+                           
+                           (* transfer upper segment of entries *)
+                           highIndex+1->inx;
+                           L: (if inx<=tmp.range then
+                                  tmp[inx][]->
+                                  l1rep.value[inx-oldSliceLen+newSliceLen][];
+                                  inx+1->inx;
+                                  restart L
+                              if);
+                           
+                           (* prepare target slice *)
+                           (thrd[],unwind##,lowIndex,lowIndex+newSliceLen-1)
+                             ->l1rep.renewEntries;
+                           (thrd[],unwind##,1)
+                             ->l1rep.get
+                             ->my_entry[];
+                           (* test once and for all that entries are orefs *)
+                           (if not ( my_entry##<=l1ObjectRefEntity## ) then
+                               (* static analysis should have prevented this *)
+                               'sliced reference-assigning to rep of non-orefs'
+                                 ->internalError
+                           if);
+                           
+                           (* do the actual repeated ref.assignment *)
+                           (for i:l0trrep.value.value.range repeat
+                                (if (l0trrep.low<=i) and (i<=l0trrep.high) then
+                                    (* within range of elements to evaluate *)
+                                    
+                                    (* drag something out of l0trrep *)
+                                    i->extractTransient->l1obj[];
+                                    (* reference assign it to l1rep *)
+                                    (thrd[],unwind##,i-l0trrep.low+lowIndex)
+                                      ->l1rep.get
+                                      ->l1oref[];
+                                    l1obj[]->l1oref
+                                 (* else: *)
+                                    (* outside requested range: no action *)
+                                if)
+                           for)
+                        #)
+                    if)
+                 else
+                    'Trying to repeated-reference-assign with non-repetition'
+                      ->internalError
+                if)
+             #)[]->ni[];
+             this(l2ObjectReference)[]->ni.usageAst[]
+          #)
+          
+       // Reference##<=l2ComputedObjectEvaluation## then 
+          'Trying to reference assign to a computed object evaluation'
+            ->internalError
+          
+       // Reference##<=l2DynamicItemGeneration## 
+       // Reference##<=l2DynamicComponentGeneration## then 
+          'Trying to object-reference-assign to dynamic generation'
+            ->internalError
+       else
+          'Unexpected kind of reference'
+            ->internalError
+      if)
+   #)
+
+-- ObjectReferenceGetExitIter:dopart --
+do
+   (# l2oden: ^l2ObjectDenotation;
+      l2aden: ^l2AttributeDenotation;
+      l2ditem: ^l2DynamicItemGeneration;
+      l2dcomp: ^l2DynamicComponentGeneration;
+      l2coev: ^l2ComputedObjectEvaluation;
+      l1ent: ^l1Entity;
+      stype: ^staticType;
+      sptype: ^staticPatternType;
+      l1rep: ^l1RepetitionEntity;
+      strep: ^staticRepetition
+   do 
+      (* obtain the object reference that we should evaluate *)
+      (if true
+       // Reference##<=l2ObjectDenotation## then 
+          Reference[]->l2oden[];
+          (* to determine the kind we just need the local static type *)
+          l2oden.ObjectSpecifications.localStaticType->stype[];
+          (if true 
+           // stype##<=staticPatternType## then 
+              (* the objectspecifications denote an object/pattern/ref *)
+              stype[]->sptype[];
+              (if sptype.kind
+               // patternTypeKind 
+               // patternRefTypeKind 
+               // objectTypeKind 
+               // objectRefTypeKind then
+                  (* create an iterator which will deliver a ref to it *)
+                  &exitOnce
+                  (# l0tror: ^l0TransientObjectRef
+                  do &l0TransientObjectRef[]->l0tror[]->l0tr[];
+                     this(l2ObjectReference)[]->l0tr.usageAst[];
+                     (thrd[],unwind##,dContext[],false)
+                       ->Reference.obtainObjectRef
+                       ->l0tror.value[]
+                  #)[]->xi[];
+                  this(l2ObjectReference)[]->xi.usageAst[]
+               else
+                  (# msg: ^text
+                  do 'Attempt to obtain an object reference from '->msg[];
+                     (sptype.kind->typekindname).withIndefArticle
+                       ->msg.puttext;
+                     msg[]->internalError
+                  #)
+              if)
+              
+           // stype##<=staticRepetitionType## then 
+              (* !! many run-time type checks here because we know more
+               * about the object structure than the type system does:
+               * there must be exactly one o.spec. and it must be an a.den. *)
+              (l2oden.ObjectSpecifications.head).elm[]
+                ->l2aden[];
+              (thrd[],unwind##,dContext[])
+                ->l2aden.lookup
+                ->l1rep[];
+              
+              (* deliver an iterator that will do it *)
+              (* NB: this is new syntax for repeated reference evaluation! *)
+              &exitOnce
+              (# l0trrep: ^l0TransientRepetition
+              do &l0TransientRepetition[]->l0trrep[]->l0tr[];
+                 l1rep[]->l0trrep.value[];
+                 1->l0trrep.low;
+                 l1rep.value.range->l0trrep.high;
+                 true->l0trrep.reference;
+                 (stsub[],world[],usageAst[])
+                   ->l2oden.ObjectSpecifications.getStaticSubstance
+                   ->strep[];
+                 (* !!! perhaps we must check for an impossible {!} 
+                  * path in 'stsub', caused by a rep. of pattern vars. *)
+                 strep.stocp[]->l0trrep.stocp[];
+                 world[]->l0trrep.world[];
+                 usageAst[]->l0trrep.usageAst[]
+              #)[]->xi[];
+              this(l2ObjectReference)[]->xi.usageAst[]
+              
+           else
+              (# msg: ^text
+              do 'Trying to reference evaluate '->msg[];
+                 (stype.kind->typekindname).withIndefArticle->msg.puttext;
+                 msg[]->internalError
+              #)
+          if)
+          
+       // Reference##<=l2DynamicItemGeneration## then 
+          Reference[]->l2ditem[];
+          l2ditem.ObjectSpecifications.localStaticType->stype[];
+          (if true 
+           // stype##<=staticPatternType## then 
+              (* the objectspecifications denote an object/pattern/ref *)
+              stype[]->sptype[];
+              (if sptype.kind
+               // patternTypeKind 
+               // patternRefTypeKind 
+               // objectTypeKind 
+               // objectRefTypeKind then
+                  (* create an iterator which will deliver a ref to it *)
+                  &exitOnce
+                  (# l0tror: ^l0TransientObjectRef
+                  do &l0TransientObjectRef[]->l0tror[]->l0tr[];
+                     this(l2ObjectReference)[]->l0tr.usageAst[];
+                     (thrd[],unwind##,dContext[],false)
+                       ->Reference.obtainObjectRef
+                       ->l0tror.value[]
+                  #)[]->xi[];
+                  this(l2ObjectReference)[]->xi.usageAst[]
+               else
+                  (# msg: ^text
+                  do 'Attempt to obtain object reference from '->msg[];
+                     (stype.kind->typekindname).withIndefArticle
+                       ->msg.puttext;
+                     msg[]->internalError
+                  #)
+              if)
+              
+           // stype##<=staticRepetitionType## then 
+              (* !!! as long as we do not have repetitions of 
+               * patterns this is always an error; it should
+               * also be a statically detected error, hence 
+               * an internal error at this point *)
+              'Attempt to dynamically create a new item from a repetition'
+                ->internalError
+              
+           else
+              'Trying to reference-assign to inappropriate entity'
+                ->internalError
+          if)
+          
+       // Reference##<=l2DynamicComponentGeneration## then 
+          Reference[]->l2dcomp[];
+          l2dcomp.ObjectSpecifications.localStaticType->stype[];
+          (if true 
+           // stype##<=staticPatternType## then 
+              (* the objectspecifications denote an object/pattern/ref *)
+              stype[]->sptype[];
+              (if sptype.kind
+               // patternTypeKind 
+               // patternRefTypeKind 
+               // objectTypeKind 
+               // objectRefTypeKind then
+                  (* create an iterator which will deliver a ref to it *)
+                  &exitOnce
+                  (# l0tror: ^l0TransientObjectRef
+                  do &l0TransientObjectRef[]->l0tror[]->l0tr[];
+                     this(l2ObjectReference)[]->l0tr.usageAst[];
+                     (thrd[],unwind##,dContext[],false)
+                       ->Reference.obtainObjectRef
+                       ->l0tror.value[]
+                  #)[]->xi[];
+                  this(l2ObjectReference)[]->xi.usageAst[]
+               else
+                  (# msg: ^text
+                  do 'Attempt to obtain component reference from '->msg[];
+                     (stype.kind->typekindname).withIndefArticle
+                       ->msg.puttext;
+                     msg[]->internalError
+                  #)
+              if)
+              
+           // stype##<=staticRepetitionType## then 
+              (* !!! as long as we do not have repetitions of 
+               * patterns this is always an error; it should
+               * also be a statically detected error, hence 
+               * an internal error at this point *)
+              'Attempt to dynamically create a new component from a repetition'
+                ->internalError
+              
+           else
+              (# msg: ^text
+              do 'Trying to reference-assign to '->msg[];
+                 (stype.kind->typekindname).withIndefArticle
+                   ->msg.puttext;
+                 msg[]->internalError
+              #)
+          if)
+          
+       // Reference##<=l2ComputedObjectEvaluation## then 
+          &exitOnce
+          (# l0tror: ^l0TransientObjectRef
+          do &l0TransientObjectRef[]->l0tror[]->l0tr[];
+             this(l2ObjectReference)[]->l0tr.usageAst[];
+             (thrd[],unwind##,dContext[],false)
+               ->Reference.obtainObjectRef
+               ->l0tror.value[]
+          #)[]->xi[];
+          this(l2ObjectReference)[]->xi.usageAst[]
+          
+       // Reference##<=l2RepetitionSlice## then
+          (# l2rsli: ^l2RepetitionSlice
+          do Reference[]->l2rsli[];
+             (thrd[],unwind##,stsub[],world[],dContext[])
+               ->l2rsli.getIterBase
+             (# 
+             do (* create transient to deliver the selected entries *)
+                &exitIterator
+                (# sub_xi: ^exitIterator;
+                   l0trrep: ^l0TransientRepetition;
+                   prepare::
+                     (# do (thrd[],unwind##,rep_stsub[],world[],usageAst[])
+                          ->l1rep.getExitIter
+                          ->sub_xi[];
+                        sub_xi.prepare
+                     #);
+                   more::(# do sub_xi.more->value #);
+                   cleanup::(# do sub_xi.cleanup #)
+                do sub_xi->l0trrep[]->l0tr[];
+                   lowIndex->l0trrep.low;
+                   highIndex->l0trrep.high;
+                   true->l0trrep.reference
+                #)[]->xi[];
+                this(l2ObjectReference)[]->xi.usageAst[]
+             #)
+          #)
+          
+       else
+          'Unexpected kind of reference'
+            ->internalError
+      if)
+   #)
+
+(************************************************************ 
+ *                                                          * 
+ *                        l2EvalList                        * 
+ *                                                          * 
+ ************************************************************)
+
+-- EvalListPrint:dopart --
+do
+   '('->output;
+   (dest[],indentation,false,false)->Evaluations.print;
+   ')'->output
+
+-- EvalListScanImpl:dopart --
+do
+   (preCB[],postCB[])->Evaluations.scanImpl
+
+-- EvalListGetTranOut:dopart -- 
+do
+   (# sstran: ^staticSublistTransient
+   do (&staticSublistTransient[]).init
+        ->sstran[];
+      Evaluations.scan
+      (# 
+      do (context[],world[])
+           ->current.getStaticTransientOut
+           ->sstran.strlist.append
+      #);
+      sstran.normalize->stran[]
+   #)
+
+-- EvalListGetTranIn:dopart -- 
+do
+   (# sstran: ^staticSublistTransient
+   do (&staticSublistTransient[]).init
+        ->sstran[];
+      Evaluations.scan
+      (# 
+      do (context[],world[])
+           ->current.getStaticTransientIn
+           ->sstran.strlist.append
+      #);
+      sstran.normalize->stran[]
+   #)
+
+-- EvalListGetCplr:dopart --
+do
+   &exeCompiler
+   (# generate::
+        (# cplr: ^exeCompiler
+        do Evaluations.scan
+           (# do (context[],world[],usageAst[])
+                ->current.getCompiler
+                ->cplr[];
+              (program[],cInfo[])
+                ->cplr.generate
+           #)
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- EvalListGetEnterCplr:dopart --
+do
+   &enterCompiler
+   (# compilers: @list(# element::enterCompiler #);
+      current_compiler: ^compilers.theCellType;
+      done: @boolean;
+      
+      refresh:
+        (* ensure that 'current_compiler' refers to a compiler
+         * which is willing to do something; INVARIANT: refresh
+         * has been executed just before each 'more' *)
+        (# program: ^betaByteCodeList;
+           cInfo: ^compileInfo
+        enter (program[],cInfo[])
+        do L: (if not done then
+                  (if not current_compiler.elm.more then
+                      (program[],cInfo[])
+                        ->current_compiler.elm.cleanup;
+                      current_compiler.succ[]->current_compiler[];
+                      (if current_compiler[]=NONE then
+                          true->done
+                      if);
+                      restart L
+                  if)
+              if)
+        #);
+      prepare::<
+        (# do (* init *)
+           compilers.init;
+           
+           (* for each evaluation, obtain an enterCompiler *)
+           Evaluations.scan
+           (# do (context[],world[],usageAst[],this(getEnterCompiler).execute)
+                ->current.getEnterCompiler
+                ->compilers.append
+           #);
+           
+           (* batch preparation *)
+           compilers.scan(# do (program[],cInfo[])->current.prepare #);
+           
+           (* setup "current" compiler *)
+           (if compilers.empty then
+               true->done
+            else
+               compilers.head->current_compiler[];
+               (program[],cInfo[])->refresh
+           if)
+        #);
+      more::(# do not done -> value #);
+      generate::
+        (# do (program[],cInfo[])
+             ->current_compiler.elm.generate
+             ->stran[];
+           (program[],cInfo[])->refresh
+        #);
+      cleanup::(# #)
+   #)[]->nc[];
+   usageAst[]->nc.usageAst[]
+
+-- EvalListGetExitCplr:dopart --
+do
+   &exitCompiler
+   (# compilers: @list(# element::exitCompiler #);
+      current_compiler: ^compilers.theCellType;
+      done: @boolean;
+      
+      refresh:
+        (* ensure that 'current_compiler' refers to a compiler
+         * which is willing to do something; INVARIANT: refresh
+         * has been executed just before each 'more' *)
+        (# program: ^betaByteCodeList;
+           cInfo: ^compileInfo
+        enter (program[],cInfo[])
+        do L: (if not done then
+                  (if not current_compiler.elm.more then
+                      (program[],cInfo[])
+                        ->current_compiler.elm.cleanup;
+                      current_compiler.succ[]->current_compiler[];
+                      (if current_compiler[]=NONE then
+                          true->done
+                      if);
+                      restart L
+                  if)
+              if)
+        #);
+      prepare::<
+        (# do (* init *)
+           compilers.init;
+           
+           (* for each evaluation, obtain an exitCompiler *)
+           Evaluations.scan
+           (# do (context[],world[],usageAst[])
+                ->current.getExitCompiler
+                ->compilers.append
+           #);
+           
+           (* batch preparation *)
+           compilers.scan(# do (program[],cInfo[])->current.prepare #);
+           
+           (* setup "current" compiler *)
+           (if compilers.empty then
+               true->done
+            else
+               compilers.head->current_compiler[];
+               (program[],cInfo[])->refresh
+           if)
+        #);
+      more::(# do not done -> value #);
+      generate::
+        (# do (program[],cInfo[])
+             ->current_compiler.elm.generate
+             ->stran[];
+           (program[],cInfo[])->refresh
+        #);
+      cleanup::(# #)
+   #)[]->xc[];
+   usageAst[]->xc.usageAst[]
+
+-- EvalListGetEnterExitCplr:dopart --
+do
+   (# enterCompilers: @list(# element::enterCompiler #);
+      exitCompilers: @list(# element::exitCompiler #);
+   do 
+      enterCompilers.init;
+      exitCompilers.init;
+      
+      (* for each evaluation, obtain an enterCompiler *)
+      Evaluations.scan
+      (# enterCplr: ^enterCompiler;
+         exitCplr: ^exitCompiler
+      do (context[],world[],usageAst[])
+           ->current.getEnterExitCompiler
+           ->(enterCplr[],exitCplr[]);
+         enterCplr[]->enterCompilers.append;
+         exitCplr[]->exitCompilers.append
+      #);
+      
+      &enterCompiler
+      (# current_compiler: ^enterCompilers.theCellType;
+         done: @boolean;
+         
+         refresh:
+           (* ensure that 'current_compiler' refers to a compiler
+            * which is willing to do something; INVARIANT: refresh
+            * has been executed just before each 'more' *)
+           (# program: ^betaByteCodeList;
+              cInfo: ^compileInfo
+           enter (program[],cInfo[])
+           do L: (if not done then
+                     (if not current_compiler.elm.more then
+                         (program[],cInfo[])
+                           ->current_compiler.elm.cleanup;
+                         current_compiler.succ[]->current_compiler[];
+                         (if current_compiler[]=NONE then
+                             true->done
+                         if);
+                         restart L
+                     if)
+                 if)
+           #);
+         prepare::<
+           (# 
+           do (* batch preparation *)
+              enterCompilers.scan
+              (# do (program[],cInfo[])->current.prepare #);
+              
+              (* setup "current" compiler *)
+              (if enterCompilers.empty then
+                  true->done
+               else
+                  enterCompilers.head->current_compiler[];
+                  (program[],cInfo[])->refresh
+              if)
+           #);
+         more::(# do not done -> value #);
+         generate::
+           (# do (program[],cInfo[])
+                ->current_compiler.elm.generate
+                ->stran[];
+              (program[],cInfo[])->refresh
+           #);
+         cleanup::(# #)
+      #)[]->nc[];
+      usageAst[]->nc.usageAst[];
+      
+      &exitCompiler
+      (# current_compiler: ^exitCompilers.theCellType;
+         done: @boolean;
+         
+         refresh:
+           (* ensure that 'current_compiler' refers to a compiler
+            * which is willing to do something; INVARIANT: refresh
+            * has been executed just before each 'more' *)
+           (# program: ^betaByteCodeList;
+              cInfo: ^compileInfo
+           enter (program[],cInfo[])
+           do L: (if not done then
+                     (if not current_compiler.elm.more then
+                         (program[],cInfo[])
+                           ->current_compiler.elm.cleanup;
+                         current_compiler.succ[]->current_compiler[];
+                         (if current_compiler[]=NONE then
+                             true->done
+                         if);
+                         restart L
+                     if)
+                 if)
+           #);
+         prepare::<
+           (# 
+           do (* batch preparation *)
+              exitCompilers.scan(# do (program[],cInfo[])->current.prepare #);
+              
+              (* setup "current" compiler *)
+              (if exitCompilers.empty then
+                  true->done
+               else
+                  exitCompilers.head->current_compiler[];
+                  (program[],cInfo[])->refresh
+              if)
+           #);
+         more::(# do not done -> value #);
+         generate::
+           (# do (program[],cInfo[])
+                ->current_compiler.elm.generate
+                ->stran[];
+              (program[],cInfo[])->refresh
+           #);
+         cleanup::(# #)
+      #)[]->xc[];
+      usageAst[]->xc.usageAst[]
+   #)
+
+-- EvalListClosureExecute:dopart --
+do
+   (thrd[],unwind##,dContext[])->Evaluations.execute
+
+-- EvalListGetEnterIter:dopart --
+do
+   (thrd[],unwind##,stsub[],world[],usageAst[],execute,dContext[])
+     ->Evaluations.getEnterIter
+     ->ni[]
+
+-- EvalListGetExitIter:dopart --
+do
+   (thrd[],unwind##,stsub[],world[],usageAst[],dContext[])
+     ->Evaluations.getExitIter
+     ->xi[]
+
+-- EvalListGetEnterExitIter:dopart --
+do
+   (thrd[],unwind##,stsub[],world[],usageAst[],dContext[])
+     ->Evaluations.getEnterExitIter
+     ->(ni[],xi[])
+
+(************************************************************ 
+ *                                                          * 
+ *                 l2ObjectSpecificationList                * 
+ *                                                          * 
+ ************************************************************)
+
+-- ObjectSpecificationListPrint:dopart --
+do
+   ' & '->output;
+   INNER
+
+(************************************************************ 
+ *                                                          * 
+ *                   l2StructureReference                   * 
+ *                                                          * 
+ ************************************************************)
+
+-- StructureReferenceInit:dopart --
+do
+   ObjectSpecifications.init
+
+-- StructureReferencePrint:dopart --
+do
+   (if ObjectSpecifications.size=1 then 
+       (dest[],indentation,false,false)->ObjectSpecifications.print;
+       '##'->output
+    else
+       (* composite structure reference *)
+       (dest[],indentation,false,true)->ObjectSpecifications.print;
+       ' ## '->output
+   if)
+
+-- StructureReferenceScanImpl:dopart --
+do
+   ObjectSpecifications.scan(# do (preCB[],postCB[])->current.scanImpl #)
+
+-- StructureReferenceGetTranOut:dopart -- 
+do
+   (* this gives a qua-warning, but a structure 
+    * reference is always a pattern type *)
+   (context[],world[],this(l2StructureReference)[])
+     ->ObjectSpecifications.getStaticType (* QUA *)
+     ->(&staticPRefTransient[]).init
+     ->stran[]
+
+-- StructureReferenceGetTranIn:dopart --
+do
+   (* Pattern references are OK; object references OK,
+    * too; but a pattern (value) is a constant and cannot
+    * be the target of a pattern value assignment; we might
+    * allow some objects (those that do not have an exact
+    * type) could be specialized without losing any "type
+    * control" *)
+   (# stype: ^staticType;
+      stsub: ^staticSubstance;
+      stocp: ^staticOCP
+   do (context[],world[],this(l2StructureReference)[])
+        ->ObjectSpecifications.getStaticSubstance
+        ->stsub[];
+      (if stsub##<=staticOCP## then
+          stsub[]->stocp[];
+          (if stocp.sptype.kind
+           // patternTypeKind // objectTypeKind then 
+              ('Attempt to assign a pattern unto a constant pattern or object'
+              ,'Assign patterns to pattern variables or object references'
+              ,this(l2StructureReference)[])->staticError
+           // objectRefTypeKind then
+              (* this is dynamic specialization of the object referred;
+               * we accept one pattern transient for this; since there is 
+               * no upper bound on such a pattern we just require "object" *)
+              (stocp.pathTo[]
+              ,predefinedSyntax.predefinedNames.private.objectSType[])
+                ->(&staticPQuaTransient[]).init
+                ->stran[]
+           // patternRefTypeKind then
+              (* this is variable pattern assignment; the obj.spec. 
+               * must of size 1 (otherwise it would be of patternTypeKind),
+               * and the single element must be an a.den. *)
+              (# l2aden: ^l2AttributeDenotation;
+                 qual: ^staticPatternType;
+                 ignore_exact: @boolean (* is always false anyway *)
+              do (ObjectSpecifications.head).elm[]->l2aden[];
+                 (context[],world[],this(l2StructureReference)[])
+                   ->l2aden.getStaticQuaType
+                   ->(qual[],ignore_exact);
+                 (stocp.pathTo[],qual[])
+                   ->(&staticPQuaTransient[]).init
+                   ->stran[]
+              #)
+           else
+              'Unexpected type kind value'
+                ->internalError
+          if)
+       else
+          (* not even an object/pattern, must be int-source or something *)
+          (# msg: ^text
+          do 'Attempt to assign a pattern unto '->msg[];
+             (stype.typename).withIndefArticle->msg.puttext;
+             (msg[]
+             ,'Assign patterns to pattern variables or objects'
+             ,this(l2StructureReference)[])->staticError
+          #)
+      if)
+   #)
+
+-- StructureReferenceGetCplr:dopart --
+do
+   &exeCompiler
+   (# generate::
+        (# sptype: ^staticPatternType
+        do (context[],world[],this(l2StructureReference)[]
+           ,program[],cInfo[],true)
+             ->ObjectSpecifications.generateGetPattern
+             ->sptype[];
+           ('ibetaTwoExp3body.bet/1412'
+           ,sptype[]->(&staticPRefTransient[]).init)
+             ->(&discardCode[]).init
+             ->program.append
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- StructureReferenceGetEnterCplr:dopart --
+do
+   (# sref_stype: ^staticType;
+      sref_sptype: ^staticPatternType;
+      sref_stocp: ^staticOCP
+   do (context[],world[],this(l2StructureReference)[])
+        ->ObjectSpecifications.getStaticType
+        ->sref_stype[];
+      (if sref_stype##<=staticPatternType## then 
+          sref_stype[]->sref_sptype[];
+          (if sref_sptype.kind
+           // patternTypeKind then 
+              ('Attempt to assign a pattern unto a constant pattern'
+              ,'Assign patterns to pattern variables or object references'
+              ,this(l2StructureReference)[])->staticError
+              
+           // objectRefTypeKind then
+              (* dynamic specialization of objects; since this 
+               * is an object reference (i.e., it is a singleton
+               * merge (no &s) of an a.den. declared with ^), we can
+               * ask for the substance, and it will be a staticOCP *)
+              (context[],world[],this(l2StructureReference)[])
+                ->ObjectSpecifications.getStaticSubstance
+                ->sref_stocp[];
+              &enterOnceCompiler
+              (# generate::
+                   (# do ('ibetaTwoExp3body.bet/1444'
+                      ,sref_stocp.pathTo[],sref_stocp.sptype[])
+                        ->(&specializeObjectCode[]).init
+                        ->program.append;
+                      (* this is dynamic specialization of the object 
+                       * referred; we accept one pattern transient for 
+                       * this; since there is no upper bound on such a
+                       * pattern we just require "object" *)
+                      (sref_stocp.pathTo[]
+                      ,predefinedSyntax.predefinedNames.private.objectSType[])
+                        ->(&staticPQuaTransient[]).init
+                        ->stran[]
+                   #)
+              #)[]->nc[]
+              
+           // objectTypeKind then
+              ('Attempt to assign a pattern unto an object'
+              ,'Assign patterns to pattern variables or object references'
+              ,this(l2StructureReference)[])->staticError
+              
+           // patternRefTypeKind then
+              (* ordinary pattern variable assignment *)
+              &enterOnceCompiler
+              (# generate::
+                   (# stocp: ^staticOCP;
+                      qual: ^staticPatternType
+                   do (context[],world[],this(l2StructureReference)[])
+                        ->ObjectSpecifications.getStaticSubstance
+                        ->stocp[];
+                      (context[],world[],this(l2StructureReference)[]
+                      ,program[],cInfo[])
+                        ->ObjectSpecifications.generatePutPattern
+                        ->qual[];
+                      (stocp.pathTo[],qual[])
+                        ->(&staticPQuaTransient[]).init
+                        ->stran[]
+                   #)
+              #)[]->nc[]
+           else
+              'Unexpected type kind value'
+                ->internalError
+          if)
+       else
+          (* not even an object/pattern, must be int-source or something *)
+          (# msg: ^text
+          do 'Attempt to assign a pattern unto '->msg[];
+             (context.typename).withIndefArticle->msg.puttext;
+             (msg[]
+             ,'Assign patterns to pattern variables or objects'
+             ,this(l2StructureReference)[])->staticError
+          #)
+      if)
+   #)
+
+-- StructureReferenceGetExitCplr:dopart --
+do
+   &exitOnceCompiler
+   (# generate::
+        (# do (context[],world[],this(l2StructureReference)[]
+           ,program[],cInfo[],true)
+             ->ObjectSpecifications.generateGetPattern
+             ->(&staticPRefTransient[]).init
+             ->stran[]
+        #)
+   #)[]->xc[]
+
+-- StructureReferenceGetEnterExitCplr:dopart --
+do
+   (context[],world[],usageAst[],false)
+     ->getEnterCompiler
+     ->nc[];
+   (context[],world[],usageAst[])
+     ->getExitCompiler
+     ->xc[]
+
+-- StructureReferenceClosureExecute:dopart --
+do
+   (thrd[],unwind##,dContext[],NONE)
+     ->ObjectSpecifications.obtainPatternRef
+
+-- StructureReferenceGetEnterIter:dopart --
+do
+   (# l1ent: ^l1Entity;
+      l1pref: ^l1PatternRefEntity;
+      l1obj: ^l1ObjectEntity;
+      l1oref: ^l1ObjectRefEntity
+   do 
+      (* obtain the pattern reference that we should assign to *)
+      (thrd[],unwind##,dContext[])
+        ->ObjectSpecifications.lookup
+        ->l1ent[];
+      (if true 
+       // l1ent##<=l1PatternRefEntity## then 
+          l1ent[]->l1pref[];
+          (* deliver an iterator that will assign to it *)
+          &enterOnce
+          (# l0trpr: ^l0TransientPatternRef
+          do (if true 
+              // l0tr##<=l0TransientPatternRef## then 
+                 l0tr[]->l0trpr[];
+                 (if l0trpr<>NONE then 
+                     (* check qualifications before assigning *)
+                     (if not (l0trpr->l1pref.qual.lessequal) then 
+                         ('Qualification error in pattern reference assignment'
+                         ,thrd[],unwind##)->qualificationError
+                     if)
+                 if);
+                 l0trpr->l1pref.value[]
+              // l0tr##<=l0TransientNoneRef## then 
+                 NONE->l1pref.value[]
+              else
+                 'Trying to pattern-ref-assign with a non-pattern-reference'
+                   ->internalError
+             if)
+          #)[]->ni[];
+          this(l2StructureReference)[]->ni.usageAst[]
+          
+       // l1ent##<=l1ObjectEntity## then
+          l1ent[]->l1obj[];
+          (if l1obj.private.specializable then 
+              (* deliver an iterator for dynamic specialization *)
+              &enterOnce
+              (# l0trpr: ^l0TransientPatternRef;
+                 new_pat: ^l1PatternEntity;
+                 new_obj: ^l1ObjectEntity
+              do (if true 
+                  // l0tr##<=l0TransientPatternRef## then 
+                     l0tr[]->l0trpr[];
+                     (if l0trpr<>NONE then 
+                         (* compute the requested merge of patterns *)
+                         l1obj.private.pattern.copy->new_pat[];
+                         (thrd[],unwind##,l0trpr)->new_pat.merge;
+                         (thrd[],unwind##,NONE)
+                           ->new_pat.instantiate
+                           ->new_obj[];
+                         (thrd[],unwind##,new_obj[])->l1obj.exploit
+                      else
+                         (* "Requesting Pattern" is NONE-valued *)
+                         ('Trying to specialize object NONE-valued reference'
+                         ,thrd[],unwind##)->refNoneError
+                     if)
+                  // l0tr##<=l0TransientNoneRef## then 
+                     (* "Requesting Pattern" is NONE *)
+                     ('Trying to specialize object via NONE reference'
+                     ,thrd[],unwind##)->refNoneError
+                  else
+                     (* "Requesting Pattern" is not a pattern! *)
+                     'Trying to specialize object with a non-pattern-reference'
+                       ->internalError
+                 if)
+              #)[]->ni[];
+              this(l2StructureReference)[]->ni.usageAst[]
+           else
+              ('Trying to specialize non-specializable object'
+              ,thrd[],unwind##)->nonSpecializableError
+          if)
+          
+       // l1ent##<=l1ObjectRefEntity## then
+          l1ent[]->l1oref[];
+          (if l1oref.value[]<>NONE then 
+              (if l1oref.value.private.specializable then 
+                  (* deliver an iterator for dynamic specialization *)
+                  &enterOnce
+                  (# l0trpr: ^l0TransientPatternRef;
+                     new_pat: ^l1PatternEntity;
+                     new_obj: ^l1ObjectEntity
+                  do (if true 
+                      // l0tr##<=l0TransientPatternRef## then 
+                         l0tr[]->l0trpr[];
+                         (if l0trpr<>NONE then 
+                             (* we have checked, but it might have changed! *)
+                             (if l1oref.value[]<>NONE then 
+                                 (* compute the requested merge of patterns *)
+                                 l1oref.value.private.pattern.copy->new_pat[];
+                                 (thrd[],unwind##,l0trpr)->new_pat.merge;
+                                 (thrd[],unwind##,NONE)
+                                   ->new_pat.instantiate
+                                   ->new_obj[];
+                                 (thrd[],unwind##,new_obj[])
+                                   ->l1oref.value.exploit
+                              else
+                                 (* "I" am NONE-valued *)
+                                 ('Trying to specialize NONE-valued object-ref'
+                                 ,thrd[],unwind##)->refNoneError
+                             if)
+                          else
+                             (* "Requesting-Pattern" is NONE-valued *)
+                             ('Trying to specialize obj-ref via NONE-ptn-ref'
+                             ,thrd[],unwind##)->refNoneError
+                         if)
+                      // l0tr##<=l0TransientNoneRef## then 
+                         (* "Requesting-Pattern" is NONE *)
+                         ('Trying to specialize object-ref via NONE-ptn-ref'
+                         ,thrd[],unwind##)->refNoneError
+                      else
+                         (* "Requesting-Pattern" is not a pattern! *)
+                         'Trying to specialize object-ref with non-pattern-ref'
+                           ->internalError
+                     if)
+                  #)[]->ni[];
+                  this(l2StructureReference)[]->ni.usageAst[]
+               else
+                  ('Trying to specialize non-specializable object via ref'
+                  ,thrd[],unwind##)->nonSpecializableError
+              if)
+           else
+              (* l1oref.value[]=NONE *)
+              ('Trying to specialize NONE-valued object-reference'
+              ,thrd[],unwind##)->refNoneError
+          if)
+       else
+          'Trying to obtain an assignable pattern reference from non-ptn-ref'
+            ->internalError
+      if)
+   #)
+
+-- StructureReferenceGetExitIter:dopart --
+do
+   &exitOnce
+   (# l1pat: ^l1PatternEntity;
+      l0trpr: ^l0TransientPatternRef;
+      prepare::
+        (# 
+        do (thrd[],unwind##,dContext[],NONE)
+             ->ObjectSpecifications.obtainPatternRef
+             ->l1pat[]
+        #)
+   do &l0TransientPatternRef[]->l0trpr[]->l0tr[];
+      this(l2StructureReference)[]->l0tr.usageAst[];
+      l1pat[]->l0trpr.value[]
+   #)[]->xi[]
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

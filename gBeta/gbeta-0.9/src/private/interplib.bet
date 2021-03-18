@@ -1,0 +1,84 @@
+(* FILE "./private/interplib.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: interplib.bet,v 1.15 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN '../interp';
+BODY 'interplibbody'
+
+-- InterpreterLib:attributes --
+
+lookupAndPrint:
+  (# parseError:< exception;
+     leavingWarning:< object;
+     errorWarning:< object;
+     killWarning:< object;
+     noContextWarning:< object;
+     thrd: ^thread;                     (* Current thread of execution *)
+     theSyntax: ^text;
+     placement: ^l2Imp
+  enter (thrd[],theSyntax[],placement[])
+  <<SLOT LookupAndPrint:dopart>>
+  #);
+
+lookupAndPrintStatic:
+  (# parseError:< exception;
+     theSyntax: ^text;
+     placement: ^l2Imp
+  enter (theSyntax[],placement[])
+  <<SLOT LookupAndPrintStatic:dopart>>
+  #);
+
+lookupAndPrintStaticEval:
+  (# parseError:< exception;
+     theSyntax: ^text;
+     placement: ^l2Imp
+  enter (theSyntax[],placement[])
+  <<SLOT LookupAndPrintStaticEval:dopart>>
+  #);
+
+lookupAndPrintStaticAssign:
+  (# parseError:< exception;
+     theSyntax: ^text;
+     placement: ^l2Imp
+  enter (theSyntax[],placement[])
+  <<SLOT LookupAndPrintStaticAssign:dopart>>
+  #)
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

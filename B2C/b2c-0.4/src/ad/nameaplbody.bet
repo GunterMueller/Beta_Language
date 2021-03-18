@@ -1,0 +1,61 @@
+ORIGIN 'nameapl';
+INCLUDE 'backlevel';
+INCLUDE 'bitch';
+INCLUDE '../nametable';
+--- NameAplResolve: DoPart ---
+do
+   0->thislevel;
+   INNER;
+   (if not onelevel then
+      (* ObjectDescriptor##->encl.findencltype *)
+      ObjectDescriptor##->findencltype
+	(#
+	   emsg::
+	     (# do 'Compiler error: encl pointer is NONE in NameApl!'->error #)
+	do term[]->startod[];
+	#);
+   if);
+   startod[]->blockod[];
+
+   loop: (if (blockod[]->od[])<>NONE then
+      innerloop:
+        (#
+	do
+	   (* DEBUG 'Trying to find name '->puttext;
+	   str[]->puttext;
+	   ' in OD '->puttext;
+	   od.private.nme[]->putline; *)
+	   (str[],od[])->nameTable.findName
+	     (#
+	     do
+		fnd[]->nme[];
+		nme.encl[]->att.att[];
+		att.att.resolve;
+		(if prec[]=NONE then
+		   (startod[],thislevel)->&DirectBacklevel->prec[];
+		if);
+		leave loop
+	     #);
+	   od.resolvePrefix;
+	   (if (od.private.super[]->od[])<>NONE then restart innerloop if);
+	#);
+      (if not onelevel then
+	 blockod.private.outer[]->blockod[];
+	 thislevel+1->thislevel;
+      else
+	 NONE->blockod[]
+      if);
+      restart loop;
+   else
+      'Name not declared!'->error;
+      (if prec[]=NONE then
+	 (startod[],0)->&DirectBacklevel->prec[]
+      if);
+   if)
+
+
+--- RemoteResolve: DoPart ---
+do
+   true->onelevel;
+   (if prec.ispattern then 'A variable is expected here!'->prec.error if);
+   prec.getpatt->startod[];

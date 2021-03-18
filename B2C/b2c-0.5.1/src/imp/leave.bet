@@ -1,0 +1,76 @@
+ORIGIN '../imperative';
+INCLUDE '../ctype';
+INCLUDE '../eelib';
+INCLUDE '../label';
+INCLUDE '../ad/backlevel';
+(* leave and restart imperatives *)
+--- CompilerLib: Attributes ---
+LeaveRestartImp: Imperative
+  (#
+     str: @text;
+     level: @integer;
+     print::< (# do INNER; str[]->s.append #);
+     l: ^Label;
+     s: ^l.section;
+     ad: ^AttributeDenotation;
+     checkComplete::<
+       (#
+       do
+	  currentLabel.l[]->l[];
+	  loop: (if l[]<>NONE then
+	     (if l.nme->str.equalNCS then
+		(* We found the label!  Now decide, whether we need the
+		 * label for performing a LEAVE or a RESTART: *)
+		INNER;
+		(* Mark in the label, that we used it: *)
+		(if level>0 then true->s.nonlocal else true->s.local if);
+		leave loop;
+	     if);
+	     (if l.ispattern then level+1->level if);
+	     l.enclLabel[]->l[];
+	     restart loop;
+	  else
+	     'No matching label found!'->error;
+	  if);
+       #);
+     reduce::
+       (#
+       do
+          &DoLeaveRestart[]->ee.add;
+	  (if level<>0 then (ee.getod,level)->&DirectBackLevel->ad[] if);
+       #);
+     DoLeaveRestart: Evaluation
+       (#
+          DoDo::
+	    (#
+	    do
+	       (if level<>0 then
+		  '    LRobject = (struct object *)'->c_file.cstream.puttext;
+		  ctype_objectptr->ad.putcexpr;
+		  ';\n    LRlabel = '->c_file.cstream.puttext;
+		  s.mapname[]->c_file.cstream.puttext;
+		  ';\n    return 0;\n'->c_file.cstream.puttext;
+	       else
+		  '    goto '->c_file.cstream.puttext;
+		  s.mapname[]->c_file.cstream.puttext;
+		  ';\n'->c_file.cstream.puttext;
+	       if);
+	    #);
+       #);
+  enter str
+  do 0->level; NONE->l[]; NONE->s[]
+  #);
+
+
+LeaveImp: LeaveRestartImp
+  (#
+     print:: (# do 'LEAVE '->s.append #);
+     checkComplete:: (# do l.sLeave[]->s[] #);
+  #);
+
+
+RestartImp: LeaveRestartImp
+  (#
+     print:: (# do 'RESTART '->s.append #);
+     checkComplete:: (# do l.sRestart[]->s[] #);
+  #);

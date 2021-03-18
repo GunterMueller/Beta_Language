@@ -1,0 +1,40 @@
+ORIGIN '../container';
+--- ContainerHas: DoPart ---
+do
+   false->value;
+   (if not shortcut then
+      find
+        (# equ: @equal; predicate:: (# do (current[],elm[])->equ->value #)
+	do true->this(has).value
+	#);
+   if);
+
+
+--- ContainerScan: DoPart ---
+do
+   &where[]->getPosition.pred[];
+   getPosition.init;
+   start;
+   loop: (if getPosition.nxt then
+      (if getPosition.nxt.elm[]->current[]->getPosition.pred then
+	 INNER scan
+      if);
+      restart loop;
+   if);
+   end;
+
+
+--- ContainerFind: DoPart ---
+do
+   &predicate[]->getPosition.pred[];
+   getPosition.init;
+   start;
+   loop: (if getPosition.nxt then
+      (if not (getPosition.nxt.elm[]->current[]->getPosition.pred) then
+	 restart loop
+      if);
+      INNER find;
+   else
+      notFoundRaise;
+   if);
+   end;

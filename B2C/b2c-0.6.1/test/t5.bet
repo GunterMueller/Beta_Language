@@ -1,0 +1,4 @@
+ORIGIN '~beta/basiclib/current/betaenv';
+--- program: ObjectDescriptor ---
+(# a:< (# a1: @Integer; a2: @Integer #);
+b: (# b1: @Integer; b2: @Integer #); mya: @a; myb: @b #)

@@ -1,0 +1,24 @@
+(* FILE aex8.gb *)
+-- betaenv:descriptor --
+(#
+   container:
+     (# element:< object; (* a type parameter for the contents *)
+        scan:< (# current: ^element do INNER #);
+        visit:< scan(# where:< boolean do (if where then INNER if) #);
+     #);
+   list: container
+     (* as usual a dummy implementation: one element only *)
+     (# theElement: ^element;
+        append: (# enter theElement[] #);
+        scan::< (# do theElement[]->current[]; INNER #)
+     #);
+   myList: @list(# element::string #);
+   s: ^string;
+do
+   'I\'m just a lowly string!\n'->&s; s[]->myList.append;
+   myList.scan(# do current->stdio #);
+   myList.visit
+     (# where::(# do (current.length<20)->value #) 
+     do current+'\n'->stdio 
+     #)
+#)

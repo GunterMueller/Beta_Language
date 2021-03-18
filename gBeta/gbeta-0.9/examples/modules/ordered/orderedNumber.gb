@@ -1,0 +1,28 @@
+ORIGIN 'betaenv';
+INCLUDE 'ordered'
+
+-- lib:attributes --
+
+number: ordered
+  (# <<SLOT NumberLib:attributes>>;
+     cmpType::number;
+     lessEqual::(# do (other.asReal<=asReal)->b #);
+     asReal:< (# r: @real do INNER exit r #);
+     asInteger:< (# i: @integer do INNER exit i #);
+  #);
+
+int: number
+  (# <<SLOT IntLib:attributes>>;
+     init::(# enter value #);
+     asReal::(# do value->r #);
+     asInteger::(# do value->i #);
+     value: @integer
+  #);
+
+float: number
+  (# <<SLOT FloatLib:attributes>>;
+     init::(# enter value #);
+     asReal::(# do value->r #);
+     asInteger::(# do value->i #);
+     value: @real
+  #)

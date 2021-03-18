@@ -1,0 +1,18 @@
+(* FILE aex9.gb *)
+-- betaenv:descriptor --
+(#
+   abstract:
+     (# op:<
+          (# err:< (# do INNER #)
+          do INNER
+          #)
+     #);
+   concrete: @abstract
+     (# op::
+          (# err::< (# do INNER #)
+          do INNER
+          #)
+     #)
+do
+   L: concrete.op(# err::(# do leave L #) do err #)
+#)

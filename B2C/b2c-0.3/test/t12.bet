@@ -1,0 +1,15 @@
+ORIGIN '../basiclib/v1.4/betaenv.bet';
+--- program: ObjectDescriptor ---
+(#
+   p1:
+     (# virt:< (# a: @integer #); v1: @virt; v2: ^virt
+     do v1[]->v2[]; INNER
+     #);
+   p2: p1 (# virt::< (# b: @integer #); do v1[]->v2[]; INNER #);
+   p3: p2 (# virt:: (# c: @integer #); do v1[]->v2[]; INNER #);
+   o1: @p1;
+   o2: @p2;
+   o3: @p3;
+do
+   p3; NONE->o3.v2[]; o3.v1[]->o2.v2[]; 
+#)

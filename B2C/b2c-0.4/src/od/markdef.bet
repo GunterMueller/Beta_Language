@@ -1,0 +1,29 @@
+ORIGIN 'cgen';
+INCLUDE 'funcdecl';
+INCLUDE 'strucdecl';
+INCLUDE '../attributebitch';
+INCLUDE '../cintf';
+--- ObjectDescriptorDoMarkDef: DoPart ---
+
+(* JO Creation of mark function body *)
+do
+   'int M'->c_file.cstream.puttext;
+   mapname[]->c_file.cstream.puttext;
+   cintf.funcdef;
+   '    struct O'->c_file.cstream.puttext;
+   mapname[]->c_file.cstream.puttext;
+   ' *m = (struct O'->c_file.cstream.puttext;
+   mapname[]->c_file.cstream.puttext;
+   ' *)th ;\n'->c_file.cstream.puttext;
+   (if isrep and ((this(ObjectDescriptor)[],false)->isrefrepel) then
+   '    int mrep;\n'->c_file.cstream.puttext;
+   if);
+
+   '#ifndef NODEBUG\n    lprintf();\n    fprintf(infofile,"'
+      ->c_file.cstream.puttext;
+   mapname[]->c_file.cstream.puttext;
+   '\\n");\n#endif\n'->c_file.cstream.puttext;
+
+   this(ObjectDescriptor)[]->DoMarkDo;
+   '    return 1;\n};\n'->c_file.cstream.puttext;
+   (* JO *)

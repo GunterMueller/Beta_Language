@@ -1,0 +1,35 @@
+#! /bin/csh -f
+
+if (! $?B2C_HOME) then
+    grep -q '^b2c:' /etc/passwd
+    if ($?) then
+	setenv B2C_HOME /usr/local/lib/b2c
+	if (! -d $B2C_HOME) then
+	    setenv B2C_HOME /usr/lib/b2c
+	    if (! -d $B2C_HOME) then
+		echo "Cannot find home of b2c!"
+		echo "Please update the b2c script accordingly!"
+		exit 1
+	    endif
+	endif
+    else
+	setenv B2C_HOME ~b2c
+    endif
+endif
+
+# Tell here, where to look for the compiler.  In case of production set
+# to a true value, it is looked for in the bin subdirectory, otherwise
+# in the source directory.  The later is handy for "compile/test run"
+# cycles.
+if (! $?BETA_PRODUCTION) then
+    set BETA_PRODUCTION=1
+endif
+
+# find the main b2c compiler binary:
+if ($BETA_PRODUCTION) then
+    set binary="bin/`uname -m`-`uname -s`-b2c"
+else
+    set binary="src/b2c"
+endif
+
+$B2C_HOME/$binary $*:q

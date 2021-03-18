@@ -1,0 +1,39 @@
+ORIGIN '~beta/sysutils/current/pathhandler';
+INCLUDE '~beta/basiclib/current/file';
+INCLUDE '~beta/sysutils/current/envstring';
+--- lib: Attributes ---
+MyFilenameConverter:
+  (#
+     fc: @filenameConverter;
+     baseDir: ^text;
+
+     init:
+       (# e: @diskEntry
+       do
+	  (if baseDir[]=NONE then
+	     '$(B2C_HOME)'->expandEnvVar->baseDir[];
+	     (if baseDir.length<=1 then
+		('~b2c','/')->fc.convertFilePath->baseDir[];
+		(if baseDir.length<=1 then
+		   '/usr/local/lib/b2c'->baseDir[]->e.path;
+		   (if not e.exists then '/usr/local/b2c'->baseDir[] if);
+		if);
+	     if);
+	  if);
+	  fc.init;
+       #);
+
+     convertFilePath:
+       (# path,basis, convertedpath: ^text;
+       enter(path[],basis[])
+       do
+	  (if '~b2c/'->((1,5)->path.sub).equal then
+	     baseDir[]->((5,path.length)->path.sub).prepend->path[];
+	  if);
+	  (if '~beta/'->((1,6)->path.sub).equal then
+	     baseDir[]->((6,path.length)->path.sub).prepend->path[];
+	  if);
+	  (path[],basis[])->fc.convertFilePath->convertedpath[]
+       exit convertedpath[]
+       #);
+  #);

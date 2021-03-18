@@ -1,0 +1,7 @@
+#!/bin/sh
+
+rm -f advC.tmp
+grep begin_adv adv[0-9]*.m4 | sed 's/^[^(]*(/_adv_toc_entry(/' > advC.tmp
+cat advC.pre advC.tmp advC.post > advC.m4
+rm -f advC.tmp
+

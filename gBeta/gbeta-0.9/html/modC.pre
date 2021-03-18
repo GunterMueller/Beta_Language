@@ -1,0 +1,8 @@
+include(modularizationstd.m4)dnl
+_deflr(`',`')dnl
+define(`_mod_toc_entry',
+  `_modref(define(`inx',incr(inx))inx,<LI>$1</LI>)')dnl
+define(`inx',`0')dnl
+begin_mod(`Contents')
+
+<OL>

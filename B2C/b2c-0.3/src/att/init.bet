@@ -1,0 +1,183 @@
+ORIGIN '../attributelib';
+INCLUDE '../attributebitch';
+INCLUDE '../ctype';
+INCLUDE '../evaluationlib';
+INCLUDE '../label';
+INCLUDE '../namebitch';
+INCLUDE '../objectdesc';	(* to read the outermap and superpatterns *)
+INCLUDE '../ad/bitch';
+INCLUDE '../ad/myencl';
+INCLUDE '../ad/nameapl';
+INCLUDE '../ev/basic';
+BODY 'initbody';
+(* initialisation of attributes *)
+--- SimpleDeclDoInit: DoPart ---
+do
+   (if od[]<>NONE then
+   (if not dontinit and not od.isbasic then
+      ad[]->pat[];
+      NONE->evold[];
+      (if os##<=AttributeDenotation## then
+	 os[]->pat[]; ad.prec[]->pat.copy->pat[]; pat.reduce->evold[];
+      if);
+      (if data_inline then
+	 (* This object is inlined, so we have to set up its pattern pointer,
+	  * the fields encl1 ... enclN and its static items.
+	  *
+	  * First step: set the pattern pointer:
+	  *)
+	 ad[]->&SetPatternPointer->ev[];
+	 evold[]->ev.next[];
+
+	 (* initialize all enclosing pointers *)
+	 (for i: od.private.om.om.range repeat
+	    od.private.om.om[i][]->oad[];
+	    ev[]->evold[];
+	    (
+		(pat[]->oad.copy,0)->&ObjectEvaluation->&ObjectReference,
+		((ad[],oad.getpatt,i)->&Myencl,0)->&ObjectEvaluation
+		    ->&ObjectReference
+	    )->&AssignmentEvaluation->ev[];
+	    evold[]->ev.next[];
+	 for);
+
+	 (* initialize all static items and components of this object *)
+	 od.ScanSuper
+	   (#
+	   do
+	      current.private.att.iterate
+		(#
+		do
+		   el[]->att[];
+		   att.names.iterate
+		     (# rem: ^Remote
+		     do
+			&Remote[]->rem[];
+			ad[]->rem.prec[];
+			att[]->rem.att.att[];
+			el[]->rem.nme[];
+			(ev[],rem[]->att.DoInit)->EvaluationJoin->ev[];
+		     #);
+		#);
+	   #);
+      else
+	 (* here we handle static items, whose data was not inlined:
+	  * call the relevant generator function in this case:
+	  *)
+
+	 ad[]->&CallGenerator->ev[];
+	 evold[]->ev.next[];
+      if);
+      INNER DoInit;
+   if);
+   if);
+
+
+--- RepetitionDeclDoInit: DoPart ---
+do
+   (* call the DO part of this repetition's pattern *)
+   (ev[],ad[]->&CallPattern)->EvaluationJoin->ev[];
+
+   (* check the size element, set el_size, and allocate storage *)
+   (ev[],ad[]->&InitRepetition)->EvaluationJoin->ev[];
+
+
+(* special evaluations, that handle the actual initialisation *)
+--- CompilerLib: Attributes ---
+CallGenerator: AnyDenotation
+  (#
+     DoDo::
+       (# thead: ^AttributeDenotation; att: ^Attribute; od: ^ObjectDescriptor;
+
+       (* JO Added text for detection of local references*)
+       tdyn: ^text; 
+       (* JO *)
+          
+       <<SLOT CallGeneratorDoDo: DoPart>>
+       #);
+     lab: ^Label;
+  enter ad[]
+  do currentLabel.l[]->lab[]
+  exit this(CallGenerator)[]
+  #);
+
+SetPatternPointer: AnyDenotation
+  (# DoDo:: (# od: ^ObjectDescriptor <<SLOT SetPatternPointerDoDo: DoPart>> #)
+  enter ad[]
+  exit this(SetPatternPointer)[]
+  #);
+
+InitRepetition: AnyDenotation
+  (# DoDo:: (# t: @text; tpe: @Integer <<SLOT InitRepetitionDoDo: DoPart>> #)
+  enter ad[]
+  exit this(InitRepetition)[]
+  #);
+
+
+--- SetPatternPointerDoDo: DoPart ---
+do
+   getod->od[];
+   '    '->c_file.cstream.puttext;
+   ctype_patternptr->DoCexpr;
+   ' = &P'->c_file.cstream.puttext;
+   od.private.mapname[]->c_file.cstream.puttext;
+   ';\n'->c_file.cstream.puttext;
+
+
+--- InitRepetitionDoDo: DoPart ---
+do
+   (* make sure that the size of the repetition is not negative *)
+   ''->t;
+   t[]->ad.getcexpr->tpe;
+   (if tpe=ctype_object then '.'->t.append else '->'->t.append if);
+   '    if('->c_file.cstream.puttext;
+   t[]->c_file.cstream.puttext;
+   'b_size < 0) '->c_file.cstream.puttext;
+   t[]->c_file.cstream.puttext;
+   'b_size = 0;\n'->c_file.cstream.puttext;
+
+   (* set the size of a repetition element *)
+   '    '->c_file.cstream.puttext;
+   t[]->c_file.cstream.puttext;
+   'b_elsize = sizeof(*'->c_file.cstream.puttext;
+   t[]->c_file.cstream.puttext;
+   'b_ptr);\n'->c_file.cstream.puttext;
+
+   (* allocate storage *)
+   '    '->c_file.cstream.puttext;
+   t[]->c_file.cstream.puttext;
+
+   (* JO
+    * exchange malloc with mrmalloc to be able to collect memory of repetitions
+   'b_ptr = malloc('->c_file.cstream.puttext;
+   *)
+   'b_ptr = mrmalloc('->c_file.cstream.puttext;
+   (* JO *)
+
+   t[]->c_file.cstream.puttext;
+   'b_size * '->c_file.cstream.puttext;
+   t[]->c_file.cstream.puttext;
+   'b_elsize);\n'->c_file.cstream.puttext;
+   
+   (* JS is allocated exactly requested amoun of memory;
+    * set alsize by size (alsize <- size) *)
+   '    '->c_file.cstream.puttext;
+   t[]->c_file.cstream.puttext;
+   'b_alsize = '->c_file.cstream.puttext;
+   t[]->c_file.cstream.puttext;
+   'b_size;\n'->c_file.cstream.puttext;
+   
+   (* JSDEBUG 
+   '    printf("allocated %d\\n",'->c_file.cstream.puttext;
+   t[]->c_file.cstream.puttext;
+   'b_alsize);\n'->c_file.cstream.puttext;
+   *)
+   
+   (* set everything to zero *)
+   '    memset('->c_file.cstream.puttext;
+   t[]->c_file.cstream.puttext;
+   'b_ptr, 0, '->c_file.cstream.puttext;
+   t[]->c_file.cstream.puttext;
+   'b_size * '->c_file.cstream.puttext;
+   t[]->c_file.cstream.puttext;
+   'b_elsize);\n'->c_file.cstream.puttext;

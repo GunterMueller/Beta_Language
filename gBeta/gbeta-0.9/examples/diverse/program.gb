@@ -1,0 +1,6 @@
+ORIGIN 'betaenv';
+-- program:merge --
+(# (* see betaenv.bet *)
+do 'Hello again, world!'->putline;
+#)
+

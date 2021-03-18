@@ -1,0 +1,47 @@
+ORIGIN '../evaluationlib.bet';
+INCLUDE 'basic';
+INCLUDE 'type';
+INCLUDE '../attributelib';
+INCLUDE '../attributebitch';
+INCLUDE '../ctype';
+INCLUDE '../eelib';
+INCLUDE '../namebitch';
+INCLUDE '../objectdesc';
+INCLUDE '../specialdesc';
+INCLUDE '../ad/bitch';
+--- StructureReferenceCheckComplete: DoPart ---
+do
+   ad.checkFollow;
+   ad.checkComplete;
+   (if (ad.getpatt->od[])<>NONE then
+      (if od.isbasic then
+      'Illegal Structure Reference to basic item (like Integer, Boolean, etc.)!'
+	   ->error;
+      if)
+   if);
+
+
+--- StructureReferenceDoCexpr: DoPart ---
+do ctype_patternptr->ad.putcexpr
+
+
+--- StructureReferenceType: DoPart ---
+do evtype_strucref->value
+
+
+--- StructureReferenceAssignable: DoPart ---
+do ad.ispvariable->value
+
+
+--- StructureReferenceReduce: DoPart ---
+do
+   (if toadd[]=NONE then ad[]->resad[] else toadd[]->ad.copy->resad[] if);
+   resad.reduce->before[];
+   (if resad.ispattern and not resad.ispvariable then
+      (if resad.isvirtual then
+	 resad[]->ee.dynamicPVariable->(resad[],before2[]);
+	 (before[],before2[])->EvaluationJoin->before[];
+      if);
+   if);
+   resad[]->&StructureReference->enteropt[];
+   resad[]->&StructureReference->exitopt[];

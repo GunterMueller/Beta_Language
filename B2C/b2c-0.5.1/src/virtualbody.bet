@@ -1,0 +1,31 @@
+ORIGIN 'virtual';
+INCLUDE 'cintf';
+INCLUDE 'objectdesc';
+--- VirtualInnerDoCDecl: DoPart ---
+do
+   '    int (*virt'->c_file.cstream.puttext;
+   n->c_file.cstream.putint;
+   ')(struct O'->c_file.cstream.puttext;
+   (if to[]<>NONE then
+      to.private.mapname[]->c_file.cstream.puttext;
+   else
+      from.private.mapname[]->c_file.cstream.puttext;
+   if);
+   ' *'->c_file.cstream.puttext;
+   cintf.const->c_file.cstream.puttext;
+   ');\n'->c_file.cstream.puttext;
+
+
+--- VirtualInnerDoCDef: DoPart ---
+do
+   (if to[]<>NONE then
+      (if (to.encl##<=Fragment##) and not
+          (to.private.funcname[]=to.private.mapname[]) then
+	 'S'->c_file.cstream.puttext;
+      else
+	 'F'->c_file.cstream.puttext;
+      if);
+      to.private.mapname[]->c_file.cstream.puttext
+   else
+      '0'->c_file.cstream.put;
+   if)

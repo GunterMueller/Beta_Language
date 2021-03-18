@@ -1,0 +1,74 @@
+ORIGIN '../objectdescbody';
+INCLUDE '../evaluationlib';
+INCLUDE '../imp/eval';
+--- ODreduceCConstant: ObjectDescriptor ---
+lab.reduce
+  (#
+     ei: ^EvaluationImp;
+     ae: ^AssignmentEvaluation;
+     el: ^EvalList;
+     sc: ^StringConst;
+     t: ^text;
+     err:
+       (#
+       do
+	  'The Do Part of a subpattern of CConstant must contain exactly one\n      evaluation, in which two strings are assigned to the pattern get.'
+	    ->this(ObjectDescriptor).error;
+       #);
+  do
+     block: (if doprt.ptr[]=NONE then
+	err;
+     else
+        (if not (doprt.ptr##<=EvaluationImp##) then err; leave block if);
+	doprt.ptr[]->ei[];
+        (if (ei.ev.ptr[]=NONE) then err; leave block if);
+	(if not (ei.ev.ptr##<=AssignmentEvaluation##) then err;leave block if);
+	ei.ev.ptr[]->ae[];
+	(if not (ae.ls##<=EvalList##) then err; leave block if);
+	ae.ls[]->el[];
+	(if el.ev.ptr[]=NONE then err; leave block if);
+	(if el.ev.ptr.next[]=NONE then err; leave block if);
+	(if el.ev.ptr.next.next[]<>NONE then err; leave block if);
+	(if not (el.ev.ptr##<=StringConst##) or
+	    not (el.ev.ptr.next##<=StringConst##)
+	then err; leave block
+	if);
+
+	el.ev.ptr[]->sc[];
+	sc.translate->&GetConstantInteger->ee.add;
+
+	&text[]->t[];
+	el.ev.ptr.next[]->sc[];
+	sc.translate->t;
+	l: (if t.length>0 then
+	   (if ((1->t.inxGet)<>'<') or ((t.length->t.inxGet)<>'>') then
+	      (t[],c_file.basis[])->fc.convertFilePath->t[];
+	      '"'->t.prepend;
+	      '"'->t.append;
+	   if);
+	   (for i:c_file.cinclude.range repeat
+	      (if c_file.cinclude[i][]->t.equal then leave l if);
+	   for);
+	   1->c_file.cinclude.extend;
+	   t[]->c_file.cinclude[c_file.cinclude.range][];
+	if);
+     if);
+  #)
+
+
+--- CompilerLib: Attributes ---
+(* add a label to the currently generated .c file *)
+GetConstantInteger: Evaluation
+  (#
+     str: @text;
+     DoDo::
+       (#
+       do
+	  '    th->b_value = '->c_file.cstream.puttext;
+	  str[]->c_file.cstream.puttext;
+	  ';\n'->c_file.cstream.puttext;
+       #);
+  enter str
+  exit this(GetConstantInteger)[]
+  #);
+

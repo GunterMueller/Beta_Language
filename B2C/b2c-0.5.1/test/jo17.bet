@@ -1,0 +1,20 @@
+ORIGIN '../basiclib/v1.4/betaenv';
+--- Program: ObjectDescriptor ---
+(#
+a:(#
+   p: ^text;
+do
+ 'Hello'->p[];
+ NONE->p[];
+#);
+b:^a;
+c:[10]^a;
+do
+ &a[]->b[];
+ b;
+ &a[]->c[1][];
+ c[1];
+ NONE->c[1][];
+ NONE->b[];
+(**)
+#)

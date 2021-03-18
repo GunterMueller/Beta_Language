@@ -1,0 +1,288 @@
+ORIGIN 'bfile';
+INCLUDE 'attribute';
+INCLUDE 'eelib';
+INCLUDE 'evaluation';
+INCLUDE 'imperative';
+INCLUDE 'namebitch';
+INCLUDE 'label';
+INCLUDE 'objectdesc';
+INCLUDE 'specialdesc';
+INCLUDE 'virtual';
+INCLUDE 'ad/backlevel';
+--- CompilerLib: Attributes ---
+InnerImp: Imperative
+  (#
+     str: @text;
+     special: @boolean;
+     bl: ^Backlevel;
+     od: ^ObjectDescriptor;
+     print::
+       (#
+       do
+	  'INNER'->s.append;
+	  (if str.length<>0 then ' '->s.append; str[]->s.append if);
+       #);
+     checkFollow::
+       (#
+       do
+	  findenclod: ObjectDescriptor##->encl.findencltype
+	    (#
+	       emsg::
+	         (# do 'Compiler error: InnerImp outside Pattern!'->error #)
+	    do
+	       term[]->od[];
+	       (if od.private.outer[]<>NONE then
+		  (if od.private.outer.private.sd[]<>NONE then
+		     (if od.private.outer.private.sd.isrepetition then
+			true->special;
+			leave findenclod;
+		     if);
+		  if);
+	       if);
+	       findod: (if str.length<>0 then
+		  (* !!! Will have to re-think this! *)
+		  od.ScanOuter
+		    (# att: ^Attribute
+		    do
+		       (if current.encl##<=Attribute## then
+			  current.encl[]->att[];
+			  (if att.names.ptr.str[]->str.equalNCS then
+			     (od[],level)->&DirectBacklevel->bl[];
+			     current[]->od[];
+			     leave findod;
+			  if)
+		       if)
+		    #);
+		  'No enclosing block with this name!'->error;
+		  leave findenclod
+	       else
+		  (od[],0)->&DirectBacklevel->bl[];
+	       if);
+	       (* We set a mark in the od, that this INNER statement refers
+	        * to.  The exception are those od's, that have a DoPart slot,
+		* as those are implicitely assumed to have an inner.  Setting
+		* innerVirtual for those would just clobber the information,
+		* that is already store there ... *)
+	       (if not od.private.doprt.ptr.isslot then
+	          0->od.private.innerVirtual
+	       if);
+	    #)
+       #);
+     reduce::
+       (#
+       do (if special then &repMethod[]->ee.add else &callInner->ee.add if)
+       #);
+     (* The INNER part of the "new" and "extend" methods of a repetition
+      * has a special meaning: allocate space for the repetition. *)
+     repMethod: Evaluation
+       (#
+          DoDo::
+	    (#
+	       size,elsize,ptr,amount,alsize,RUB,RAB: @text;
+	       n: ^text;
+	       isnew: @boolean
+	    <<SLOT RepMethodDoDo: DoPart>>
+	    #)
+       #);
+     callInner: Evaluation
+       (#
+	  lab: ^Label;
+	  DoDo::
+	    (# t,q: @text; res: @integer
+	    do
+	       t[]->bl.getcexpr->res;
+	       (if res=0 then 'th'->t if);
+	       t->q;
+	       '->pattern->virt'->q.append;
+	       od.private.innerVirtual->q.putint;
+
+	       '    if('->c_file.cstream.puttext;
+	       q[]->c_file.cstream.puttext;
+	       ') if(!(*'->c_file.cstream.puttext;
+	       q[]->c_file.cstream.puttext;
+	       ')('->c_file.cstream.puttext;
+	       t[]->c_file.cstream.puttext;
+
+	       (if lab[]<>NONE then
+		  ')) goto L'->c_file.cstream.puttext;
+		  lab.testOD->c_file.cstream.putint;
+		  ';\n'->c_file.cstream.puttext;
+	       else
+		  ')) return 0;\n'->c_file.cstream.puttext;
+	       if);
+	    #);
+       do currentLabel.l[]->lab[]
+       exit this(callInner)[]
+       #);
+  enter str
+  do
+     (if special then 'executing InnerImp''s do''part!!'->putline if);
+     NONE->bl[]; NONE->od[]; false->special
+  #);
+
+
+--- RepMethodDoDo: DoPart ---
+do
+   (* JS modified to implement different strategy for memory allocation *)
+   (* JO modified to allocate the repetition in garbage collected memory *)
+   'th->encl1->b_size'->size.append;
+   ' * th->encl1->b_elsize'->elsize.append;
+   '((struct repetition *) th->encl1)->b_ptr'->ptr;
+   'th->b_amount'->amount;
+
+   (* JO *)
+   (if not(('new'->od.private.nme.equalNCS)->isnew) then
+      '    int msize;\n    msize = '->c_file.cstream.puttext;
+      size[]->c_file.cstream.puttext;
+      '+'->c_file.cstream.put;
+      amount[]->c_file.cstream.puttext;
+      ';\n'->c_file.cstream.puttext;
+   if);
+   (* JO *)
+
+   (* JS constant for strategy for memory allocation *)
+   'th->encl1->b_alsize'->alsize.append;
+   'RepUseBlock'->RUB;
+   'RepAddBlock'->RAB;
+   
+   (* JO: ensure, that the size of the repetition is not negative:
+   '    if('->c_file.cstream.puttext;
+   (if not isnew then
+      'msize < 0) msize = 0;\n'->c_file.cstream.puttext;
+   else
+      size[]->c_file.cstream.puttext;
+      ' < 0) '->c_file.cstream.puttext;
+      size[]->c_file.cstream.puttext;
+      ' = 0;\n'->c_file.cstream.puttext;
+   if);
+   (* JO *)
+
+   (* (re)allocate storage *)
+   (if isnew then
+       (* JSDEBUG 
+       '    printf("New: all released and allocated new %d\\n",'
+	 ->c_file.cstream.puttext; 
+       size[]->n[]->c_file.cstream.puttext;
+       ');\n'->c_file.cstream.puttext;
+       *)
+       (* JS new:
+        * release all old memory and allocate new memory (always)
+        * allocate exactly requested amount of memory
+	*)
+       (* JO: exchange of free with mrfree for reclaiming fields blocks by
+        *     collector *)
+       '    mrfree('->c_file.cstream.puttext;
+       ptr[]->c_file.cstream.puttext;
+       ');\n    '->c_file.cstream.puttext;
+       ptr[]->c_file.cstream.puttext;
+       (* JO exchange of malloc with mrmalloc for fields collection *)
+       ' = mrmalloc('->c_file.cstream.puttext;
+       size[]->n[]->c_file.cstream.puttext;
+       elsize[]->c_file.cstream.puttext;
+       ');\n    '->c_file.cstream.puttext;
+       alsize[]->c_file.cstream.puttext;
+       ' = '->c_file.cstream.puttext;   
+       size[]->c_file.cstream.puttext;
+       ';\n    '->c_file.cstream.puttext;
+    else
+       (* JSDEBUG 
+       '    printf("Extend: size: %d, alsize: %d, amount: %d\\n",'
+	 ->c_file.cstream.puttext; 
+       size[]->c_file.cstream.puttext;
+       ','->c_file.cstream.puttext;
+       alsize[]->c_file.cstream.puttext;
+       ','->c_file.cstream.puttext;
+       amount[]->c_file.cstream.puttext;
+       ');\n'->c_file.cstream.puttext;
+       '    printf("  RUB: %d, RAB: %d\\n",(int)('->c_file.cstream.puttext;
+       alsize[]->c_file.cstream.puttext;
+       ' * '->c_file.cstream.puttext;
+       RUB[]->c_file.cstream.puttext;
+       '), (int)('->c_file.cstream.puttext;
+       alsize[]->c_file.cstream.puttext;
+       ' * '->c_file.cstream.puttext;
+       RAB[]->c_file.cstream.puttext;
+       '));\n'->c_file.cstream.puttext;
+       *)
+       '    if ('->c_file.cstream.puttext;
+       amount[]->c_file.cstream.puttext;
+       ' < 0)\n      {\n      if ((int)('->c_file.cstream.puttext;
+       alsize[]->c_file.cstream.puttext;
+       ' * '->c_file.cstream.puttext;
+       RUB[]->c_file.cstream.puttext;
+       ') < '->c_file.cstream.puttext;
+       size[]->c_file.cstream.puttext;
+       ') return 1;\n      '->c_file.cstream.puttext;
+       alsize[]->c_file.cstream.puttext;
+       ' = '->c_file.cstream.puttext;
+       size[]->c_file.cstream.puttext;
+       ';\n      }\n    else\n    {\n      if('->c_file.cstream.puttext;
+       size[]->c_file.cstream.puttext;
+       ' <= '->c_file.cstream.puttext;
+       alsize[]->c_file.cstream.puttext;
+       ') return 1;\n      if('->c_file.cstream.puttext;
+       amount[]->c_file.cstream.puttext;
+       ' < (int)('->c_file.cstream.puttext;
+       alsize[]->c_file.cstream.puttext;
+       ' * '->c_file.cstream.puttext;
+       RAB[]->c_file.cstream.puttext;
+       ')) '->c_file.cstream.puttext;
+       (* JS amount now means the actual allocated size *)
+       amount[]->c_file.cstream.puttext;
+       ' = (int)('->c_file.cstream.puttext;
+       alsize[]->c_file.cstream.puttext;
+       ' * '->c_file.cstream.puttext;
+       RAB[]->c_file.cstream.puttext;
+       ');\n     '->c_file.cstream.puttext;
+       alsize[]->c_file.cstream.puttext;
+       ' += '->c_file.cstream.puttext;
+       amount[]->c_file.cstream.puttext;
+       ';\n      };\n'->c_file.cstream.puttext;
+
+       (* JSDEBUG 
+       '    printf("  Extend realloc alsize: %d, amount: %d\\n",'
+	 ->c_file.cstream.puttext;
+       alsize[]->c_file.cstream.puttext;
+       ','->c_file.cstream.puttext;
+       amount[]->c_file.cstream.puttext;
+       ');\n'->c_file.cstream.puttext;
+       *)
+
+       '    '->c_file.cstream.puttext;
+       ptr[]->c_file.cstream.puttext;
+       (* JO echange of realloc with mrrealloc for fields collection *)
+       ' = mrrealloc('->c_file.cstream.puttext;
+       ptr[]->c_file.cstream.puttext;
+       ', '->c_file.cstream.puttext;
+       (* JS allocate memory by alsize *)
+       alsize[]->n[]->c_file.cstream.puttext;
+       elsize[]->c_file.cstream.puttext;
+       ');\n    '->c_file.cstream.puttext;
+   if);
+
+
+   (* set newly allocated memory to zero *)
+   (if not isnew then
+      (* JO *)
+      size[]->c_file.cstream.puttext;
+      ' = msize;\n    '->c_file.cstream.puttext;
+      (* JO *)
+      'if('->c_file.cstream.puttext;
+      amount[]->n[]->c_file.cstream.puttext;
+      ' > 0) '->c_file.cstream.puttext;
+   if);
+   'memset('->c_file.cstream.puttext;
+   ptr[]->c_file.cstream.puttext;
+   (if not isnew then
+      ' + ('->c_file.cstream.puttext;
+      (* JS clear memory by alsize and amount *) 
+      alsize[]->c_file.cstream.puttext;
+      '-'->c_file.cstream.put;
+      amount[]->c_file.cstream.puttext;
+      ')'->c_file.cstream.put;
+      elsize[]->c_file.cstream.puttext;
+   if);
+   ', 0, '->c_file.cstream.puttext;
+   n[]->c_file.cstream.puttext;
+   elsize[]->c_file.cstream.puttext;
+   ');\n'->c_file.cstream.puttext;

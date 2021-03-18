@@ -1,0 +1,23 @@
+ORIGIN '../attden';
+--- CompilerLib: Attributes ---
+ifstart: Evaluation
+  (#
+     ev: ^Evaluation;
+     DoDo::
+       (#
+       do
+	  '    if('->c_file.cstream.puttext;
+	  ev.DoCexpr;
+	  ') {\n'->c_file.cstream.puttext;
+       #);
+  enter ev[]
+  exit this(ifstart)[]
+  #);
+
+ifelse: Evaluation
+  (# DoDo:: (# do '    } else {\n'->c_file.cstream.puttext #)
+  exit this(ifelse)[]
+  #);
+
+ifend: Evaluation
+  (# DoDo:: (# do '    }\n'->c_file.cstream.puttext #) exit this(ifend)[] #);

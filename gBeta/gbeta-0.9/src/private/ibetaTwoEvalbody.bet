@@ -1,0 +1,659 @@
+(* FILE "./private/ibetaTwoEvalbody.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaTwoEvalbody.bet,v 1.56 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN 'ibetaTwobody';
+INCLUDE 'ibetaTwolib'
+
+(************************************************************ 
+ *                                                          * 
+ *                     l2EvaluationList                     * 
+ *                                                          * 
+ ************************************************************)
+
+-- EvaluationListPrint:dopart --
+do
+   ','->output;
+   INNER
+
+(************************************************************ 
+ *                                                          * 
+ *                       l2Expression                       *
+ *                                                          * 
+ ************************************************************)
+
+-- ExpressionPrint:dopart --
+do
+   INNER;
+   (if private.showNumberSelector['e'+1] or 
+       private.showNumberSelector['E'+1] then 
+       (* yes, we should print mps index of expressions *)
+       (if private.showNumberSelector['E'+1] or
+           ((father[]=NONE) or (not ( father##<=l2Expression## ))) then 
+           (* this is a top-level expression, or user Asked-For-It *)
+           (if mpsAst[]<>NONE then 
+               '`'->output;
+               mpsPosition->output
+           if)
+       if)
+   if)
+
+(************************************************************ 
+ *                                                          * 
+ *                  l2AssignmentEvaluation                  * 
+ *                                                          * 
+ ************************************************************)
+
+-- AssignmentEvaluationPrint:dopart --
+do
+   (dest[],indentation,false)->Evaluation.print;
+   '->'->output;
+   (dest[],indentation,false)->Transaction.print
+
+-- AssignmentEvaluationScanImpl:dopart --
+do
+   (preCB[],postCB[])->Evaluation.scanImpl;
+   (preCB[],postCB[])->Transaction.scanImpl
+
+-- AssignmentEvaluationCheck:dopart --
+do
+   (# incompatFail:
+        (# src_stran,snk_stran: ^staticTransient;
+           msg: ^text
+        enter (src_stran[],snk_stran[])
+        do 'Incompatible left- and right-side of assignment, ' 
+             ->msg[];
+           (msg[],0,false)->src_stran.printShort;
+           ' -> '->msg.puttext;
+           (msg[],0,false)->snk_stran.printShort;
+           (msg[],'Use exit/enter lists with the same structure'
+           ,this(l2AssignmentEvaluation)[])->staticError
+        #);
+      generalCase: 
+        (# src_stran,snk_stran: ^staticTransient
+        enter (src_stran[],snk_stran[])
+        do (if not ((src_stran[],usageAst[])->snk_stran.compatible) then 
+               (src_stran[],snk_stran[])->incompatFail
+           if)
+        #);
+      pvDestExplain:
+        (# 
+        exit 'Assign pattern values to pattern variables or objects only'
+        #);
+      src_stran,snk_stran: ^staticTransient
+   do 
+      (context[],world[])
+        ->Evaluation.getStaticTransientOut
+        ->src_stran[];
+      (context[],world[])
+        ->Transaction.getStaticTransientIn
+        ->snk_stran[];
+      (if snk_stran##<=staticPQuaTransient## then
+          (* check whether this is a dynamic specialization *)
+          (if Transaction##<=l2StructureReference## then
+              (# l2ospec: ^l2ObjectSpecification;
+                 stsub: ^staticSubstance;
+                 stocp: ^staticOCP;
+                 l2sref: ^l2StructureReference;
+                 src_sptype,dst_sptype: ^staticPatternType
+              do Transaction[]->l2sref[];
+                 (if l2sref.ObjectSpecifications.size<>1 then
+                     (* cannot dynamically specialize an 'a&b&c##'
+                      * expression .. we could, but it is too weird *)
+                     (# msg: ^text
+                     do 'Attempt to assign a pattern value '
+                          ->msg[];
+                        'to a merged type expression (e.g. ..->a&b&c##)'
+                          ->msg.puttext;
+                        (msg[],pvDestExplain,this(l2AssignmentEvaluation)[])
+                          ->staticError
+                     #)
+                  else
+                     (l2sref.ObjectSpecifications.head).elm[]->l2ospec[];
+                     (context[],world[],this(l2AssignmentEvaluation)[])
+                       ->l2ospec.getStaticSubstance
+                       ->stsub[];
+                     (if stsub##<=staticOCP## then
+                         stsub[]->stocp[];
+                         (if stocp.sptype.kind
+                          // patternTypeKind then 
+                             ('Attempt to assign a pattern value to a pattern'
+                             ,pvDestExplain
+                             ,this(l2AssignmentEvaluation)[])->staticError
+
+                          // patternRefTypeKind then
+                             (* normal case for pattern ref. assignment *)
+                             (src_stran[],snk_stran[])->generalCase
+
+                          // objectTypeKind // objectRefTypeKind then
+                             (* dynamic specialization case; source must
+                              * certainly have a pattern *)
+                             (if true
+                              // src_stran##<=staticNoneTransient## then 
+                                 (* cannot specialize with NONE *)
+                                 ('Attempt to specialize an object with NONE'
+                                 ,'Use an object (ref) or a pattern (ref)'
+                                 ,this(l2AssignmentEvaluation)[])
+                                   ->staticError
+                              // src_stran##<=staticORefTransient## then
+                                 (# soref_tran: ^staticORefTransient
+                                 do src_stran[]->soref_tran[];
+                                    soref_tran.sptype[]->src_sptype[]
+                                 #)
+                              // src_stran##<=staticPRefTransient## then
+                                 (# spref_tran: ^staticPRefTransient
+                                 do src_stran[]->spref_tran[];
+                                    spref_tran.sptype[]->src_sptype[]
+                                 #)
+                              else
+                                 (* Cannot specialize with other things *)
+                                 (# msg: ^text
+                                 do 'Attempt to specialize an '->msg[];
+                                    'object with '->msg.puttext;
+                                    (src_stran.typename).withIndefArticle
+                                      ->msg.puttext;
+                                    (msg[]
+                                    ,'Use an object (ref) or a pattern (ref)'
+                                    ,this(l2AssignmentEvaluation)[])
+                                      ->staticError
+                                 #)
+                             if);
+                             (* at this point, src_sptype describes the
+                              * pattern the target will be specialized 
+                              * with; now perform the merge to get
+                              * warnings, if any; first copy 
+                              * src_sptype to avoid messing it up *)
+                             stocp.sptype.copy->dst_sptype[];
+                             (src_sptype[]
+                             ,this(l2AssignmentEvaluation)[]
+                             ,usageAst[])
+                               ->dst_sptype.mergeMustSucceed
+                          else
+                             'Unexpected kind of static pattern type'
+                               ->internalError
+                         if)
+                      else
+                         (* what delivers a patternref and is not an "OCP"?? *)
+                         'Static pattern reference seems to come from non-OCP'
+                           ->internalError
+                     if)
+                 if)
+              #)
+           else
+              (* transac. is not a struc-ref, eval. is an ordinary argument *)
+              (src_stran[],snk_stran[])->generalCase
+          if)
+       else
+          (* general case *)
+          (src_stran[],snk_stran[])->generalCase
+      if)
+   #)
+
+-- AssignmentEvaluationGetTranOut:dopart --
+do
+   (context[],world[])
+     ->Transaction.getStaticTransientOut
+     ->stran[]
+
+-- AssignmentEvaluationGetTranIn:dopart --
+do
+   (context[],world[])
+     ->Evaluation.getStaticTransientIn
+     ->stran[]
+
+-- AssignmentEvaluationGetCplr:dopart --
+do
+   &exeCompiler
+   (# generate::
+        (# addCode:
+             (# (* Insert code in 'program' "at" 'coercionPos';
+                 * INVARIANT: 'coercionPos' is the bytecode just 
+                 * before the insertion point;  'coercionPos=NONE' 
+                 * means "insert at the beginning of 'program'" *)
+                bc: ^betaByteCode
+             enter bc[]
+             do (bc[],coercionPos[])
+                  ->program.insertAfter
+                  ->coercionPos[]
+             #);
+           evCplr: ^exitCompiler;
+           taCplr: ^enterCompiler;
+           evMore,taMore: @boolean;
+           evSTran,taSTran: ^staticTransient; (* keeps track of transients *)
+           coercionPos: ^betaByteCode
+        do 
+           (* obtain sub-compilers *)
+           (context[],world[],usageAst[])
+             ->Evaluation.getExitCompiler
+             ->evCplr[];
+           (context[],world[],usageAst[],true)
+             ->Transaction.getEnterCompiler
+             ->taCplr[];
+
+           (* preparation phase *)
+           (program[],cInfo[])->evCplr.prepare;
+           (program[],cInfo[])->taCplr.prepare;
+           
+           (* transfer all value components *)
+           L: (# do evCplr.more->evMore;
+                 taCplr.more->taMore;
+                 (if evMore and taMore then 
+                     (* both compilers have more to do *)
+                     (program[],cInfo[])
+                       ->evCplr.generate
+                       ->evSTran[];
+                     program.lastLink[]->coercionPos[];
+                     (program[],cInfo[])
+                       ->taCplr.generate
+                       ->taSTran[];
+                     (program[],coercionPos[],evSTran[],taSTran[]
+                     ,this(l2AssignmentEvaluation)[])
+                       ->assignmentCoerce;
+                     restart L
+                  else
+                     (if evMore<>taMore then 
+                         (* "lists have different lengths", let
+                          * 'check' generate a nice message *)
+                         (context[],world[],usageAst[])->check
+                      (* else: *)
+                         (* both compilers are done, OK *)
+                     if)
+                 if)
+              #);
+           
+           (* cleanup phase *)
+           (program[],cInfo[])->evCplr.cleanup;
+           (program[],cInfo[])->taCplr.cleanup
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- AssignmentEvaluationGetEnterCplr:dopart --
+do
+   &enterCompiler
+   (# subEnterCplr: ^enterCompiler;
+      evCplr: ^exitCompiler;
+      taCplr: ^enterCompiler;
+      evMore,taMore: @boolean;
+      evSTran,taSTran: ^staticTransient; (* keeps track of transients *)
+      coercionPos: ^betaByteCode;
+      prepare::
+        (# do (* obtain sub-compilers *)
+           (context[],world[],usageAst[])
+             ->Evaluation.getEnterExitCompiler
+             ->(subEnterCplr[],evCplr[]);
+           (context[],world[],usageAst[],true)
+             ->Transaction.getEnterCompiler
+             ->taCplr[];
+           (* external preparation *)
+           (program[],cInfo[])->subEnterCplr.prepare
+        #);
+      more::(# do subEnterCplr.more->value #);
+      generate::
+        (# do (program[],cInfo[])
+             ->subEnterCplr.generate 
+             ->stran[]
+        #);
+      cleanup::
+        (# 
+        do (* first finish the delegation *)
+           (program[],cInfo[])
+             ->subEnterCplr.cleanup;
+           
+           (* preparation for internal transfer *)
+           (program[],cInfo[])->evCplr.prepare;
+           (program[],cInfo[])->taCplr.prepare;
+
+           (* transfer all internal value components *)
+           L: (# 
+              do evCplr.more->evMore;
+                 taCplr.more->taMore;
+                 (if evMore and taMore then 
+                     (* both compilers have more to do *)
+                     (program[],cInfo[])
+                       ->evCplr.generate
+                       ->evSTran[];
+                     program.lastLink[]->coercionPos[];
+                     (program[],cInfo[])
+                       ->taCplr.generate
+                       ->taSTran[];
+                     (program[],coercionPos[],evSTran[],taSTran[]
+                     ,this(l2AssignmentEvaluation)[])
+                       ->assignmentCoerce;
+                     restart L
+                  else
+                     (if evMore<>taMore then 
+                         (* "lists have different lengths", let
+                          * 'check' generate a nice message *)
+                         (context[],world[],usageAst[])->check
+                      (* else: *)
+                         (* both compilers are done, OK *)
+                     if)
+                 if)
+              #);
+           
+           (* internal cleanup phase *)
+           (program[],cInfo[])->evCplr.cleanup;
+           (program[],cInfo[])->taCplr.cleanup
+        #)
+   #)[]->nc[];
+   usageAst[]->nc.usageAst[]
+
+-- AssignmentEvaluationGetExitCplr:dopart --
+do
+   &exitCompiler
+   (# evCplr: ^exitCompiler;
+      taCplr: ^enterCompiler;
+      subExitCplr: ^exitCompiler;
+      evMore,taMore: @boolean;
+      evSTran,taSTran: ^staticTransient; (* keeps track of transient types *)
+      coercionPos: ^betaByteCode;
+      nonFirst: @boolean;
+      prepare::
+        (# do (* obtain sub-compilers *)
+           (context[],world[],usageAst[])
+             ->Evaluation.getExitCompiler
+             ->evCplr[];
+           (context[],world[],usageAst[])
+             ->Transaction.getEnterExitCompiler
+             ->(taCplr[],subExitCplr[]);
+           
+           (* internal preparation phase *)
+           (program[],cInfo[])->evCplr.prepare;
+           (program[],cInfo[])->taCplr.prepare;
+           
+           (* internal transfer of values *)
+           L: (# 
+              do evCplr.more->evMore;
+                 taCplr.more->taMore;
+                 (if evMore and taMore then 
+                     (* both compilers have more to do *)
+                     (program[],cInfo[])
+                       ->evCplr.generate
+                       ->evSTran[];
+                     program.lastLink[]->coercionPos[];
+                     (program[],cInfo[])
+                       ->taCplr.generate
+                       ->taSTran[];
+                     (program[],coercionPos[],evSTran[],taSTran[]
+                     ,this(l2AssignmentEvaluation)[])
+                       ->assignmentCoerce;
+                     restart L
+                  else
+                     (if evMore<>taMore then 
+                         (* "lists have different lengths", let
+                          * 'check' generate a nice message *)
+                         (context[],world[],usageAst[])->check
+                      (* else: *)
+                         (* both compilers are done, OK *)
+                     if)
+                 if)
+              #);
+           
+           (* internal cleanup phase *)
+           (program[],cInfo[])->evCplr.cleanup;
+           (program[],cInfo[])->taCplr.cleanup;
+           
+           (* external value transfer preparation *)
+           (program[],cInfo[])->subExitCplr.prepare
+        #);
+      more::(# do subExitCplr.more->value #);
+      generate::
+        (# do (program[],cInfo[])
+             ->subExitCplr.generate 
+             ->stran[]
+        #);
+      cleanup::(# do (program[],cInfo[])->subExitCplr.cleanup #)
+   #)[]->xc[];
+   usageAst[]->xc.usageAst[]
+
+-- AssignmentEvaluationGetEnterExitCplr:dopart --
+do
+   (# subExitCplr: ^exitCompiler
+   do 
+      &enterCompiler
+      (# subEnterCplr: ^enterCompiler;
+         evCplr: ^exitCompiler;
+         taCplr: ^enterCompiler;
+         evMore,taMore: @boolean;
+         evSTran,taSTran: ^staticTransient; (* keeps track of transients *)
+         coercionPos: ^betaByteCode;
+         prepare::
+           (# do (* obtain sub-compilers *)
+              (context[],world[],usageAst[])
+                ->Evaluation.getEnterExitCompiler
+                ->(subEnterCplr[],evCplr[]);
+              (context[],world[],usageAst[])
+                ->Transaction.getEnterExitCompiler
+                ->(taCplr[],subExitCplr[]);
+              
+              (* external preparation phase *)
+              (program[],cInfo[])->subEnterCplr.prepare
+           #);
+         more::(# do subEnterCplr.more->value #);
+         generate::
+           (# do (program[],cInfo[])
+                ->subEnterCplr.generate 
+                ->stran[]
+           #);
+         cleanup::
+           (# 
+           do (* finish the external enter evaluation *)
+              (program[],cInfo[])->subEnterCplr.cleanup;
+              
+              (* then deal with the internal evaluation; preparation first *)
+              (program[],cInfo[])->evCplr.prepare;
+              (program[],cInfo[])->taCplr.prepare;
+
+              (* transfer all internal value components *)
+              L: (# 
+                 do evCplr.more->evMore;
+                    taCplr.more->taMore;
+                    (if evMore and taMore then 
+                        (* both compilers have more to do *)
+                        (program[],cInfo[])
+                          ->evCplr.generate
+                          ->evSTran[];
+                        program.lastLink[]->coercionPos[];
+                        (program[],cInfo[])
+                          ->taCplr.generate
+                          ->taSTran[];
+                        (program[],coercionPos[],evSTran[],taSTran[]
+                        ,this(l2AssignmentEvaluation)[])
+                          ->assignmentCoerce;
+                        restart L
+                     else
+                        (if evMore<>taMore then 
+                            (* "lists have different lengths", let
+                             * 'check' generate a nice message *)
+                            (context[],world[],usageAst[])->check
+                         (* else: *)
+                            (* both compilers are done, OK *)
+                        if)
+                    if)
+                 #);
+              
+              (* internal cleanup phase *)
+              (program[],cInfo[])->evCplr.cleanup;
+              (program[],cInfo[])->taCplr.cleanup
+           #)
+      #)[]->nc[];
+      usageAst[]->nc.usageAst[];
+      
+      &exitCompiler
+      (# (* as usual we have to create a closure delegating to 
+          * 'subExitCplr' because that ref. is still NONE *)
+         prepare::(# do (program[],cInfo[])->subExitCplr.prepare #);
+         more::(# do subExitCplr.more->value #);
+         generate::(# do (program[],cInfo[])->subExitCplr.generate->stran[] #);
+         cleanup::(# do (program[],cInfo[])->subExitCplr.cleanup #)
+      #)[]->xc[];
+      usageAst[]->xc.usageAst[]
+   #)
+
+-- AssignmentEvaluationClosureExecute:dopart --
+do
+   (# position: @runtimepath;
+      sContext: ^staticContext;
+      xi: ^exitIterator;
+      ni: ^enterIterator
+   do (NONE,NONE,scope.location)
+        ->position.init;
+      (position[],scope.world[],this(l2AssignmentEvaluation)[])
+        ->scope.getInitialContext
+        ->sContext[];
+      (thrd[],unwind##
+      ,sContext[],scope.world[],this(l2AssignmentEvaluation)[]
+      ,dContext[])
+        ->Evaluation.getExitIter
+        ->xi[];
+      (thrd[],unwind##
+      ,sContext[],scope.world[],this(l2AssignmentEvaluation)[],true
+      ,dContext[])
+        ->Transaction.getEnterIter
+        ->ni[];
+      (thrd[],unwind##,xi[],ni[])->transientTransfer
+      (# context::(# do 'ibetaTwoEvalbody.bet/118'->value[] #)#)
+   #)
+
+-- AssignmentEvaluationGetEnterIter:dopart --
+do
+   (# mid_xi: ^exitIterator;
+      first_ni,mid_ni: ^enterIterator
+   do 
+      (* get both iterators for the evaluation *)
+      (thrd[],unwind##,stsub[],world[]
+      ,this(l2AssignmentEvaluation)[],dContext[])
+        ->Evaluation.getEnterExitIter
+        ->(first_ni[],mid_xi[]);
+      
+      (* get enter iterator for the transaction *)
+      (thrd[],unwind##,stsub[],world[]
+      ,this(l2AssignmentEvaluation)[],execute,dContext[])
+        ->Transaction.getEnterIter
+        ->mid_ni[];
+      
+      (* deliver iterator that performs the sub-action in 'cleanup' *)
+      &enterIterator
+      (# prepare::(# do first_ni.prepare #);
+         more::(# do first_ni.more->value #);
+         cleanup::
+           (# 
+           do first_ni.cleanup;
+              (thrd[],unwind##,mid_xi[],mid_ni[])->transientTransfer
+              (# context::(# do 'ibetaTwoEvalbody.bet/147'->value[] #)#)
+           #)
+      do l0tr[]->first_ni
+      #)[]->ni[]
+   #)
+
+-- AssignmentEvaluationGetExitIter:dopart --
+do
+   (# mid_xi,last_xi: ^exitIterator;
+      mid_ni: ^enterIterator
+   do 
+      (* get exit iterator for the evaluation *)
+      (thrd[],unwind##,stsub[],world[]
+      ,this(l2AssignmentEvaluation)[],dContext[])
+        ->Evaluation.getExitIter
+        ->mid_xi[];
+      
+      (* get both iterators for the transaction *)
+      (thrd[],unwind##,stsub[],world[]
+      ,this(l2AssignmentEvaluation)[],dContext[])
+        ->Transaction.getEnterExitIter
+        ->(mid_ni[],last_xi[]);
+      
+      (* deliver iterator that will performs the sub-action in 'prepare' *)
+      &exitIterator
+      (# prepare::
+           (# 
+           do (thrd[],unwind##,mid_xi[],mid_ni[])->transientTransfer
+              (# context::(# do 'ibetaTwoEvalbody.bet/176'->value[] #)#);
+              last_xi.prepare
+           #);
+         more::(# do last_xi.more->value #);
+         cleanup::(# do last_xi.cleanup #)
+      do last_xi->l0tr[]
+      #)[]->xi[]
+   #)
+
+-- AssignmentEvaluationGetEnterExitIter:dopart --
+do
+   (# mid_xi: ^exitIterator;
+      first_ni,mid_ni: ^enterIterator
+   do 
+      (* get both iterators for the evaluation *)
+      (thrd[],unwind##,stsub[],world[]
+      ,this(l2AssignmentEvaluation)[],dContext[])
+        ->Evaluation.getEnterExitIter
+        ->(first_ni[],mid_xi[]);
+      
+      (* get both iterators for the transaction *)
+      (thrd[],unwind##,stsub[],world[]
+      ,this(l2AssignmentEvaluation)[],dContext[])
+        ->Transaction.getEnterExitIter
+        ->(mid_ni[],xi[]);
+      
+      (* deliver iterator that will performs the sub-action in 'cleanup' *)
+      &enterIterator
+      (# prepare::(# do first_ni.prepare #);
+         more::(# do first_ni.more->value #);
+         cleanup::
+           (# 
+           do first_ni.cleanup;
+              (thrd[],unwind##,mid_xi[],mid_ni[])->transientTransfer
+              (# context::(# do 'ibetaTwoEvalbody.bet/211'->value[] #)#)
+           #)
+      do l0tr[]->first_ni
+      #)[]->ni[]
+   #)
+
+(*************************************************************
+ *                                                           *
+ *                       l2Transaction                       *
+ *                                                           *
+ *************************************************************)
+
+-- TransactionPrint:dopart --
+do
+   INNER
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

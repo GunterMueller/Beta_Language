@@ -1,0 +1,36 @@
+-- betaenv:descriptor --
+(# (* using dynamic specialization to put "breakpoints" on selected 
+    * objects; like 006.gb but using string-puttext; note warnings,
+    * also similar to the ones given in 006.gb *)
+   puttext:
+     (# s: @string enter s
+     do (for i:s.length repeat i->s.at->stdio for)
+     #);
+   newline: (# do '\n'->stdio #);
+
+   (* define an example procedure to put breakpoints into;
+    * note that there are no "hooks" (virtual/INNER) *)
+   proc: (# do 'This is proc running'->puttext #); 
+
+   (* we need to manipulate an invocation of 'proc' 
+    * so here is a reference used to get hold of it *)
+   proc_ref: ^proc;
+do
+   (* create an invocation of 'proc' without executing it *)
+   &proc_ref[];
+
+   (* execute it *)
+   proc_ref; newline;
+   
+   (* insert a breakpoint and execute: prepends a '[' *)
+   (# do 'Sneak in before: '->puttext; INNER #) & proc ## -> proc_ref##;
+   proc_ref; newline;
+
+   (* insert another breakpoint: appends a ']' *)
+   (# do INNER; ' .. or after!'->puttext #) & proc ## -> proc_ref##;
+   proc_ref; newline;
+
+   (* the original pattern is unchanged *)
+   proc; newline;
+#)
+

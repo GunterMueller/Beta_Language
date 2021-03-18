@@ -1,0 +1,57 @@
+ORIGIN 'cgen';
+INCLUDE '../cintf';
+INCLUDE '../specialdesc';
+--- ObjectDescriptorPrivateLib: Attributes ---
+DoSuperOuterDef:
+  (# od: ^ObjectDescriptor;
+  enter (od[])
+  do
+     (if od[]<>NONE then
+	'&P'->c_file.cstream.puttext;
+	od.private.mapname[]->c_file.cstream.puttext;
+	', '->c_file.cstream.puttext;
+     else
+	'0, '->c_file.cstream.puttext
+     if)
+  #);
+
+
+--- ObjectDescriptorDoCstrucDef: DoPart ---
+do
+   (* define Pattern's C structure *)
+   cintf.const->c_file.cstream.puttext;
+   'struct P'->c_file.cstream.puttext;
+   mapname[]->c_file.cstream.puttext;
+   ' P'->c_file.cstream.puttext;
+   mapname[]->c_file.cstream.puttext;
+   ' = {\n    '->c_file.cstream.puttext;
+   super[]->DoSuperOuterDef;
+   outer[]->DoSuperOuterDef;
+   'sizeof(struct O'->c_file.cstream.puttext;
+   mapname[]->c_file.cstream.puttext;
+   '), offsetof(struct O'->c_file.cstream.puttext;
+   mapname[]->c_file.cstream.puttext;
+   ', encl'->c_file.cstream.puttext;
+   outerindx->c_file.cstream.putint;
+   (if funcname[]<>NONE then
+      '), F'->c_file.cstream.puttext;
+      funcname[]->c_file.cstream.puttext;
+   else
+      '), 0'->c_file.cstream.puttext
+   if);
+   false->isrep;
+   (if sd[]<>NONE then sd.isrepetition->isrep; if);
+   (if isrep then
+      ', 0'->c_file.cstream.puttext;
+   else
+      ', N'->c_file.cstream.puttext;
+      mapname[]->c_file.cstream.puttext;
+   if);
+
+   (* JO Fill out address of marking function *)
+   ', M'->c_file.cstream.puttext;
+    mapname[]->c_file.cstream.puttext;
+   (* JO *)
+
+   vm.DoCDef;
+   '\n};\n'->c_file.cstream.puttext;

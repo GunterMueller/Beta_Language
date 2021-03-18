@@ -1,0 +1,82 @@
+ORIGIN 'attden';
+INCLUDE 'imperative';
+INCLUDE 'label';
+INCLUDE 'virtual';
+INCLUDE 'evaluation';
+BODY 'attribute';
+BODY 'attributebitch';
+BODY 'objectdescbody';
+BODY 'od/cfunction';
+BODY 'od/genfunction';
+BODY 'od/checkexternal';
+BODY 'od/mapouter';
+
+--- CompilerLib: Attributes ---
+AttributePtrExt: <<SLOT AttributePtrExt: ObjectDescriptor>>;
+
+
+--- ObjectDescriptorPrivate: ObjectDescriptor ---
+(#
+   <<SLOT ObjectDescriptorPrivateLib: Attributes>>;
+   (* syntactical terms of an Object Descriptor: *)
+   prefix: ^AttributeDenotation;
+   att: @AttributePtrExt;
+   enterprt: ^Evaluation;
+   doprt: @ImperativePtr;
+   exitprt: ^Evaluation;
+
+   (* properties of the Object Descriptor, that are set up during the
+    * various phases of syntactical checking: *)
+   OdExecEnv: ExecutionEnvironment
+     (# getod:: (# do this(ObjectDescriptor)[]->od[] #) #);
+   doFunction: @OdExecEnv
+     (# head:: (# <<Slot ObjectDescriptorDoFunctionHead: DoPart>> #);
+	tail:: (# <<Slot ObjectDescriptorDoFunctionTail: DoPart>> #);
+     #);
+   generate: <<SLOT ObjectDescriptorGenFunction: ObjectDescriptor>>;
+   genFunction: @generate;
+   sd: ^SpecialDescriptor;
+   vm: @Virtualmap;
+   om: ^Outermap;
+
+   (* names of this object descriptor - necessary for the translation to C *)
+   mapname: @text;
+   funcname: ^text;
+   nme: ^text;
+
+   (* labels *)
+   lab: @label
+     (#
+        nme:: (# do this(private).nme[]->t[] #);
+	ispattern:: (# do true->value #);
+     #);
+   dummylab: @label
+     (#
+        nme:: (# do '#dummy#'->t[] #);
+	ispattern:: (# do true->value #);
+     #);
+
+   (* number generators for: local labels, inserted and dynamic items *)
+   llabel: @integer;
+   lins: @integer;
+   ldyn: @integer;
+
+   (* Several informations about this object descriptor, that are
+    * collected while checking it: *)
+   super: ^ObjectDescriptor;
+   nsuper: @integer;
+   outer: ^ObjectDescriptor;
+   outerindx: @Integer;
+   outernew: @Boolean;
+   namesChecked: @Boolean;
+   noatts: @Boolean;
+   innerVirtual: @Integer;
+   serial: @integer;
+
+   (* a few methods *)
+   checkExternal: <<SLOT ObjectDescriptorCheckExternal: ObjectDescriptor>>;
+   mapouter: <<SLOT ObjectDescriptorMapOuter: ObjectDescriptor>>;
+
+enter (prefix[], att, enterprt[], doprt, exitprt[])
+<<SLOT ObjectDescriptorPrivateDoPart: DoPart>>
+#)

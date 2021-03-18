@@ -1,0 +1,188 @@
+(* FILE "./ibetaZero.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaZero.bet,v 1.23 2001/07/01 21:44:10 eernst Exp $
+ *)
+
+ORIGIN 'ibetaOne';
+INCLUDE 'ibetaSType';
+BODY 'private/ibetaZerobody'
+
+-- InterpreterBaseLib:attributes --
+
+(*************************************************************
+ *                                                           *
+ *                  Level Zero - Transients                  *
+ *                                                           *
+ *************************************************************)
+
+l0TransientBoolean: l0Transient
+  (# <<SLOT TransientBooleanLib:attributes>>;
+     typename::(# do 'boolean'->value[] #);
+     shortTypename::(# do 'B'->value[] #);
+     print::(# <<SLOT TransientBooleanPrint:dopart>> #);
+     printShort::(# <<SLOT TransientBooleanPrintShort:dopart>> #);
+     ordered::trueObject;
+     compareEq::(# <<SLOT TransientBooleanCompareEq:dopart>> #);
+     compareUnEq::(# <<SLOT TransientBooleanCompareUnEq:dopart>> #);
+     value: @boolean
+  enter value
+  exit value
+  #);
+
+l0TransientChar: l0Transient
+  (# <<SLOT TransientCharLib:attributes>>;
+     typename::(# do 'char'->value[] #);
+     shortTypename::(# do 'C'->value[] #);
+     print::(# <<SLOT TransientCharPrint:dopart>> #);
+     printShort::(# <<SLOT TransientCharPrintShort:dopart>> #);
+     ordered::trueObject;
+     compareEq::(# <<SLOT TransientCharCompareEq:dopart>> #);
+     compareUnEq::(# <<SLOT TransientCharCompareUnEq:dopart>> #);
+     value: @char
+  enter value
+  exit value
+  #);
+
+l0TransientInteger: l0Transient
+  (# <<SLOT TransientIntegerLib:attributes>>;
+     typename::(# do 'integer'->value[] #);
+     shortTypename::(# do 'I'->value[] #);
+     print::(# <<SLOT TransientIntegerPrint:dopart>> #);
+     printShort::(# <<SLOT TransientIntegerPrintShort:dopart>> #);
+     ordered::trueObject;
+     compareEq::(# <<SLOT TransientIntegerCompareEq:dopart>> #);
+     compareUnEq::(# <<SLOT TransientIntegerCompareUnEq:dopart>> #);
+     value: @integer
+  enter value
+  exit value
+  #);
+
+l0TransientReal: l0Transient
+  (# <<SLOT TransientRealLib:attributes>>;
+     typename::(# do 'real'->value[] #);
+     shortTypename::(# do 'R'->value[] #);
+     print::(# <<SLOT TransientRealPrint:dopart>> #);
+     printShort::(# <<SLOT TransientRealPrintShort:dopart>> #);
+     ordered::trueObject;
+     compareEq::(# <<SLOT TransientRealCompareEq:dopart>> #);
+     compareUnEq::(# <<SLOT TransientRealCompareUnEq:dopart>> #);
+     value: @real
+  enter value
+  exit value
+  #);
+
+l0TransientString: l0Transient
+  (# <<SLOT TransientStringLib:attributes>>;
+     typename::(# do 'string'->value[] #);
+     shortTypename::(# do 'S'->value[] #);
+     print::(# <<SLOT TransientStringPrint:dopart>> #);
+     printShort::(# <<SLOT TransientStringPrintShort:dopart>> #);
+     ordered::trueObject;
+     compareEq::(# <<SLOT TransientStringCompareEq:dopart>> #);
+     compareUnEq::(# <<SLOT TransientStringCompareUnEq:dopart>> #);
+     value: ^text;                      (* Never NONE after init *)
+     singleton: @boolean                (* from a literal char *)
+  enter value[]
+  exit value[]
+  #);
+
+l0TransientPatternRef: l0Transient
+  (* Associated with "##" syntax *)
+  (# <<SLOT TransientPatternRefLib:attributes>>;
+     typename::(# do 'pattern reference'->value[] #);
+     shortTypename::(# do 'PR'->value[] #);
+     print::(# <<SLOT TransientPatternRefPrint:dopart>> #);
+     printShort::(# <<SLOT TransientPatternRefPrintShort:dopart>> #);
+     ordered::trueObject;
+     compareEq::(# <<SLOT TransientPatternRefCompareEq:dopart>> #);
+     compareUnEq::(# <<SLOT TransientPatternRefCompareUnEq:dopart>> #);
+     value: ^l1PatternEntity            (* NONE means "NONE" *)
+  exit value[]
+  #);
+
+l0TransientObjectRef: l0Transient
+  (* Associated with "[]" syntax *)
+  (# <<SLOT TransientObjectRefLib:attributes>>;
+     typename::(# do 'object reference'->value[] #);
+     shortTypename::(# do 'OR'->value[] #);
+     print::(# <<SLOT TransientObjectRefPrint:dopart>> #);
+     printShort::(# <<SLOT TransientObjectRefPrintShort:dopart>> #);
+     ordered::falseObject;
+     compareEq::(# <<SLOT TransientObjectRefCompareEq:dopart>> #);
+     value: ^l1ObjectEntity             (* NONE means "NONE" *)
+  exit value[]
+  #);
+
+l0TransientNoneRef: l0Transient
+  (* Associated with "NONE" syntax *)
+  (# <<SLOT TransientNoneRefLib:attributes>>;
+     typename::(# do 'NONE'->value[] #);
+     shortTypename::(# do 'NONE'->value[] #);
+     ordered::falseObject;
+     compareEq::(# <<SLOT TransientNoneRefCompareEq:dopart>> #)
+  #);
+
+l0TransientRepetition: l0Transient
+  (* Points out (a slice of) a repetion, namely the elements
+   * at indices low..high, both limits included; we must always
+   * have '1<=low<=range' and '0<=high<=range'; when 'low>high'
+   * this transient denotes an empty repetition (slice); 'reference'
+   * is true iff reference semantics is requested in assignments *)
+  (# <<SLOT TransientRepetitionLib:attributes>>;
+     typename::(# do 'repetition'->value[] #);
+     shortTypename::(# do 'R'->value[] #);
+     print::(# <<SLOT TransientRepetitionPrint:dopart>> #);
+     printShort::(# <<SLOT TransientRepetitionPrintShort:dopart>> #);
+     ordered::(# <<SLOT TransientRepetitionOrdered:dopart>> #);
+     compareEq::(# <<SLOT TransientRepetitionCompareEq:dopart>> #);
+     compareUnEq::(# <<SLOT TransientRepetitionCompareUnEq:dopart>> #);
+
+     (* ----- Substance ----- *)
+
+     value: ^l1RepetitionEntity;        (* Never NONE *)
+     low,high: @integer;
+     reference: @boolean;
+     (* information carried over to the receiving transient *)
+     callback: ^executionCallback;
+     stocp: ^staticOCP;
+     world: ^staticContextDB;
+     usageAst: ^l2AstNode
+  #)
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

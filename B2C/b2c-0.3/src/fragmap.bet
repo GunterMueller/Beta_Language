@@ -1,0 +1,24 @@
+ORIGIN 'bfile';
+INCLUDE '~beta/basiclib/current/file';
+INCLUDE 'slotbind';
+--- BETAfileFragMap: ObjectDescriptor ---
+(# f: @file;
+   txt: ^text;  
+do '.fm'->(basename.copy).append->f.name;
+   f.openwrite;
+   frags.iterate (# 
+                 do &text[]->txt[];
+                    el.t[]->txt.puttext;
+                    ': '->txt.puttext;
+                    el.fragtypename->txt.puttext;
+                    txt[]->f.puttext;
+                    ' -> '->f.puttext;
+                    el.boundto.bf.filename[]->f.putline;
+                    '['->txt.puttext;
+                    el.boundto.bf.filename[]->txt.puttext;
+                    '] <- '->txt.puttext;
+                    filename[]->txt.puttext;
+                    txt[]->slotbind.insert;
+                 #);
+   f.close;
+#)

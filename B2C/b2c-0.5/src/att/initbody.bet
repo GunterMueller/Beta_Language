@@ -1,0 +1,154 @@
+ORIGIN 'init';
+INCLUDE '../attden';
+INCLUDE '../attribute';
+INCLUDE '../cintf';
+INCLUDE '../ctype';
+INCLUDE '../ad/bitch';
+--- CallGeneratorDoDo: DoPart ---
+(*
+ * LaTeX \section{A few words about attribute Chaining:}
+ *
+ * The DoCallNew pattern in c/docallnew.bet issues the C code, which
+ * calls the function to actually create an BETA object at runtime.  To
+ * issue the correct function call, several informations are needed:
+ *
+ * \begin{enumerate}
+ * \item A pointer to the object, that encloses the to-be-generated object.
+ * \item A pointer to the pattern, that the object shall be an instance of,
+ *       i.e. the type of the new object.  The choice of this pattern is
+ *       restricted, in that it must be a method of the object mentioned
+ *       in the point above.
+ * \item In case of objects generated from virtual patterns, a pointer to
+ *       the according virtual table is needed as well.
+ * \item A pointer to the variable that shall hold the newly generated
+ *       object is the last necessary information.
+ * \end{enumerate}
+ *
+ * Except for the first two, all these pointers can belong to arbitrary
+ * and totally unrelated Patterns.
+ *
+ * Objects are created from the do-part of some object, or, in case of
+ * static items, while another object is created.  In both cases, Objects
+ * are created in the context of another object, which I will call current
+ * object from here on.  So for all the above, we need the information,
+ * on how to denote these pointers from the current object.
+ *
+ * That is the information hold by AttributeDenotations.  We need up to
+ * three of them, for all the cases above.  AttributeDenotations can be
+ * thought of as paths.  An example might read: first go back to the
+ * enclosing object of the starting object, then choose method abc of that
+ * object, and so on.  Finally an AttributeDenotation denotes one particular
+ * Attribute.
+ *
+ * That Attribute either declares a variable (as in SimpleDeclaration)
+ * or a (maybe virtual) pattern.  There are two ways of declaring a
+ * variable or a virtual pattern:
+ * \begin{quote}
+ * \item The pattern is directly supplied.
+ * \item Only a pattern name is given; the pattern is defined elsewhere.
+ * \end{quote}
+ * In the later case, the pattern is given as another AttributeDenotation.
+ *
+ * The consequence is chaining.  The AttributeDenotation, that lead to
+ * a given Attribute, and the AttributeDenotation found in that Attribute
+ * are concatenated together.  The longest possible chain got three items:
+ * \begin{description}
+ * \item[Item 1] a SimpleDeclaration, declaring some variable as an instance
+ *               of a virtual pattern.
+ * \item[Item 2] The VirtualDeclaration, which declares a virtual pattern
+ *               directly from a pattern name.
+ * \item[Item 3] The pattern itself, that was used in the virtual pattern
+ *               declaration.
+ * \end{description}
+ *
+ * The according BETA code would look like:
+ * \begin{quote}\begin{varbatim}
+ *	Item1: @Item2;
+ *	Item2:< Item3;
+ *      Item3: (# ... #);
+ * \end{quote}\end{varbatim}
+ *
+ * Shorter chains are possible, too.  For example, the pattern can be
+ * directly included into the VirtualDeclaration:
+ * \begin{quote}\begin{varbatim}
+ *	Item1: @Item2;
+ *	Item2:< (# ... #);
+ * \end{quote}\end{varbatim}
+ *
+ * The maximum chain length in non-virtual cases is two: one
+ * SimpleDeclaration, and one PatternDeclaration, as in:
+ * \begin{quote}\begin{varbatim}
+ *	Item1: @Item2;
+ *	Item2: (# ... #);
+ * \end{quote}\end{varbatim}
+ *
+ * The shortest possibility is, that already the SimpleDeclaration
+ * holds the defining pattern:
+ * \begin{quote}\begin{varbatim}
+ *	Item1: @ (# ... #);
+ * \end{quote}\end{varbatim}
+ *
+ * AttributeDenotations always start from the ObjectDescriptor, that
+ * holds a given object, not from the object itself.  So when chaining
+ * two AttributeDenotations, the last element of the first Denotation
+ * has to be stripped.
+ *
+ * Enough said.  The AttributeDenotation, that is supplied to this
+ * function in the prev[] argument always denotes a SimpleDeclaration.
+ * From there on, the chain is traversed.
+ *)
+
+do
+   ad.att.att[]->att[];
+   '    if (! ('->c_file.cstream.puttext;
+   ctype_objectptr->ad.putcexpr;
+   ' = '->c_file.cstream.puttext;
+
+   (* unmap one step in the chain described above: *)
+   (if att.os## <= AttributeDenotation## then
+      att.os[]->thead[]; ad.prec[]->thead.copy->thead[]
+   else
+      ad[]->thead[]
+   if);
+
+   (* denote the object generator function *)
+   (if att.os.isvirtual or att.os.ispvariable then
+      '(*'->c_file.cstream.puttext;
+      ctype_genfunction->thead.putcexpr;
+      ')'->c_file.cstream.put;
+   else
+      'N'->c_file.cstream.puttext;
+      att.od.private.mapname[]->c_file.cstream.puttext;
+   if);
+
+   (* now add the argument of the object generator function:
+    * a pointer to the enclosing object of the to be generated object
+    *)
+   (if att.os.ispvariable then
+      '('->c_file.cstream.put;
+      ctype_objectptr->thead.putcexpr;
+   else
+      '((struct O'->c_file.cstream.puttext;
+      thead.att.att.encl.private.mapname[]->c_file.cstream.puttext;
+      ' *)'->c_file.cstream.puttext;
+      ctype_objectptr->thead.prec.putcexpr;
+      (if att.os.isvirtual then ', 0'->c_file.cstream.puttext if);
+   if);
+   (if lab[]<>NONE then
+      '))) goto L'->c_file.cstream.puttext;
+      lab.testOD->c_file.cstream.putint;
+      ';\n'->c_file.cstream.puttext;
+   else
+      '))) return 0;\n'->c_file.cstream.puttext;
+   if);
+
+   (* JO Save newly allocated local reference to mstack *)
+   &text[]->tdyn[]->ad.getcexpr;
+   (* !!! this is a hack! *)
+   (if 'dyn'->((1,3)->tdyn.sub).equalNCS then
+      '    mstackinsert((struct object **)&'->c_file.cstream.puttext;
+      ctype_objectptr->ad.putcexpr;
+      ');\n'->c_file.cstream.puttext;
+   if);
+   (* JO *)
+

@@ -1,0 +1,35 @@
+-- betaenv:descriptor --
+(#
+   Thing: object; 
+   Person: (# name: @string #);
+   Payer: Person(# pay: (# amnt: @integer enter amnt (*..*) exit amnt #)#);
+   Paid: Person(# accept: (# amnt: @integer enter amnt (*..*) #)#);
+   Receiver: Person(# receive: (# t: ^Thing enter t[] (*..*) #)#);
+   Deliverer: Person(# deliver: (# t: ^Thing (*..*) exit t[] #)#);
+   
+   collaboration:
+     (# First:< Person; Second:< Person;
+        fst: ^First; snd: ^Second
+     enter (fst[],snd[])
+     do INNER
+     #);
+   pay: collaboration
+     (# First::< Payer; Second::< Paid;
+        price:< (# i: @integer do INNER exit i #)
+     do price->fst.pay->snd.accept;
+        INNER
+     #);
+   deliver: collaboration
+     (# First::< Receiver; Second::< Deliverer
+     do snd.deliver->fst.receive;
+        INNER
+     #);
+   doTrade: pay & deliver;
+   diamond: @Thing;
+   walrus: @ Paid & Receiver & Deliverer;
+   lucy: @ Payer & Receiver
+do
+   diamond[]->walrus.receive;
+   (lucy[],walrus[])->doTrade
+#)
+

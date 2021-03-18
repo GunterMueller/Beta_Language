@@ -1,0 +1,92 @@
+ORIGIN '../evaluationlib';
+INCLUDE 'type';
+--- StringConstType: DoPart ---
+do evtype_string->value; INNER
+
+
+--- StringConstGetInteger: DoPart ---
+do t; (if t.t.length=1 then 1->t.t.inxGet->&IntegerConst->ev[] if)
+
+
+--- StringConstTranslate: DoPart ---
+do
+   ''->t;
+   2->inx;
+   str.length->len;
+   l: (if inx<len then
+      inx->str.inxGet->c;
+      (if c='\\' then
+	 (if (inx+1->inx)>=len then
+	    (failureTrace,'Internal compiler error: backslash at end of string!')->Stop;
+	 if);
+	 (if inx->str.inxGet->c
+	   // 'a' then 7->c;
+	   // 'b' then 8->c;
+	   // 'e'
+	   // 'E' then 27->c;
+	   // 'f' then 12->c;
+	   // 'n' then 10->c;
+	   // 'r' then 13->c;
+	   // 't' then 9->c;
+	   // 'v' then 11->c;
+	   // 'x' then
+	      (* read hex number *)
+	      (if inx+1<len then
+		 (if (inx+1->str.inxGet->Xdigit->dig)<16 then
+		    dig->c;
+		    inx+1->inx;
+		    (if (inx+1->str.inxGet->Xdigit->dig)<16 then
+		       dig+(c*16)->c; inx+1->inx;
+		    if);
+		 if);
+	      if);
+	   else
+	      (* read octal number *)
+	      (if inx+1<len then
+		 (if (inx+1->str.inxGet->Xdigit->dig)<8 then
+		    dig->c;
+		    inx+1->inx;
+		    (if (inx+1->str.inxGet->Xdigit->dig)<8 then
+		       dig+(c*8)->c;
+		       inx+1->inx;
+		       (if ((inx+1->str.inxGet->Xdigit->dig)<8) and (c<32)
+		       then
+			  dig+(c*8)->c; inx+1->inx;
+		       if);
+		    if);
+		 if);
+	      if);
+	 if)
+      else
+	 (if c='\'' then
+	    inx+1->inx;
+	    (if (inx->str.inxGet)<>'\'' then
+	       (failureTrace,'Internal compiler error: single quote in string!')->Stop;
+	    if);
+	 if);
+      if);
+      c->t.put;
+      inx+1->inx;
+      restart l;
+   if);
+
+
+--- StringConstLib: Attributes ---
+Xdigit: IntegerValue
+  (# c: @char
+  enter c
+  do
+     16->value;
+     (if (c>='0') and (c<='9') then
+	c-'0'->value
+     else
+	(if c
+	// 'a' // 'A' then 10->value
+	// 'b' // 'B' then 11->value
+	// 'c' // 'C' then 12->value
+	// 'd' // 'D' then 13->value
+	// 'e' // 'E' then 14->value
+	// 'f' // 'F' then 15->value
+	if);
+     if);
+  #)

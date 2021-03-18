@@ -1,0 +1,7 @@
+ORIGIN '~beta/basiclib/current/betaenv';
+--- program: ObjectDescriptor ---
+(* test recursions *)
+(#
+   x: ^y.a;
+   y: ^x.a;
+#)

@@ -1,0 +1,1169 @@
+(* FILE "./private/ibetaVirtualMachinelibbody.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaVirtualMachinelibbody.bet,v 1.58 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN 'ibetaVirtualMachinelib';
+INCLUDE 'basicinterplib';
+INCLUDE 'ibetaCommonlib';
+INCLUDE 'ibetaOnelib';
+INCLUDE 'ibetaSlicelib'
+
+(************************************************************
+ *                                                          *
+ *                   BETA Virtual Machine                   *
+ *                                                          *
+ ************************************************************)
+
+-- CallDoCodePrint:dopart --
+do
+   (dest[],indentation,false)->where.print
+
+-- CallDoCodePrintShort:dopart --
+do
+   (* !! we do not have a 'printShort' for runtimePath; needed? *)
+   (dest[],indentation,false)->where.print
+
+-- CallDoCodePrintCode:dopart --
+do
+   ' '->output;
+   (dest[],indentation,false)->where.printCode
+
+-- CallDoCodeExecute:dopart --
+do
+   (if where.empty then
+       dContext[]->oSlice[];
+       (thrd[],unwind##)->(oSlice.identity).execute
+    else
+       (thrd[],unwind##,dContext[])
+         ->where.performDynamicButOne
+         ->target[];
+       (thrd[],unwind##,target[])
+         ->where.lastlink.performDynamicL1
+         ->l1ent[];
+       (thrd[],unwind##)->l1ent.execute
+   if)
+
+-- LiteralBooleanCodePrint:dopart --
+do
+   value->outputBoolean
+
+-- LiteralBooleanCodePrintShort:dopart --
+do
+   value->outputBoolean
+
+-- LiteralBooleanCodePrintCode:dopart --
+do
+   ' '->output;
+   value->outputBoolean
+
+-- LiteralBooleanCodeExecute:dopart --
+do
+   value->thrd.private.bvm.booleans.push
+
+-- LiteralCharCodePrint:dopart --
+do
+   '`'->output;
+   value->outputChar;
+   '\''->output
+
+-- LiteralCharCodePrintShort:dopart --
+do
+   value->outputChar
+
+-- LiteralCharCodePrintCode:dopart --
+do
+   ' `'->output;
+   value->outputChar;
+   '\''->output
+
+-- LiteralCharCodeExecute:dopart --
+do
+   value->thrd.private.bvm.chars.push
+
+-- LiteralIntegerCodePrint:dopart --
+do
+   value->outputInteger
+
+-- LiteralIntegerCodePrintShort:dopart --
+do
+   value->outputInteger
+
+-- LiteralIntegerCodePrintCode:dopart --
+do
+   ' '->output;
+   value->outputInteger
+
+-- LiteralIntegerCodeExecute:dopart --
+do
+   value->thrd.private.bvm.integers.push
+
+-- LiteralRealCodePrint:dopart --
+do
+   value->outputReal
+
+-- LiteralRealCodePrintShort:dopart --
+do
+   value->outputReal
+
+-- LiteralRealCodePrintCode:dopart --
+do
+   ' '->output;
+   value->outputReal
+
+-- LiteralRealCodeExecute:dopart --
+do
+   value->thrd.private.bvm.reals.push
+
+-- LiteralStringCodePrint:dopart --
+do
+   '"'->output;
+   (for i:value.T.range repeat value.T[i]->outputChar for);
+   '"'->output
+
+-- LiteralStringCodePrintShort:dopart --
+do
+   (for i:value.T.range repeat value.T[i]->outputChar for)
+
+-- LiteralStringCodePrintCode:dopart --
+do
+   ' "'->output;
+   (for i:value.T.range repeat value.T[i]->outputChar for);
+   '"'->output
+
+-- LiteralStringCodeExecute:dopart --
+do
+   value[]->thrd.private.bvm.strings.push
+
+-- NoneObjectCodeExecute:dopart --
+do
+   NONE->thrd.private.bvm.objRefs.push
+
+-- NonePatternCodeExecute:dopart --
+do
+   NONE->thrd.private.bvm.patterns.push
+
+-- AccessCodePrint:dopart --
+do
+   (dest[],indentation,false)->where.print;
+   INNER
+
+-- AccessCodePrintShort:dopart --
+do
+   shorttypename->output;
+   (dest[],indentation,false)->where.print;
+   INNER
+
+-- AccessCodePrintCode:dopart --
+do
+   ' '->output;
+   (dest[],indentation,false)->where.printCode;
+   INNER
+
+-- AccessCodeFail:dopart --
+do
+   (# msg: ^text
+   do 'Trying to walk an "impossible" run-time path\nwith '->msg[];
+      (typename).withIndefArticle->msg.puttext;
+      msg[]->internalError
+   #)
+
+-- AccessCodeExecute:dopart --
+do
+   (thrd[],unwind##,dContext[])
+     ->where.performDynamicButOne(# impossible::(# do fail #)#)
+     ->targetContext[];
+   INNER
+
+-- GetBooleanCodeExecute:dopart --
+do
+   (* we must find a boolean object slice at the end of 'where' *)
+   (thrd[],unwind##,targetContext[])
+     ->where.lastLink.performDynamic
+     ->boSlice[];
+   boSlice.value->thrd.private.bvm.booleans.push
+
+-- GetCharCodeExecute:dopart --
+do
+   (* we must find a char object slice at the end of 'where' *)
+   (thrd[],unwind##,targetContext[])
+     ->where.lastLink.performDynamic
+     ->coSlice[];
+   coSlice.value->thrd.private.bvm.chars.push
+
+-- GetIntegerCodeExecute:dopart --
+do
+   (* we must find an integer object slice at the end of 'where' *)
+   (thrd[],unwind##,targetContext[])
+     ->where.lastLink.performDynamic
+     ->ioSlice[];
+   ioSlice.value->thrd.private.bvm.integers.push
+
+-- GetRealCodeExecute:dopart --
+do
+   (* we must find an object slice at the end of 'where' *)
+   (thrd[],unwind##,targetContext[])
+     ->where.lastLink.performDynamic
+     ->roSlice[];
+   roSlice.value->thrd.private.bvm.reals.push
+
+-- GetStringCodeExecute:dopart --
+do
+   (* we must find an object slice at the end of 'where' *)
+   (thrd[],unwind##,targetContext[])
+     ->where.lastLink.performDynamic
+     ->soSlice[];
+   soSlice.value[]->thrd.private.bvm.strings.push
+
+-- GetObjectCodePrint:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- GetObjectCodePrintShort:dopart --
+do
+   (* (dest[],indentation,false)->sptype.printShort *)
+
+-- GetObjectCodePrintCode:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- GetObjectCodeExecute:dopart --
+do
+   (if where.empty then
+       dContext[]->oSlice[];
+       oSlice.identity
+         ->thrd.private.bvm.objRefs.push
+    else
+       (thrd[],unwind##,targetContext[])
+         ->where.lastlink.performDynamicL1
+         ->thrd.private.bvm.objRefs.push
+   if)
+
+-- GetObjectRefCodePrint:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- GetObjectRefCodePrintShort:dopart --
+do
+   (* (dest[],indentation,false)->sptype.printShort *)
+
+-- GetObjectRefCodePrintCode:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- GetObjectRefCodeExecute:dopart --
+do
+   (* we must find an object at the end of 'where' *)
+   (thrd[],unwind##,targetContext[])
+     ->where.lastLink.performDynamicL1
+     ->thrd.private.bvm.objRefs.push
+
+-- CheckNoneOrefCodeExecute:dopart --
+do
+   (if thrd.private.bvm.objRefs.peek=NONE then
+       ('Reference is NONE!',thrd[],unwind##)->refNoneError
+   if)
+
+-- GetQualificationCodePrint:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->l2aden.print; *)
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- GetQualificationCodePrintShort:dopart --
+do
+   (* ' '->output;
+   (dest[],indentation,false)->sptype.printShort *)
+
+-- GetQualificationCodePrintCode:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->l2aden.print; *)
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- GetQualificationCodeExecute:dopart --
+do
+   (thrd[],unwind##,targetContext[])
+     ->where.lastlink.performDynamicRef
+     ->l1oref[];
+   l1oref.qual[]->thrd.private.bvm.patterns.push
+
+-- GetPatternCodePrint:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- GetPatternCodePrintShort:dopart --
+do
+   (* ' '->output;
+   (dest[],indentation,false)->sptype.printShort *)
+
+-- GetPatternCodePrintCode:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- GetPatternCodeExecute:dopart --
+do
+   (thrd[],unwind##,targetContext[])
+     ->where.lastlink.performDynamicL1
+     ->thrd.private.bvm.patterns.push
+
+-- GetStaticPatternCodeInit:dopart --
+do
+   staticPatternMark->mark;
+   this(getStaticPatternCode)[]->staticByteCode.append
+
+-- GetStaticPatternCodePrint:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+   ' '->output; mark->outputInteger
+
+-- GetStaticPatternCodePrintShort:dopart --
+do
+   (* ' '->output;
+   (dest[],indentation,false)->sptype.printShort *)
+   ' '->output; mark->outputInteger
+
+-- GetStaticPatternCodePrintCode:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+   ' '->output; mark->outputInteger
+
+-- GetStaticPatternCodePrintSP:dopart --
+do
+   (dest[],0,false)->sptype.gbcPrint(# do mark->outputInteger #)
+
+-- GetStaticPatternCodeExecute:dopart --
+do
+   (thrd[],unwind##,dContext[])
+     ->sptype.createPattern
+     ->thrd.private.bvm.patterns.push
+
+-- GetPatternRefCodePrint:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- GetPatternRefCodePrintShort:dopart --
+do
+   (* ' '->output;
+   (dest[],indentation,false)->sptype.printShort *)
+
+-- GetPatternRefCodePrintCode:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- GetPatternRefCodeExecute:dopart --
+do
+   (thrd[],unwind##,targetContext[])
+     ->where.lastlink.performDynamicL1
+     ->thrd.private.bvm.patterns.push
+
+-- GetObjectPatternCodeExecute:dopart --
+do
+   (&l1PatternEntity[]).init->thrd.private.bvm.patterns.push
+
+-- GetBooleanPatternCodeExecute:dopart --
+do
+   predefinedSubstance.private.booleanPattern.copy
+     ->thrd.private.bvm.patterns.push
+
+-- GetCharPatternCodeExecute:dopart --
+do
+   predefinedSubstance.private.charPattern.copy
+     ->thrd.private.bvm.patterns.push
+
+-- GetIntegerPatternCodeExecute:dopart --
+do
+   predefinedSubstance.private.integerPattern.copy
+     ->thrd.private.bvm.patterns.push
+
+-- GetRealPatternCodeExecute:dopart --
+do
+   predefinedSubstance.private.realPattern.copy
+     ->thrd.private.bvm.patterns.push
+
+-- GetStringPatternCodeExecute:dopart --
+do
+   predefinedSubstance.private.stringPattern.copy
+     ->thrd.private.bvm.patterns.push
+
+-- GetComponentPatternCodeExecute:dopart --
+do
+   predefinedSubstance.private.componentPattern.copy
+     ->thrd.private.bvm.patterns.push
+
+-- GetSemaphorePatternCodeExecute:dopart --
+do
+   predefinedSubstance.private.semaphorePattern.copy
+     ->thrd.private.bvm.patterns.push
+
+-- GetObjectObjectCodeExecute:dopart --
+do
+   (thrd[],unwind##,NONE)
+     ->predefinedSubstance.private.objectPattern.instantiate
+     ->thrd.private.bvm.objRefs.push
+
+-- GetBooleanObjectCodeExecute:dopart --
+do
+   (thrd[],unwind##,NONE)
+     ->predefinedSubstance.private.booleanPattern.instantiate
+     ->thrd.private.bvm.objRefs.push
+
+-- GetCharObjectCodeExecute:dopart --
+do
+   (thrd[],unwind##,NONE)
+     ->predefinedSubstance.private.charPattern.instantiate
+     ->thrd.private.bvm.objRefs.push
+
+-- GetIntegerObjectCodeExecute:dopart --
+do
+   (thrd[],unwind##,NONE)
+     ->predefinedSubstance.private.integerPattern.instantiate
+     ->thrd.private.bvm.objRefs.push
+
+-- GetRealObjectCodeExecute:dopart --
+do
+   (thrd[],unwind##,NONE)
+     ->predefinedSubstance.private.realPattern.instantiate
+     ->thrd.private.bvm.objRefs.push
+
+-- GetStringObjectCodeExecute:dopart --
+do
+   (thrd[],unwind##,NONE)
+     ->predefinedSubstance.private.stringPattern.instantiate
+     ->thrd.private.bvm.objRefs.push
+
+-- GetComponentObjectCodeExecute:dopart --
+do
+   (thrd[],unwind##,NONE)
+     ->predefinedSubstance.private.componentPattern.instantiate
+     ->thrd.private.bvm.objRefs.push
+
+-- GetSemaphoreObjectCodeExecute:dopart --
+do
+   (thrd[],unwind##,NONE)
+     ->predefinedSubstance.private.semaphorePattern.instantiate
+     ->thrd.private.bvm.objRefs.push
+
+-- GetStaticTmpCodePrintCode:dopart --
+do
+   ' '->output;
+   tmpLevel->outputInteger
+
+-- GetObjectTmpCodeExecute:dopart --
+do
+   (thrd[],unwind##,NONE)
+     ->predefinedSubstance.private.objectPattern.instantiate
+     ->thrd.private.bvm.tmpObjs.push
+
+-- GetBooleanTmpCodeExecute:dopart --
+do
+   (thrd[],unwind##,NONE)
+     ->predefinedSubstance.private.booleanPattern.instantiate
+     ->thrd.private.bvm.tmpObjs.push
+
+-- GetCharTmpCodeExecute:dopart --
+do
+   (thrd[],unwind##,NONE)
+     ->predefinedSubstance.private.charPattern.instantiate
+     ->thrd.private.bvm.tmpObjs.push
+
+-- GetIntegerTmpCodeExecute:dopart --
+do
+   (thrd[],unwind##,NONE)
+     ->predefinedSubstance.private.integerPattern.instantiate
+     ->thrd.private.bvm.tmpObjs.push
+
+-- GetRealTmpCodeExecute:dopart --
+do
+   (thrd[],unwind##,NONE)
+     ->predefinedSubstance.private.realPattern.instantiate
+     ->thrd.private.bvm.tmpObjs.push
+
+-- GetStringTmpCodeExecute:dopart --
+do
+   (thrd[],unwind##,NONE)
+     ->predefinedSubstance.private.stringPattern.instantiate
+     ->thrd.private.bvm.tmpObjs.push
+
+-- GetComponentTmpCodeExecute:dopart --
+do
+   (thrd[],unwind##,NONE)
+     ->predefinedSubstance.private.componentPattern.instantiate
+     ->thrd.private.bvm.tmpObjs.push
+
+-- GetSemaphoreTmpCodeExecute:dopart --
+do
+   (thrd[],unwind##,NONE)
+     ->predefinedSubstance.private.semaphorePattern.instantiate
+     ->thrd.private.bvm.tmpObjs.push
+
+-- GetIndexCodeExecute:dopart --
+do
+   (if not where.empty then
+       (thrd[],unwind##,targetContext[])
+         ->where.lastLink.performDynamic
+         ->targetContext[]
+   if);
+   targetContext[]->fsSlice[];
+   fsSlice.index->thrd.private.bvm.integers.push
+
+-- CheckNonePrefCodeExecute:dopart --
+do
+   (if thrd.private.bvm.patterns.peek=NONE then
+       ('Pattern is NONE!',thrd[],unwind##)->refNoneError
+   if)
+
+-- PutBooleanCodeExecute:dopart --
+do
+   (* we must find a boolean object slice at the end of 'where' *)
+   (thrd[],unwind##,targetContext[])
+     ->where.lastLink.performDynamic
+     ->boSlice[];
+   thrd.private.bvm.booleans.pop->boSlice.value
+
+-- PutCharCodeExecute:dopart --
+do
+   (* we must find a char object slice at the end of 'where' *)
+   (thrd[],unwind##,targetContext[])
+     ->where.lastLink.performDynamic
+     ->coSlice[];
+   thrd.private.bvm.chars.pop->coSlice.value
+
+-- PutIntegerCodeExecute:dopart --
+do
+   (* we must find an integer object slice at the end of 'where' *)
+   (thrd[],unwind##,targetContext[])
+     ->where.lastLink.performDynamic
+     ->ioSlice[];
+   thrd.private.bvm.integers.pop->ioSlice.value
+
+-- PutRealCodeExecute:dopart --
+do
+   (* we must find a real object slice at the end of 'where' *)
+   (thrd[],unwind##,targetContext[])
+     ->where.lastLink.performDynamic
+     ->roSlice[];
+   thrd.private.bvm.reals.pop->roSlice.value
+
+-- PutStringCodeExecute:dopart --
+do
+   (* we must find a string object slice at the end of 'where' *)
+   (thrd[],unwind##,targetContext[])
+     ->where.lastLink.performDynamic
+     ->soSlice[];
+   thrd.private.bvm.strings.pop->soSlice.value[]
+
+-- CheckObjectQualificationCodeExecute:dopart --
+do
+   (* 'where' can never be empty because this instruction is used
+    * only at reference assignment, and reference assignment is
+    * always directed towards an l1oref attribute (so there is a
+    * lookup step, at least)
+    *)
+   (thrd[],unwind##,targetContext[])
+     ->where.lastlink.performDynamicRef
+     ->l1oref[];
+   (* the qualification is in this object reference *)
+   l1oref.qual[]->l1pat_qua[];
+   (* now find the object which is going to be assigned to 'l1oref' *)
+   thrd.private.bvm.objRefs.peek->l1obj[];
+   (if l1obj[]<>NONE then
+       l1obj.private.pattern[]->l1pat_candidate[];
+       (* check whether that object is qualified *)
+       (if exact then
+           (if not (l1pat_candidate[]->l1pat_qua.equal) then
+               (# msg: ^text
+               do 'Qualification error in exact object reference assignment'
+                    ->msg[];
+                  '\nExpected type: '->msg.puttext;
+                  (msg[],15,false,NONE)->l1pat_qua.print;
+                  '\nActual type:   '->msg.puttext;
+                  (msg[],15,false,NONE)->l1pat_candidate.print;
+                  (msg[],thrd[],unwind##)->qualificationError
+               #)
+           if)
+        else
+           (if not (l1pat_candidate[]->l1pat_qua.lessEqual) then
+               (# msg: ^text
+               do 'Qualification error in object reference assignment'->msg[];
+                  '\nExpected type: '->msg.puttext;
+                  (msg[],15,false,NONE)->l1pat_qua.print;
+                  '\nActual type:   '->msg.puttext;
+                  (msg[],15,false,NONE)->l1pat_candidate.print;
+                  (msg[],thrd[],unwind##)->qualificationError
+               #)
+           if)
+       if)
+    (*else*)
+       (* l1oref.value[]=NONE: always OK *)
+   if)
+
+-- PutObjectRefCodePrint:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- PutObjectRefCodePrintShort:dopart --
+do
+   (* ' '->output;
+   (dest[],indentation,false)->sptype.printShort *)
+
+-- PutObjectRefCodePrintCode:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- PutObjectRefCodeExecute:dopart --
+do
+   (* this implements reference assignment; first get hold of the
+    * variable object attribute which is being assigned *)
+   (thrd[],unwind##,targetContext[])
+     ->where.lastlink.performDynamicRef
+     ->l1oref[];
+   (* then the object being assigned to it *)
+   thrd.private.bvm.objRefs.pop->l1obj[];
+   (* and put the object into the oref *)
+   l1obj[]->l1oref.value[]
+
+-- PutKeepObjectRefCodePrint:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- PutKeepObjectRefCodePrintShort:dopart --
+do
+   (* ' '->output;
+   (dest[],indentation,false)->sptype.printShort *)
+
+-- PutKeepObjectRefCodePrintCode:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- PutKeepObjectRefCodeExecute:dopart --
+do
+   (* this implements reference assignment; first get hold of the
+    * variable object attribute which is being assigned *)
+   (thrd[],unwind##,targetContext[])
+     ->where.lastlink.performDynamicRef
+     ->l1oref[];
+   (* then the object being assigned to it *)
+   thrd.private.bvm.objRefs.peek->l1obj[];
+   (* and put the object into the oref *)
+   l1obj[]->l1oref.value[]
+
+-- PutKeepTmpRefCodePrint:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+   ' '->output;
+   tmpLevel->outputInteger
+
+-- PutKeepTmpRefCodePrintShort:dopart --
+do
+   (* ' '->output;
+   (dest[],indentation,false)->sptype.printShort *)
+
+-- PutKeepTmpRefCodePrintCode:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+   ' '->output;
+   tmpLevel->outputInteger
+
+-- PutKeepTmpRefCodeExecute:dopart --
+do
+   (* this implements reference assignment; first get hold of the
+    * variable object attribute which is being assigned *)
+   (thrd[],unwind##,targetContext[])
+     ->where.lastlink.performDynamicRef
+     ->l1oref[];
+   (* then the object being assigned to it *)
+   thrd.private.bvm.tmpObjs.peek->l1obj[];
+   (* and put the object into the oref *)
+   l1obj[]->l1oref.value[]
+
+-- CheckPatternQualificationCodeExecute:dopart --
+do
+   (* get hold of the variable pattern attribute which is the
+    * potential target for pattern assignment *)
+   (thrd[],unwind##,targetContext[])
+     ->where.lastlink.performDynamicRef
+     ->l1pref[];
+   (* the qualification is in this object reference *)
+   l1pref.qual[]->l1pat_qua[];
+   (* now find the pattern which is going to be assigned to 'l1pref' *)
+   thrd.private.bvm.patterns.peek->l1pat_candidate[];
+   (* check whether that pattern is qualified *)
+   (if not (l1pat_candidate[]->l1pat_qua.lessEqual) then
+       (# msg: ^text
+       do 'Qualification error in pattern variable assignment'->msg[];
+          '\nExpected type: '->msg.puttext;
+          (msg[],15,false,NONE)->l1pat_qua.print;
+          '\nActual type:   '->msg.puttext;
+          (msg[],15,false,NONE)->l1pat_candidate.print;
+          (msg[],thrd[],unwind##)->qualificationError
+       #)
+   if)
+
+-- PutPatternCodePrint:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- PutPatternCodePrintShort:dopart --
+do
+   (* ' '->output;
+   (dest[],indentation,false)->sptype.printShort *)
+
+-- PutPatternCodePrintCode:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- PutPatternCodeExecute:dopart --
+do
+   (* this implements variable pattern assignment; first get
+    * hold of the variable pattern attribute which is being assigned *)
+   (thrd[],unwind##,targetContext[])
+     ->where.lastlink.performDynamicRef
+     ->l1pref[];
+   (* then the pattern being assigned to it *)
+   thrd.private.bvm.patterns.pop->l1pat[];
+   (* and put the object into the oref *)
+   l1pat[]->l1pref.value[]
+
+-- CreateObjectCodeExecute:dopart --
+do
+   thrd.private.bvm.patterns.pop->l1pat[];
+   (if l1pat[]<>NONE then
+       (thrd[],unwind##,NONE(*no attr*))
+         ->l1pat.instantiate
+         ->thrd.private.bvm.objRefs.push
+    else
+       ('Trying to create an object via a NONE pattern reference'
+       ,thrd[],unwind##)->refNoneError
+   if)
+
+-- CreateStaticObjectCodeInit:dopart --
+do
+   staticPatternMark->mark;
+   this(createStaticObjectCode)[]->staticByteCode.append
+
+-- CreateStaticObjectCodePrintCode:dopart --
+do
+   ' '->output; mark->outputInteger
+
+-- CreateStaticObjectCodePrintSP:dopart --
+do
+   (dest[],0,false)->sptype.gbcPrint(# do mark->outputInteger #)
+
+-- CreateStaticObjectCodeExecute:dopart --
+do
+   (thrd[],unwind##,dContext[])
+     ->sptype.createObject
+     ->thrd.private.bvm.objRefs.push
+
+-- DiscardCodeTypename:dopart --
+do
+   'DISCARD-'->value.puttext;
+   (if true
+    // stran##<=staticORefTransient## then 'objref'->value.puttext
+    // stran##<=staticPRefTransient## then 'ptn'->value.puttext
+    else stran.typename->value.puttext
+   if)
+
+-- DiscardCodeExecute:dopart --
+do
+   (if stran##
+    // staticBooleanTransient## then
+       thrd.private.bvm.booleans.pop
+
+    // staticCharTransient## then
+       thrd.private.bvm.chars.pop
+
+    // staticIntegerTransient## then
+       thrd.private.bvm.integers.pop
+
+    // staticRealTransient## then
+       thrd.private.bvm.reals.pop
+
+    // staticStringTransient## then
+       thrd.private.bvm.strings.pop
+
+    // staticORefTransient## then
+       thrd.private.bvm.objRefs.pop
+
+    // staticPRefTransient## then
+       thrd.private.bvm.patterns.pop
+
+    // staticNoneTransient## then
+       (* no-op *)
+
+    else
+       'Unexpected static transient in discard'->internalError
+   if)
+
+-- CreateTmpCodePrint:dopart --
+do
+   ' '->output;
+   tmpLevel->outputInteger
+
+-- CreateTmpCodePrintCode:dopart --
+do
+   ' '->output;
+   tmpLevel->outputInteger
+
+-- CreateTmpCodeExecute:dopart --
+do
+   thrd.private.bvm.patterns.pop->l1pat[];
+   (if l1pat[]<>NONE then
+       (thrd[],unwind##,NONE(*no attr *))
+         ->l1pat.instantiate
+         ->thrd.private.bvm.tmpObjs.push
+    else
+       ('Trying to create a temporary object via a NONE pattern reference'
+       ,thrd[],unwind##)->refNoneError
+   if)
+
+-- CreateStaticTmpCodeInit:dopart --
+do
+   staticPatternMark->mark;
+   this(createStaticTmpCode)[]->staticByteCode.append
+
+-- CreateStaticTmpCodePrint:dopart --
+do
+   ' '->output; tmpLevel->outputInteger;
+   ' '->output; mark->outputInteger
+
+-- CreateStaticTmpCodePrintCode:dopart --
+do
+   ' '->output; tmpLevel->outputInteger;
+   ' '->output; mark->outputInteger
+
+-- CreateStaticTmpCodePrintSP:dopart --
+do
+   (dest[],0,false)->sptype.gbcPrint(# do mark->outputInteger #)
+
+-- CreateStaticTmpCodeExecute:dopart --
+do
+   (thrd[],unwind##,dContext[])
+     ->sptype.createObject
+     ->thrd.private.bvm.tmpObjs.push
+
+-- GetTmpCodePrint:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+   ' '->output;
+   tmpLevel->outputInteger
+
+-- GetTmpCodePrintShort:dopart --
+do
+   (* ' '->output;
+   (dest[],indentation,false)->sptype.printShort *)
+
+-- GetTmpCodePrintCode:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+   ' '->output;
+   tmpLevel->outputInteger
+
+-- GetTmpCodeExecute:dopart --
+do
+   (* we must find an object slice at the end of 'where' *)
+   (if where.empty then
+       targetContext[]->oSlice[];
+       oSlice.identity->thrd.private.bvm.tmpObjs.push
+    else
+       (thrd[],unwind##,targetContext[])
+         ->where.lastLink.performDynamicL1
+         ->l1obj[];
+       (if l1obj[]<>NONE then
+           l1obj[]->thrd.private.bvm.tmpObjs.push
+        else
+           (* trying to push NONE unto the tmp stack - not allowed! *)
+           ('Trying to push NONE as a temporary object'
+           ,thrd[],unwind##)->refNoneError
+       if)
+   if)
+
+-- GetTmpRefCodePrint:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+   ' '->output;
+   tmpLevel->outputInteger
+
+-- GetTmpRefCodePrintShort:dopart --
+do
+   (* ' '->output;
+   (dest[],indentation,false)->sptype.printShort *)
+
+-- GetTmpRefCodePrintCode:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+   ' '->output;
+   tmpLevel->outputInteger
+
+-- GetTmpRefCodeExecute:dopart --
+do
+   (* get hold of the object *)
+   (thrd[],unwind##,targetContext[])
+     ->where.lastLink.performDynamicL1
+     ->l1obj[];
+   (if l1obj[]<>NONE then
+       l1obj[]->thrd.private.bvm.tmpObjs.push
+    else
+       (* trying to push NONE unto the tmp stack - not allowed! *)
+       ('Trying to push a temporary object from a NONE valued object reference'
+       ,thrd[],unwind##)->refNoneError
+   if)
+
+-- StdioOutCodeExecute:dopart --
+do
+   thrd.private.bvm.strings.pop->screen.puttext
+
+-- StdioInCodeExecute:dopart --
+do
+   keyboard.getline->thrd.private.bvm.strings.push
+
+-- CoerceObjectPatternCodeExecute:dopart --
+do
+   thrd.private.bvm.objRefs.pop->l1obj[];
+   (if l1obj[]<>NONE then
+       l1obj.private.pattern[]->thrd.private.bvm.patterns.push
+    else
+       ('Trying to obtain pattern of an object via a NONE reference'
+       ,thrd[],unwind##)->refNoneError
+   if)
+
+-- MoveObjectTmpCodePrint:dopart --
+do
+   ' '->output;
+   tmpLevel->outputInteger
+
+-- MoveObjectTmpCodePrintCode:dopart --
+do
+   ' '->output;
+   tmpLevel->outputInteger
+
+-- MoveObjectTmpCodeExecute:dopart --
+do
+   thrd.private.bvm.objRefs.pop->thrd.private.bvm.tmpObjs.push
+
+-- CoerceCharIntegerCodeExecute:dopart --
+do
+   (* uses built-in BETA coercion *)
+   thrd.private.bvm.chars.pop->thrd.private.bvm.integers.push
+
+-- CoerceCharRealCodeExecute:dopart --
+do
+   (* uses built-in BETA coercion, twice *)
+   thrd.private.bvm.chars.pop->i->thrd.private.bvm.reals.push
+
+-- CoerceCharStringCodeExecute:dopart --
+do
+   &text[]->t[];
+   thrd.private.bvm.chars.pop->t.put;
+   t[]->thrd.private.bvm.strings.push
+
+-- CoerceIntegerCharCodeExecute:dopart --
+do
+   (* uses built-in BETA coercion *)
+   thrd.private.bvm.integers.pop->thrd.private.bvm.chars.push
+
+-- CoerceIntegerRealCodeExecute:dopart --
+do
+   (* uses built-in BETA coercion *)
+   thrd.private.bvm.integers.pop->thrd.private.bvm.reals.push
+
+-- CoerceRealIntegerCodeExecute:dopart --
+do
+   (* uses built-in BETA coercion *)
+   thrd.private.bvm.reals.pop->thrd.private.bvm.integers.push
+
+-- CoerceString1CharCodeExecute:dopart --
+do
+   1->(thrd.private.bvm.strings.pop).inxget
+     ->thrd.private.bvm.chars.push
+
+-- CoerceString1IntegerCodeExecute:dopart --
+do
+   (* uses built-in BETA coercion *)
+   1->(thrd.private.bvm.strings.pop).inxget
+     ->thrd.private.bvm.integers.push
+
+-- CoerceString1RealCodeExecute:dopart --
+do
+   (* uses built-in BETA coercion, twice *)
+   1->(thrd.private.bvm.strings.pop).inxget
+     ->thrd.private.bvm.integers.push;
+   thrd.private.bvm.integers.pop
+     ->thrd.private.bvm.reals.push
+
+-- MergePatternCodeExecute:dopart --
+do
+   (* we must not change the patterns, so we pop both
+    * operands, copy, and push the merged pattern *)
+   thrd.private.bvm.patterns.pop->l1pat2[];
+   thrd.private.bvm.patterns.pop->l1pat1[];
+   l1pat1.copy->l1pat1[]->thrd.private.bvm.patterns.push;
+   (thrd[],unwind##,l1pat2[])->l1pat1.merge
+
+-- SwapMergePatternCodeExecute:dopart --
+do
+   (* like mergePatternCode, but with inverse operand order *)
+   thrd.private.bvm.patterns.pop->l1pat2[];
+   thrd.private.bvm.patterns.pop->l1pat1[];
+   l1pat2.copy->l1pat2[]->thrd.private.bvm.patterns.push;
+   (thrd[],unwind##,l1pat1[])->l1pat2.merge
+
+-- AddMainPartCodePrint:dopart --
+do
+   (dest[],indentation,false)->l2mpar.printShort;
+   ' origin '->output;
+   (dest[],indentation,false)->originPath.print
+
+-- AddMainPartCodePrintCode:dopart --
+do
+   ' '->output;
+   (dest[],indentation,false)->l2mpar.printShort;
+   ' origin '->output;
+   (dest[],indentation,false)->originPath.printCode
+
+-- AddMainpartCodeExecute:dopart --
+do
+   (* first copy the pattern on the stack: we
+    * must _not_ change such a given pattern *)
+   (thrd.private.bvm.patterns.pop).copy
+     ->l1pat[]
+     ->thrd.private.bvm.patterns.push;
+   (thrd[],unwind##,dContext[])
+     ->originPath.performDynamic
+     ->originContext[];
+   (l2mpar[],originContext[])
+     ->(&compositePatternSlice[]).init
+     ->l1pat.private.slices.prepend
+
+-- EnsureComponentCodePrint:dopart --
+do
+   (* No-op with the current design *)
+
+-- EnsureComponentCodePrintCode:dopart --
+do
+   (* No-op with the current design *)
+
+-- EnsureComponentCodeExecute:dopart --
+do
+   (* we must not change patterns on the stack,
+    * so we do a pop/copy/modify/push *)
+   (# l1pat: ^l1PatternEntity
+   do (thrd.private.bvm.patterns.pop).copy->l1pat[];
+      l1pat.ensureComponent;
+      l1pat[]->thrd.private.bvm.patterns.push
+   #)
+
+-- SpecializeObjectCodeExecute:dopart --
+do
+   (* we must find an object slice at the end of 'where' *)
+   (thrd[],unwind##,targetContext[])
+     ->where.lastLink.performDynamicL1
+     ->l1obj[];
+   l1obj.private.pattern.copy->new_pat[];
+   (* !! performance alert: sometimes we know statically that no
+    * copy is needed, e.g., when the existing pattern is less
+    * than the resulting pattern; however that would not be
+    * known in most cases because only dynamically created
+    * objects can be specialized, and they are only known
+    * by exact type when they are fresh, just created, or
+    * during an exact type case; that latter is a problem
+    * anyway for dynamic specialization! *)
+   (thrd[],unwind##,thrd.private.bvm.patterns.pop)->new_pat.merge;
+   (thrd[],unwind##,NONE)
+     ->new_pat.instantiate
+     ->new_obj[];
+   (thrd[],unwind##,new_obj[])->l1obj.exploit
+
+-- ByteCodeKindName:dopart --
+do
+   (if bck
+    // booleanByteCodeKind then
+       'boolean'->value[]
+    // charByteCodeKind then
+       'char'->value[]
+    // integerByteCodeKind then
+       'integer'->value[]
+    // realByteCodeKind then
+       'real'->value[]
+    // stringByteCodeKind then
+       'string'->value[]
+    // stringByteCodeKind then
+       'string (literal,length=1)'->value[]
+    // orefByteCodeKind then
+       'object reference'->value[]
+    // ptnByteCodeKind then
+       'pattern'->value[]
+    // noneByteCodeKind then
+       'NONE'->value[]
+    else
+       (* This is only for printing, do not kill everything! *)
+       'unexpected ByteCode(='->value[];
+       bck->value.putint;
+       ')'->value.puttext
+   if);
+   ' kind'->value.puttext
+
+-- ByteCodeKindShortName:dopart --
+do
+   (if bck
+    // booleanByteCodeKind then
+       'bool'->value[]
+    // charByteCodeKind then
+       'ch'->value[]
+    // integerByteCodeKind then
+       'int'->value[]
+    // realByteCodeKind then
+       'real'->value[]
+    // stringByteCodeKind then
+       'string'->value[]
+    // string1ByteCodeKind then
+       'string(len=1)'->value[]
+    // orefByteCodeKind then
+       'oref'->value[]
+    // ptnByteCodeKind then
+       'ptn'->value[]
+    // noneByteCodeKind then
+       'NONE'->value[]
+    else
+       (* This is only for printing, do not kill everything! *)
+       'ByteCode('->value[];
+       bck->value.putint;
+       ')'->value.puttext
+   if)
+
+(*
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

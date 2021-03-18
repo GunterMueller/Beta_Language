@@ -1,0 +1,46 @@
+ORIGIN '../basiclib/v1.4/betaenv';
+INCLUDE '../basiclib/v1.4/file';
+INCLUDE '../basiclib/v1.4/private/filebody';
+--- Program: ObjectDescriptor ---
+(#
+   (* Implement a prime number sieve the complicated way, to intensively
+    * test the file Pattern
+    *)
+   f: @file;
+   i,j: @integer;
+   m: @integer;
+do
+   1000->m;
+   'testfile'->f.name;
+   f.openReadWrite;
+   0->i;
+   l: (if i<=m then
+      i->f.putint (# do 6->width #); f.newline; i+1->i; restart l;
+   if);
+
+   2->i;
+   l: (if i<=m then
+      (i*7,FromBeginning)->f.setPos;
+      f.getint->j;
+      (if j
+      // i then
+	 i->putint (# do 8->width #);
+	 ll: (if (j+i->j)<=m then
+	    (j*7,FromBeginning)->f.setPos;
+	    0->f.putint (# do 6->width #);
+	    restart ll
+	 if);
+      // 0 then (* do nothing *)
+      else
+	 (Failure,'prime sieve ERROR: bad data found in File')->stop;
+      if);
+      i+1->i;
+      restart l
+   if);
+   newline;
+   f.close;
+#)
+
+--- lib: attributes ---
+pow: external (# base,exp,result: @real enter (base,exp) exit result #);
+random: external (# value: @integer exit value #);

@@ -1,0 +1,100 @@
+ORIGIN 'collection';
+BODY 'private/btreebody';
+--- lib: attributes ---
+(*
+ * (C) 1996 Kai Petzke, wpp@marie.physik.tu-berlin.de
+ *
+ * An implementation of a balanced tree, as subpatter of collection.
+ * The idea behind this code is, that both inserting elements and their
+ * lookup should be efficient.
+ *
+ * On each node, exactly one element is kept, and two pointers ("left"
+ * and "right") to sub-nodes, if required.  If an element is inserted,
+ * only "local" balancing is performed: we step up the node list again
+ * towards the root, starting with the newly inserted element.  During
+ * that traversal, we monitor the maximum depth of the left and right
+ * node list.  If the depth of the left[] list exceeds that of the
+ * right[] list by two, we make the left[] node or the left.right[] node
+ * the new bottom, depending on whether left.left[] or left.right[] has
+ * the larger depth.
+ *
+ * It would be easy to implement "global" balancing, where the depth
+ * of the leaf nodes variies by a maximum of 1.  However, it is not
+ * efficient.  If such a global balanced btree contains n^2-1 elements,
+ * each leaf node is located on level n.  Therefore, each element has an
+ * exact position in the tree, which solely depends on its index in the
+ * ordered list.  If you now delete the smallest element, and add a new
+ * element, that is larger than all the others, you again get a tree,
+ * where any element's position is absolutely fixed.  But because every
+ * element's index was just reduced by 1, it had to move to a new place
+ * in the tree.  That's not very efficient.
+ *)
+btree: collection
+  (#
+     <<SLOT btreeLib: Attributes>>;
+
+     (******************************************************************
+      *     Methods for manipulating/querying the data in a btree.     *
+      ******************************************************************)
+     init::< (# <<SLOT BtreeInit: DoPart>> #);
+     clear:: (# <<SLOT BtreeClear: DoPart>> #);
+     size:: (# <<SLOT BtreeSize: DoPart>> #);
+     insert:: (# doit: @<<SLOT BtreeInsert: ObjectDescriptor>> do doit #);
+     delete:: (# doit: @<<SLOT BtreeDelete: ObjectDescriptor>> do doit #);
+
+     (* Find one element, that is equal to `key'.  If more than one element
+      * matches, an arbitrary one is selected.  Execute INNER with `current'
+      * set to the found element, and return it as well. *)
+     findOne:
+       (#
+          key,current: ^element;
+          notFound:< Exception;
+	  n: ^privateCell; (* private! *)
+	  cmp: @compare; (* private! *)
+       enter key[]
+       <<SLOT BtreeFindOne: DoPart>>
+       exit current[]
+       #);
+
+     has::
+       (#
+	  shortcut::
+	    (# n: ^privateCell; (* private! *) cmp: @compare; (* private! *)
+	    <<SLOT BtreeHas: DoPart>>
+	    #);
+       #);
+
+     (* perform an extensive integrity check - only there temporaryly *)
+     check: <<SLOT BtreeCheck: ObjectDescriptor>>;
+
+
+     (******************************************************************
+      * Virtuals, that shall be further bound by the container's user. *
+      ******************************************************************)
+     (* Compare two elements.  This pattern should return an integer smaller
+      * than 0, 0 or greater than zero, if the element `left' is smaller
+      * than, equal to, or greater than `right'.
+      *)
+     compare:< IntegerValue
+       (# left,right: ^element
+       enter (left[],right[])
+       do INNER
+       #);
+     equal:: (# do ((left[],right[])->compare)=0->value #);
+
+
+     (******************************************************************
+      *                           private                              *
+      ******************************************************************)
+     storage: @<<SLOT BtreeStorage: ObjectDescriptor>>;
+     privateScan::
+       (#
+	  p: ^privateCell;
+	  init:: (# <<SLOT BtreePrivateScanInit: DoPart>> #);
+	  nxtel::
+	    (# old: ^privateCell <<SLOT BtreePrivateScanNxtel: DoPart>> #);
+       exit p[]
+       #);
+
+     privateCell: <<SLOT BtreeCell: ObjectDescriptor>>
+  #);

@@ -1,0 +1,18 @@
+possible optimizations of the BETA compiler:
+
+1) Specially treat the dynamic generation of text objects from
+   text constants.  Currently, these require about 5 C function
+   calls.
+2) GNU C allows the notation of global register variables.  Such
+   a register could be used to pass the `this' pointer forth and
+   back during function calls.  This is more efficient then the
+   default function calling scheme, where values are passed on
+   the stack.
+3) GNU C assembly could be used to utilize the i386 bounds
+   operation for checking the size of repetitions at run time.
+4) Don't test the result of functions, that are known to not have
+   a nonlocal LEAVE or RESTART.  Such functions must always
+   return a successfull error code.
+5) If a given attribute is inserted multiple times into some
+   other object, may we unify these into one insertion?  This
+   should save on both object space and code size.

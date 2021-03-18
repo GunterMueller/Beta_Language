@@ -1,0 +1,195 @@
+ORIGIN 'compiler';
+INCLUDE 'objstream';
+INCLUDE 'label';
+BODY 'bfilebody';
+
+--- CompilerLib: Attributes ---
+BETAerror: BETAmsg
+  (# print:: (# do '***** '->te #); do c_file.errs+1->c_file.errs; #);
+
+BETAwarn: BETAmsg
+  (# print:: (# do 'WARNING: '->te #); do c_file.warns+1->c_file.warns; #);
+
+(* BETAlist is a linked list of BETAterm's *)
+BETAlist: BETAterm
+  (# listtype:< BETAlist; next: ^listtype do NONE->next[]; INNER #);
+
+BETAlistPtr:
+  (#
+     listtype:< BETAlist;
+     ptr: ^listtype;
+     recurse:
+       (#
+	  atbeg:< (# do INNER #);
+	  atend:< (# do INNER #);
+	  middle:< (# do INNER #);
+          rc:<
+	    (# el: ^listtype
+	    enter el[]
+	    do (if el.next[]<>NONE then el.next[]->rc; middle if); INNER
+	    #)
+       do (if ptr[]<>NONE then atbeg; ptr[]->rc; atend if)
+       #);
+     print:< recurse
+       (#
+          s: ^objstream;
+	  sep1:< (# t: ^text do ''->t[]; INNER exit t[] #);
+	  sep2:< (# t: ^text do ''->t[]; INNER exit t[] #);
+	  nlev:< (# do INNER #);
+	  blev:< (# do INNER #);
+	  nline:< (# do INNER #);
+	  atbeg:: (# do nlev #);
+	  middle:: (# do sep2->s.append; nline #);
+	  atend:: (# do sep1->s.append; nline; blev #);
+	  rc:: (# do s[]->el.print #);
+       enter s[]
+       #);
+
+     (* Iterate over all elements *)
+     iterate:
+       (# el: ^listtype
+       do
+          ptr[]->el[];
+	  loop: (if el[]<>NONE then INNER; el.next[]->el[]; restart loop if)
+       #);
+     encl: iterate (# e: ^BETAterm enter e[] do e[]->el.encl[] exit e[] #);
+     checkFollow: iterate
+       (# value: @Boolean
+       do (if el.checkFollow then true->value if)
+       exit value
+       #);
+     checkComplete: iterate (# do el.checkComplete #);
+
+  enter ptr[]
+  exit ptr[]
+  #);
+
+(* A fragment *)
+Fragment: BETAlist
+  (#
+     <<SLOT FragmentLib: AttributeDecl>>;
+     listtype:: Fragment;
+     fragtype:< BETAterm;
+     fragtypename:< (# t: ^text do INNER exit t[] #);
+     t: @text;
+     frag: ^fragtype;
+     boundto: ^Slot;
+     bf: ^BETAfile;		(* file, that the fragment is found in *)
+     saveLabel: ^Label;
+     print::< (# override::< (# <<SLOT FragmentPrint: DoPart>> #) #);
+     fragiterate:
+       (# te: ^BETAterm; li: ^BETAlist <<SLOT FragmentIterate: DoPart>> #);
+
+     bind:<
+       (# err: @Text; fr,prev: ^Fragment
+       enter prev[]
+       <<SLOT FragmentBind: DoPart>>
+       #);
+     checkFollow::
+       (# do fragiterate (# do (if te.checkFollow then true->value if) #) #);
+     checkComplete::<
+       (# after:< Object
+       do
+          currentLabel.l[]->saveLabel[];
+	  boundto.enclLabel[]->currentLabel.l[];
+          INNER;
+	  fragiterate (# do te.checkComplete #);
+	  after;
+          saveLabel[]->currentLabel.l[];
+       #);
+  enter t
+  do
+     NONE->frag[];
+     slotlist.iterate (# do this(Fragment)[]->el.orfrag[] #);
+     NONE->slotlist;
+     c_file[]->bf[];	(* save pointer to source file *)
+  exit this(Fragment)[]
+  #);
+
+
+(* SpecialDescriptors for patterns, that are treated special by the compiler *)
+SpecialDescriptor: <<SLOT SpecialDescriptor: ObjectDescriptor>>;
+
+
+(* Slots are where fragments can be filled in: *)
+Slot: BETAlist
+  (#
+     <<SLOT SlotLib: Attributes>>;
+     print:: (# <<SLOT SlotPrint: DoPart>> exit true #);
+     listtype:: Slot;
+     slottype:< BETAterm;
+     slottypename:< (# t: ^text do INNER exit t[] #);
+     ph: @slottype; (* placeholder, that is later replaced with fragment *)
+     t: @text;
+     frag: ^Fragment;	(* the fragment, that we are bound to *)
+     orfrag: ^Fragment;	(* the fragment, that holds this slot *)
+     bf: ^BETAfile;
+     enclLabel: ^label;
+  enter t
+  <<SLOT SlotDoPart: DoPart>>
+  exit ph[]
+  #);
+
+
+--- CompilerSlotPtr: ObjectDescriptor ---
+BETAlistPtr (# listtype:: Slot; #)
+
+
+--- CompilerFragmentPtr: ObjectDescriptor ---
+BETAlistPtr (# listtype:: Fragment #)
+
+
+--- ObjectDescriptorLib: Attributes ---
+ScanSuper:
+  (# current: ^ObjectDescriptor <<SLOT ObjectDescriptorScanSuper: DoPart>> #);
+OnlySuper:
+  (# current: ^ObjectDescriptor <<SLOT ObjectDescriptorOnlySuper: DoPart>> #);
+ScanOuter:
+  (# current: ^ObjectDescriptor; level: @integer
+  <<SLOT ObjectDescriptorScanOuter: DoPart>>
+  #);
+ScanBoth:
+  (# current: ^ObjectDescriptor; level: @integer
+  <<SLOT ObjectDescriptorScanBoth: DoPart>>
+  #);
+
+
+--- BETAtermLib: Attributes ---
+msg:
+  (# errortype:< BETAmsg; err: @errortype; s: ^objstream
+  enter err
+  do
+     newline;
+     this(BETAterm)[]->err.encl[];
+     msgp[]->err.msgp[];
+     err[]->msgp[];
+     screen[]->objstream->s[]->print;
+     s.newline;
+     NONE->s[];
+  #);
+error: msg (# errortype:: BETAerror #);
+warn: msg (# errortype:: BETAwarn #);
+
+(* test if this object is the same object as e, or an enclosing object of e *)
+testencl: BooleanValue
+  (# e: ^BETAterm
+  enter e[]
+  do
+     (if e[]
+       // NONE then false->value
+       // this(BETAterm)[] then true->value
+       else e.encl[]->e[]; restart testencl
+     if)
+  #);
+findencltype:
+  (# term: ^BETAterm; type: ##BETAterm; emsg:< (# do inner #)
+  enter type##
+  do
+     this(BETAterm)[]->term[];
+     loop: (if term##<=type## then
+	INNER
+     else
+	(if (term.encl[]->term[])<>NONE then restart loop if); emsg
+     if)
+  exit term[]
+  #);

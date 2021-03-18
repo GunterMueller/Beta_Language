@@ -1,0 +1,225 @@
+ORIGIN 'bfile';
+INCLUDE 'filelist';
+INCLUDE 'option';
+INCLUDE 'parser';
+INCLUDE '~beta/basiclib/current/file';
+INCLUDE '~beta/sysutils/current/pathhandler';
+INCLUDE '~beta/unixlib/current/unixinterface';
+INCLUDE '~beta/unixlib/current/errorscreen';
+BODY 'nametable';
+--- CompilerLib: Attributes ---
+(* mark a filename as one, that has to be processed *)
+markfile: (# pair: @textpair enter pair do pair[]->tl.insert; #);
+
+
+(* link all .o's into the final binary *)
+linkit:
+  (#
+     outname: ^text;
+     args: @text;
+     end: ^text;
+     res: @integer;
+     bf: ^BETAfile;
+     pid,status: @Integer;
+     l: @integer;
+  enter outname[]
+  do
+     (* !!! don't hardcode file names into the compiler! *)
+     'betamain.o'->ol.insert;
+
+     (* JO needed collector run-time support has to been linked, too *)
+     'mmalloc.o'->ol.insert;
+     'gc.o'->ol.insert;
+     (* JO *)
+
+     outname.length->l;
+     (l-3,l)->outname.sub->end[];
+     (if '.bet'->end.equal then
+	(1,l-4)->outname.sub->outname[];
+     if);
+
+     'Linking: '->puttext;
+     outname[]->putline;
+
+     (* set up arg list for the compiler *)
+     '-o'->args;
+     argDecodeSeparator->args.put;
+     outname[]->args.append;
+     ol.scan (# do argDecodeSeparator->args.put; current[]->args.append #);
+     argDecodeSeparator->args.put;
+
+     (* start the C compiler to link the program *)
+     ('/usr/bin/cc',args,0,1)->startUnixProcess->pid;
+     (if pid<0 then
+        (failure,'Cannot execute C compiler!')->stop;
+     if);
+     pid->awaitNotExecuting->status;
+
+     (if status<>1 then
+	(failure,'Linking failed!')->stop;
+     if);
+  #);
+
+
+(* create a new BETAfile object, then open (and potentially also read,
+ * parse, check, optimize and compile) that file
+ *)
+compilefile:
+  (#
+     basename,filename,basis: ^text;
+     l,action: @integer;
+     end: ^text;
+     bf: ^BETAfile;
+     included: @boolean;
+     betentry,hentry,oentry: @DiskEntry;
+     doCompile: (# exit 0 #);
+     Circularity: (# exit 1 #);
+     Ignore: (# exit 2 #);
+  enter (filename[],basis[],included)
+  do
+     filename[]->basename[];
+     filename.length->l;
+     (l-3,l)->filename.sub->end[];
+     (if not ('.bet'->end.equal) then
+	'.bet'->filename.append;
+     if);
+     (filename[],basis[])->fc.convertFilePath->filename[];
+     filename.length->l;
+     (1,l-4)->filename.sub->basename[];
+
+     doCompile->action;
+     basename[]->fl.hashBasename->fl.scanIndexed
+       (#
+       do
+	  (if filename[]->current.filename.equal then
+	     current[]->bf[];
+	     (if current.active then
+		Circularity->action; INNER compilefile
+	     else
+		Ignore->action
+	     if)
+	  if);
+       #);
+
+     (if action
+       // Circularity then
+	  (failure,'Circularity in ORIGIN/INCLUDE directives!')->stop;
+       // doCompile then
+	  (basename[],filename[])->&BETAfile->bf[]->fl.insert;
+
+	  (* test, if we have to recompile *)
+	  filename[]->betentry.path;
+	  bf.hname[]->hentry.path;
+	  bf.oname[]->oentry.path;
+
+	  betentry.modtime->bf.timeBet;
+	  (if not (hentry.exists and oentry.exists) or opt.recompile then
+	     true->bf.needsRecomp
+	  else
+	     hentry.modtime->bf.timeH;
+	     oentry.modtime->bf.timeO;
+	     (if (bf.timeBet > bf.timeH) or (bf.timeH > bf.timeO) then
+		true->bf.needsRecomp
+	     if);
+	  if);
+	  included->bf.included;
+
+	  betentry.path.name.prefix->bf.mainname[];
+	  (for i:bf.mainname.length repeat
+	     (i->bf.mainname.inxget->ascii.LowCase,i)->bf.mainname.inxput
+	  for);
+	  betentry.path.head->basis[];
+	  (if basis[]=NONE then '.'->basis[] if);
+	  (if basis.length=0 then '.'->basis[] if);
+	  basis[]->bf.basis[];
+
+	  bf.open;
+	  bf.oname[]->ol.insert;
+     if);
+  exit bf[]
+  #);
+
+
+--- BETAfileOpen: ObjectDescriptor ---
+(#
+   oldcf: ^BETAfile;
+   pid,res,status: @integer;
+   args: @text;
+   msg: @text;
+do
+   c_file[]->oldcf[];
+   this(BETAfile)[]->c_file[];
+   'Opening file: '->puttext;
+   filename[]->putline;
+   (if (parser->res)<>0 then
+      (failure,'Compilation stopped due to parser errors!')->stop
+   if);
+
+   (if included or needsRecomp then
+      'Binding and Checking file: '->puttext;
+      filename[]->putline;
+      bind;
+      (if errs<>0 then
+	 print;
+	 'Some fragments could not be bound!\nSee file "'->msg;
+	 lstname[]->msg.append;
+	 '" for details!'->msg.append;
+	  (failure,msg[])->stop;
+        (* JS else
+        print; 
+        *)
+      if);
+      check;
+      (* JS
+      'Generating fragment and slot map'->putline; 
+      fragMap;
+      slotMap;*) 
+      (if (warns<>0) or (errs<>0) then
+	 print;
+	 (if errs<>0 then
+	    'Compilation stopped due to grammatical errors!\nSee file "'->msg;
+	    lstname[]->msg.append;
+	    '" for details!'->msg.append;
+	    (failure,msg[])->stop;
+	 if);
+      if);
+    (* JS
+    else
+       getSlotBind;*)
+   if);
+
+   (if needsRecomp then
+      'Generating C code in: '->puttext;
+      cname[]->putline;
+      cgen;
+
+      (* !!! clean this interface up *)
+      'Compiling: '->puttext;
+      cname[]->putline;
+      (* DEBUG
+       * Use these flags to check the C output for ANSI compliance.
+       * However, as far, as I know, only gcc supports these options.
+      '-ansi'->args;
+      argDecodeSeparator->args.put;
+      '-pedantic'->args;
+      argDecodeSeparator->args.put;
+       *)
+      '-c'->args;
+      argDecodeSeparator->args.put;
+      '-I.'->args.append;
+      argDecodeSeparator->args.put;
+      '-o'->args.append;
+      argDecodeSeparator->args.put;
+      oname[]->args.append;
+      argDecodeSeparator->args.put;
+      cname[]->args.append;
+      argDecodeSeparator->args.put;
+      ('/usr/bin/cc',args,0,1)->startUnixProcess->pid;
+      (if pid<0 then (failure,'Cannot execute C compiler!')->stop if);
+      pid->awaitNotExecuting->status;
+
+      (if status<>1 then (failure,'Compiling failed')->stop if)
+   if);
+
+   oldcf[]->c_file[];
+#)

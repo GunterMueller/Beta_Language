@@ -1,0 +1,11 @@
+ORIGIN '~beta/basiclib/current/betaenv';
+---program: ObjectDescriptor---
+(#
+   A: P.M
+     (# M: (# value: @integer do 64->value; INNER exit value #)
+     do value+1->value
+     #);
+   P: @A;
+do
+   P->put; 10->put;
+#)

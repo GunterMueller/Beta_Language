@@ -1,0 +1,249 @@
+ORIGIN 'backlevel';
+INCLUDE 'bitch';
+INCLUDE '../att/simpledecl';
+INCLUDE '../ctype';
+INCLUDE '../getcexprlib';
+INCLUDE '../objectdesc';
+--- BacklevelSD: ObjectDescriptor ---
+SimpleDecl (# #)
+
+
+--- BacklevelWrite: DoPart ---
+do
+   'Backlevel('->s.puttext;
+   nlevel->s.putint;
+   ') from OD '''->s.puttext;
+   startod.private.nme[]->s.puttext;
+   ''''->s.put;
+
+
+--- BacklevelCopy: DoPart ---
+do
+   (if prec[]<>NONE then (failureTrace,'prec <> NONE in Backlevel!')->stop if);
+   startod[]->odback[];
+   nlevel->level;
+   false->copied;
+   addit: (if toadd[]<>NONE then
+      (if level=0 then
+	 (if toadd## <= Backlevel## then
+	    toadd[]->bl[];
+	    bl.startod[]->odback[];
+	    bl.nlevel->level;
+	    toadd.prec[]->toadd[];
+	    restart addit;
+	 if);
+	 (if not copied then NONE->toadd.copy->ad[] else toadd[]->ad[] if);
+	 leave addit;
+      if);
+
+      (*
+       * If we get here, this backlevel will delete at least one level
+       * from the attribute denotation referenced by toadd[].  In case,
+       * that the attribute, which is going to be deleted, is defined
+       * via a denotation of some other attribute, we have to first expand
+       * that denotation and then apply the backlevel to that expanded
+       * denotation.
+       *)
+      NONE->myod[];
+      (if toadd.att.att[]<>NONE then
+	 (if not (toadd## <= Backlevel##) then
+	    (if toadd.att.att.os##<=AttributeDenotation## then
+	       toadd.att.att.os[]->tmpad[];
+	       toadd.prec[]->tmpad.copy->toadd[];
+	       true->copied;
+	       restart addit;
+	    if);
+	 if);
+	 toadd.att.att.od[]->myod[];
+      if);
+      (* !!! temporary *)
+      toadd.getpatt->myod[];
+
+      (*
+       * The attribute denotation toadd[] denotes pattern myod[] (or
+       * an object generated from myod[] - that does not matter here).
+       * The current backlevel is defined as "go back `level' levels
+       * from object descriptor `odback'".  `odback' must be the same
+       * as `myod', or be a superpattern of it.  In the later case, we
+       * cannot directly apply the backlevel, but must look up the
+       * correct operation in the outermap of `myod'.
+       *
+       * But first perform a check, that `odback' is actually a
+       * superpattern of `myod'.  This check is in principle not
+       * necessary (the BETA grammar forbids other situation), but
+       * better detect this error here.  The alternative was to
+       * apply the wrong backlevel to the wrong pattern, ending up
+       * with some messed up attribute denotation, that triggers
+       * an error at some point, where nobody can track it back to
+       * its origin ...
+       *)
+      M: (if (myod[]<>NONE) and (odback[]<>NONE) then
+	 myod.ScanSuper (# do (if current[]=odback[] then leave M if) #);
+	 'Matchod: no match found!'->putline;
+	 'myod: '->puttext;
+	 myod.private.nme[]->puttext;
+	 loop: (if (myod.private.outer[]->myod[])<>NONE then
+	    ' in '->puttext; myod.private.nme[]->puttext; restart loop
+	 if);
+	 newline;
+	 'odback: '->puttext;
+	 odback.private.nme[]->puttext;
+	 loop: (if (odback.private.outer[]->odback[])<>NONE then
+	    ' in '->puttext; odback.private.nme[]->puttext; restart loop
+	 if);
+	 newline;
+	 (failureTrace,'Bad Matchod')->stop;
+      if);
+
+      (*
+       * If myod[] has a different qualification than odback[], we
+       * have to "backtrack" on myod[], until we arrive at odback[].
+       * Thereby, all the prefix denotations, that have been used in
+       * the definition of the type for myod[] from that of odback[]
+       * are explicitely made a part of the denotation.
+       *
+       * The chechFollow test for an ObjectDescriptor also collects
+       * the prefix information in the outermap field `om'.  If this
+       * is present, use it instead of concatenating the denotations
+       * manually.
+       *)
+      (if (myod[]<>NONE) and (odback[]<>NONE) and (myod[]<>odback[]) then
+	 prefix: (if myod.private.om[]<>NONE then
+	    (* If the outermap of `myod' is complete, it must also be
+	     * present for `odback', as `odback' is a superpattern of
+	     * `myod'.  If the `outerindx' field is the same for both,
+	     * no further precessing is required: *)
+	    (if odback.private.outerindx=myod.private.outerindx then
+	       leave prefix
+	    if);
+	    (* DEBUG
+	    'Backlevel: copying '->screen.puttext;
+	    screen[]->myod.private.om.om[odback.private.outerindx].write;
+	    screen.newline;
+	    *)
+	    toadd[]->myod.private.om.om[odback.private.outerindx].copy->toadd[];
+
+	    (* The outermap is the equivalent of a backlevel operation.  So
+	     * get rid of one level of the current backlevel, then restart
+	     * the whole process. *)
+	    true->copied;
+	    level-1->level;
+	    odback.private.outer[]->odback[];
+	    restart addit;
+	 else
+	    myod.ScanSuper
+	      (#
+	      do
+		 (if current[]=odback[] then leave prefix if);
+		 toadd[]->current.private.prefix.copy->toadd[];
+		 true->copied;
+	      #);
+	 if);
+      if);
+
+      (* !!! Add shortcuts, if both object descriptors are the same *)
+
+      (* At this point, the qualifications of `toadd' and `odback' are
+       * the same, or at least compatible on the current level.  So we
+       * can unwind one level of the backlevel operation on `odback'.
+       * If `toadd' is also a backlevel operation, that level is added
+       * there.  If `toadd' is not a backlevel operation, it must be a
+       * forward denotation, which is discarded.
+       *)
+
+      odback.private.outer[]->odback[];
+      level-1->level;
+      (if toadd## <= Backlevel## then
+	 (if not copied then toadd.copy->toadd[]; true->copied if);
+	 toadd[]->bl[];
+	 bl.nlevel+1->bl.nlevel;
+	 bl.sd.od.private.outer[]->bl.sd.od[]->myod[];
+      else
+	 toadd.prec[]->toadd[];
+	 toadd.getpatt->myod[];
+      if);
+
+      (* Safety check, that the unwinding of a level did not produce an error *)
+      F: (if (myod[]<>NONE) and (odback[]<>NONE) then
+	 myod.ScanSuper (# do (if current[]=odback[] then leave F if) #);
+	 'MatchODAfterUnwind: no match found!'->putline;
+	 'myod: '->puttext;
+	 myod.private.nme[]->puttext;
+	 loop: (if (myod.private.outer[]->myod[])<>NONE then
+	    ' in '->puttext; myod.private.nme[]->puttext; restart loop
+	 if);
+	 '\n      from AD: '->puttext;
+	 screen[]->toadd.write;
+	 newline;
+	 'odback: '->puttext;
+	 odback.private.nme[]->puttext;
+	 loop: (if (odback.private.outer[]->odback[])<>NONE then
+	    ' in '->puttext; odback.private.nme[]->puttext; restart loop
+	 if);
+	 newline;
+	 (failureTrace,'Bad MatchODAfterUnwind')->stop;
+      if);
+
+      (* Restart the loop to process the next level *)
+      restart addit;
+   else
+      (*
+       * There is nothing left in toadd.  Just store whatever is left
+       * of this Backlevel, and we will be done:
+       *)
+      (odback[],level)->cpy;
+   if);
+
+
+--- BacklevelGetCexpr: DoPart ---
+do
+   startod[]->od[];
+   (for i: nlevel repeat
+      denote;
+      'encl'->t.append;
+      od.private.outerindx->t.putint;
+      ctype_objectptr->ctype;
+      od.private.outer[]->od[]
+   for);
+   (if ctype=ctype_none then 'th'->t.append; ctype_objectptr->ctype if);
+
+
+--- DirectBacklevelDoPart: DoPart ---
+do
+   0->sd.type;
+   startod[]->sd.encl[]->sd.od[];
+   (for i: nlevel repeat
+      (if sd.od[]<>NONE then
+	 sd.od.private.outer[]->sd.od[]
+      else
+	 nlevel-1->nlevel;
+      if);
+   for);
+   (if (sd.od[]->sd.os[])<>NONE then sd[]->att.att[] else NONE->att.att[] if);
+
+
+--- ThisObjectResolve: DoPart ---
+do
+   0->sd.type;
+   0->nlevel;
+   ObjectDescriptor##->encl.findencltype
+     (#
+        emsg::
+	  (#
+	  do
+	     'Compiler error: no enclosing object descriptor in ThisObject!'
+	       ->error
+	  #)
+     do
+        term[]->startod[]->sd.encl[]->sd.od[];
+	loop: (if sd.od[]<>NONE then
+	   (if str[]->sd.od.private.nme.equalNCS then
+	      sd.od[]->sd.os[]; sd[]->att.att[]; leave loop
+	   if);
+	   nlevel+1->nlevel;
+	   sd.od.private.outer[]->sd.od[];
+	   restart loop;
+	else
+	   'No enclosing object descriptor with this name!'->error
+	if);
+     #);

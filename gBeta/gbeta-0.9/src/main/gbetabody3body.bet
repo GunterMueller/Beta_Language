@@ -1,0 +1,604 @@
+(* FILE "./main/gbetabody3body.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: gbetabody3body.bet,v 1.35 2001/07/02 01:37:29 eernst Exp $
+ *)
+
+ORIGIN 'gbetabody'
+
+-- GbetaShowWarning:dopart --
+do
+   (if print_warnings then
+       (if l2ast[]<>NONE then
+           (if msg[]=NONE then &text[]->msg[] if);
+           (# t: @text
+           do (t[],2,true,verboseOutput)->l2ast.printWithContextBase
+              (# title::(# do 'WARNING'->value[] #)#);
+              t[]->msg.prepend;
+              msg.newline
+           #)
+       if);
+       '**** Warning:'->msg.prepend;
+       msg[]->putline
+   if)
+
+-- GbetaShowNoAstWarning:dopart --
+do
+   (if print_warnings then
+       '**** Warning:'->msg.prepend;
+       msg[]->putline
+   if)
+
+-- GbetaShowNumberExplain:dopart --
+do
+   '"'->msg.put; selector->msg.put; '": '->msg.puttext;
+   (if selector
+    // 'A' then 'Attribute denotations'->msg.puttext
+    // 'E' then 'Expressions'->msg.puttext
+    // 'a' then 'name Applications'->msg.puttext
+    // 'd' then 'name Declarations'->msg.puttext
+    // 'e' then 'top-level Expressions'->msg.puttext
+    // 'i' then 'Imperatives'->msg.puttext
+    // 'm' then 'Main parts'->msg.puttext
+    // 'r' then 'Run-time path starting points'->msg.puttext
+    // 'w' then 'Walking destination for run-time steps'->msg.puttext
+    // '*' then 'Everything'->msg.puttext
+    else
+       '[unknown, no effect]'->msg.puttext
+   if)
+
+-- GbetaObserveExplain:dopart --
+do
+   '"'->msg.put; selector->msg.put; '": '->msg.puttext;
+   (if selector
+    // 'A' then 'initialize Attribute (indents)'->msg.puttext
+    // 'B' then 'Bind names of attribute denotation (indents)'->msg.puttext
+    // 'C' then 'Coerce static types'->msg.puttext
+    // 'D' then 'insert smth. into Database of static information'->msg.puttext
+    // 'E' then 'get Enter/Exit-type of evaluation'->msg.puttext
+    // 'G' then 'Get static substance of remote'->msg.puttext
+    // 'I' then 'Instantiate from static type to static substance'->msg.puttext
+    // 'L' then 'Look up static context'->msg.puttext
+    // 'N' then 'Normalize run-time path'->msg.puttext
+    // 'O' then 'create cOmposite static slice (indents)'->msg.puttext
+    // 'P' then 'do two run-time Paths lead to the same entity?'->msg.puttext
+    // 'S' then 'static Substance'->msg.puttext
+    // 'T' then 'static Transient compute/compare'->msg.puttext
+    // 'Y' then 'bYte code execution'->msg.puttext
+    // 'b' then 'Binding names of attribute denotation'->msg.puttext
+    // 'c' then 'the overall Checking of an AST node (indents)'->msg.puttext
+    // 'e' then 'get Enclosing static context'->msg.puttext
+    // 'f' then 'setting Focus of static context'->msg.puttext
+    // 'g' then 'Getting type of object descriptor'->msg.puttext
+    // 'i' then 'Initial context of a scope node'->msg.puttext
+    // 'l' then 'Local static type'->msg.puttext
+    // 'n' then 'Normalize run-time path (indents)'->msg.puttext
+    // 's' then 'computing Static type'->msg.puttext
+    // 'v' then 'Virtual declaration static analysis'->msg.puttext
+    // 'w' then 'do print Warnings during analysis'->msg.puttext
+    // 'y' then 'bYte code generation'->msg.puttext
+    // '*' then 'Everything'->msg.puttext
+    else
+       '[unknown, no effect]'->msg.puttext
+   if)
+
+-- GbetaTraceExplain:dopart --
+do
+   '"'->msg.put; selector->msg.put; '": '->msg.puttext;
+   (if selector
+    // 'A' then 'initialization of Attributes'->msg.puttext
+    // 'E' then 'Execution of any entity (indents)'->msg.puttext
+    // 'G' then 'object Graph (daVinci format dump to file)'->msg.puttext
+    // 'I' then 'Instantiation from pattern to object (indents)'->msg.puttext
+    // 'O' then 'execute Object'->msg.puttext
+    // 'S' then 'object Specification obtain/execute'->msg.puttext
+    // 'W' then 'Walk: perform dynamic step'->msg.puttext
+    // 'X' then 'eXploit during dyn. specialization (indents)'->msg.puttext
+    // 'e' then 'Enter/Exit value evaluation setup'->msg.puttext
+    // 'f' then 'Fill in new object attributes (indents)'->msg.puttext
+    // 'i' then 'current Imperative'->msg.puttext
+    // 'l' then 'Lookup attribute denotation'->msg.puttext
+    // 'm' then 'pattern Merging (indents)'->msg.puttext
+    // 'n' then 'eNter iterator execution (indents)'->msg.puttext
+    // 's' then 'current object Slice'->msg.puttext
+    // 't' then 'enter/exit iterator Transient value handling'->msg.puttext
+    // 'u' then 'stack Unwinding (leave/restart/labelledImp)'->msg.puttext
+    // 'v' then 'Virtual pattern instantiation (indents)'->msg.puttext
+    // 'x' then 'eXit iterator execution (indents)'->msg.puttext
+    // '*' then 'Everything'->msg.puttext
+    else
+       '[unknown, no effect]'->msg.puttext
+   if)
+
+-- GbetaColorExplain:dopart --
+do
+   (* keep in sync with 'setupColors' *)
+   '"'->msg.put; selector->msg.put; '": '->msg.puttext;
+   (if selector
+    // 'm' // 'M' then 'ANSI monochrome escape sequences'->msg.puttext
+    // 'c' // 'C' // 'a' // 'A' then 'ANSI color escape sequences'->msg.puttext
+    // 'n' // 'N' then 'no colors, insert ">>>" and "<<<"'->msg.puttext
+    else
+       '[unknown coloring scheme, no effect]'->msg.puttext
+   if)
+
+-- GbetaDisplay:dopart --
+do
+   (if dest[]=NONE then screen[]->dest[] if);
+   '\n===================='->dest.puttext;
+   (dest[],0,true)->l2ast.print;
+   '\n===================='->dest.puttext
+
+-- GbetaDisplayPos:dopart --
+do
+   (if dest[]=NONE then screen[]->dest[] if);
+   (if l2ast[]<>NONE then
+       (if l2ast.mpsAst[]<>NONE then
+           (# msg: ^text
+           do (* output the specially formatted message that
+               * Emacs/GUD will recognize and act upon *)
+              '\032\032'->msg[];
+              (l2ast.mpsast.frag.father).textfilename->msg.puttext;
+              ':'->msg.put;
+              l2ast.nodePrivate.sourceFirstPos->msg.putint;
+              ':'->msg.puttext;
+              l2ast.nodePrivate.sourceLastPos->msg.putint;
+              ':'->msg.puttext;
+              msg[]->dest.putline
+           #)
+        else
+           '\nNo syntax (predefined)'->dest.putline;
+           (dest[],l2ast[])->displayNoPos
+       if)
+    else
+       (* this would be an internal error, but we do not want to kill
+        * the whole thing because of a bug in observation code *)
+       '\nNo syntax (this is a bug: please report it!)'->putline
+   if)
+
+-- GbetaDisplayNoPos:dopart --
+do
+   (if dest[]=NONE then screen[]->dest[] if);
+   (# msg: ^text
+   do (* output the specially formatted message that
+       * Emacs/GUD will recognize, requesting highlight
+       * of "nothing" (char-pos zero to zero) *)
+      '\032\032'->msg[];
+      ':'->msg.put; 0->msg.putint; ':'->msg.puttext; 0->msg.putint;
+      ':'->msg.puttext;
+      msg[]->dest.putline
+   #)
+
+-- GbetaSetAttributeVisualizerAndInform:dopart --
+do
+   attrvis[]->setAttributeVisualizer;
+   newline;
+   (if attrvis[]=NONE then
+       'Cancelling attribute visualization'->putline
+    else
+       attrvis.description->putline
+   if)
+
+-- GbetaGetTheNode:dopart --
+do
+   L: (# fail:
+           (# msg: ^text
+           do 'AstNode with index '->msg[];
+              index->msg.putint;
+              (if fg[]<>NONE then
+                  ' in "'->msg.puttext;
+                  fg.fullname->msg.puttext;
+                  '"'->msg.puttext
+              if);
+              ' not found'->msg.puttext;
+              (if msg.length>70 then
+                  (* divide into two lines *)
+                  (# lastspace: @integer
+                  do ' '->msg.findAll(# #);
+                     (if lastspace<>0 then ('\n',lastspace)->msg.inxput if)
+                  #)
+              if);
+              msg[]->shortHelp;
+              NONE->l2ast[];
+              notFound
+           #)
+      do (if fg[]=NONE then
+             (if (root[]<>NONE) and (root.mpsAst[]<>NONE) then
+                 root.mpsast.frag.father->fg[]
+              else
+                 fail; leave L
+             if)
+         if);
+         root.rawScanPre
+         (#
+         do (if (current.mpsAst[]<>NONE) and (current.mpsAst.index=index) and
+                (current.mpsAst.frag.father=fg[]) then
+                current[]->l2ast[];
+                leave L
+            if)
+         #);
+         (* not found *)
+         fail
+      #)
+
+-- GbetaRangeGetTheNode:dopart --
+do
+   L: (# fail:
+           (# msg: ^text
+           do 'AstNode with source including '->msg[];
+              fromPos->msg.putint; '..'->msg.puttext; toPos->msg.putint;
+              (if fg[]<>NONE then
+                  ' in "'->msg.puttext;
+                  fg.fullname->msg.puttext;
+                  '"'->msg.puttext
+              if);
+              ' not found'->msg.puttext;
+              (if msg.length>70 then
+                  (* crudely divide into two lines *)
+                  (# lastspace: @integer
+                  do ' '->msg.findAll(# #);
+                     (if lastspace<>0 then ('\n',lastspace)->msg.inxput if)
+                  #)
+              if);
+              msg[]->shortHelp;
+              NONE->l2ast[];
+              notFound
+           #)
+      do (if fg[]=NONE then
+             (if (root[]<>NONE) and (root.mpsAst[]<>NONE) then
+                 root.mpsast.frag.father->fg[]
+              else
+                 fail; leave L
+             if)
+         if);
+         root.rawScanPre
+         (#
+         do (if (current.mpsAst[]<>NONE)
+                and (current.mpsAst.frag.father=fg[])
+                and (current.nodePrivate.sourceFirstPos<=fromPos)
+                and (current.nodePrivate.sourceLastPos>=toPos) then
+                (* this is an ast node that fits *)
+                (if l2ast[]=NONE then
+                    (* first candidate; take it *)
+                    current[]->l2ast[]
+                 else
+                    (* it is not the first one; see if it is better *)
+                    (if (current.nodePrivate.sourceFirstPos
+                        >= l2ast.nodePrivate.sourceFirstPos) and
+                        (current.nodePrivate.sourceLastPos
+                        <= l2ast.nodePrivate.sourceLastPos) then
+                        (* current fits at least as tightly as l2ast; take it *)
+                        current[]->l2ast[]
+                    if)
+                if)
+            if)
+         #);
+         (if l2ast[]=NONE then
+             (* not found *)
+             fail
+         if)
+      #)
+
+-- GbetaDoNode:dopart --
+do
+   (* show attributes *)
+   (dest[],'Attributes',0)->l2ast.observeSemAtt;
+
+   (* prepare customized display *)
+   (if l2ast##<=l2NameApl## then
+       l2ast[]->(&nameAplVis[]).init->setAttributeVisualizer
+    else
+       l2ast[]->(&nodeVis[]).init->setAttributeVisualizer
+   if)
+
+-- GbetaShow:dopart --
+do
+   (if true
+    // 'breakpoints'->t.eatWordIfMatch then
+       showBreakPoints
+
+    // 'deref'->t.eatWordIfMatch then
+       (&derefVis[]).init->setAttributeVisualizerAndInform;
+       true->doDisplay
+
+    // 'goinhere'->t.eatWordIfMatch then
+       showGoInhere
+
+    // 'growable'->t.eatWordIfMatch then
+       (&mayGrowVis[]).init->setAttributeVisualizerAndInform;
+       true->doDisplay
+
+    // 'kind'->t.eatWordIfMatch then
+       (&typeKindVis[]).init->setAttributeVisualizerAndInform;
+       true->doDisplay
+
+    // 'repeat'->t.eatWordIfMatch then
+       (&repeatVis[]).init->setAttributeVisualizerAndInform;
+       true->doDisplay
+
+    else
+       'Unrecognized show command (use breakpoints/kind/deref/repeat)'->help;
+       false->doDisplay
+   if)
+
+-- GbetaGetFromNode:dopart --
+do
+   L: (# failed:
+           (# msg: ^text
+           enter msg[]
+           do '\nCould not find AST-node: '->puttext;
+              msg[]->putline;
+              leave L
+           #);
+         fgname: ^text;
+         fg: ^this(interpreterBase).private.betaAstHandler.fragmentGroup;
+         colonpos: @integer;
+         fromPos,toPos: @integer
+      do
+         t.removeLeadingWhiteSpace;
+         (if t.empty then
+             defaultPos[]->l2ast[]
+          else
+             t.reset;
+             ':'->t.find(# do inx->colonpos #);
+             M: (if colonpos=0 then
+                    (* ':' not present, use filename of default position *)
+                    (if (defaultPos[]<>NONE) and
+                        (defaultPos.mpsAst[]<>NONE) then
+                        defaultPos.mpsAst.frag.father->fg[];
+                        leave M
+                     else
+                        'please specify a fragment group'->failed
+                    if)
+                 else
+                    (1,colonpos-1)->t.sub->fgname[];
+                    (1,colonpos)->t.olddelete; t.reset;
+                    this(interpreterBase).private.fragmentGraph.nodes.scan
+                    (# checkName:
+                         (# name: ^text
+                         enter name[]
+                         do (name.length-fgname.length+1,name.length)
+                              ->name.sub->name[]
+                         exit name[]->fgname.equal
+                         #)
+                    do (if true
+                        // current.group.name->checkName then
+                           current.group[]->fg[];
+                           leave M
+                        // current.group.textFileName->checkName then
+                           current.group[]->fg[];
+                           leave M
+                        // current.group.diskFileName->checkName then
+                           current.group[]->fg[];
+                           leave M
+                       if)
+                    #);
+                    (* not found, complain *)
+                    'fragment group not found'->failed
+                if);
+             t.getint
+             (# syntaxerror::(# do 'Number expected'->help; leave L #)#)
+               ->fromPos;
+             (if (not t.eos) and ('-'=t.peek) then
+                 (* a range of two numbers separated by '-' *)
+                 t.get;
+                 t.getint
+                 (# syntaxerror::(# do 'Number expected'->help; leave L #)#)
+                   ->toPos
+              else
+                 (* one number - use a minimal range containing that number *)
+                 fromPos->toPos
+             if);
+             (root[],fromPos,toPos,fg[])
+               ->rangeGetTheNode
+             (# notFound::(# do this(getFromNode).notFound; leave L #)#)
+               ->l2ast[]
+         if);
+         INNER getFromNode
+      #)
+
+-- GbetaGetCode:dopart --
+do
+   L: (#
+      do (root[],t[],defaultPos[])->findPosition
+         (# l2eval: ^l2Evaluation;
+            l2adcl: ^l2AttributeDecl;
+            l2vdcl: ^l2VDecl;
+            stype: ^staticType
+         do (if true
+             // current##<=l2Evaluation## then
+                current[]->l2eval[];
+                (if l2eval.program.empty then
+                    '\n*** Was not compiled! Compiling.. ***'->putline;
+                    l2eval.compile; true->l2eval.compiled
+                if);
+                (NONE,indent_delta,false,true)->l2eval.program.print
+                (# before::(# do '\n--------------------'->output #);
+                   after::(# do '\n--------------------\n'->output #)
+                #);
+                leave L
+             // current##<=l2AttributeDecl## then
+                current[]->l2adcl[];
+                (if l2adcl.program.empty then
+                    '\n*** Was not compiled! Compiling.. ***'->putline;
+                    l2adcl.compile; true->l2adcl.compiled
+                if);
+                (NONE,indent_delta,false,true)->l2adcl.program.print
+                (# before::(# do '\n--------------------'->output #);
+                   after::(# do '\n--------------------\n'->output #)
+                #);
+                (if current##<=l2VDecl## then
+                    current[]->l2vdcl[];
+                    (if l2vdcl.mergeProgram.empty then
+                        '\n*** Was not mergeCompiled! Compiling.. ***'
+                          ->putline;
+                        l2vdcl.mergeCompile; true->l2vdcl.mergeCompiled
+                    if);
+                    (NONE,indent_delta,false,true)->l2vdcl.mergeProgram.print
+                    (# before::(# do '\n--------------------'->output #);
+                       after::(# do '\n--------------------\n'->output #)
+                    #)
+                if);
+                leave L
+            if)
+         #);
+         (* not found *)
+         (# msg: ^text
+         do 'There is no byte code associated with '->msg[];
+            (defaultPos.typename).withIndefArticle->msg.puttext;
+            msg[]->shortHelp
+         #)
+      #)
+
+
+-- GbetaGetLocalType:dopart --
+do
+   L: (#
+      do (root[],t[],defaultPos[])->findPosition
+         (# l2ospec: ^l2ObjectSpecification;
+            l2mpar: ^l2MainPart;
+            l2ndcl: ^l2NameDcl;
+            stype: ^staticType
+         do (if true
+             // current##<=l2ObjectSpecification## then
+                current[]->l2ospec[];
+                l2ospec.localStaticType->stype[]
+             // current##<=l2MainPart## then
+                current[]->l2mpar[];
+                l2mpar.localStaticType->stype[]
+             // current##<=l2NameDcl## then
+                current[]->l2ndcl[];
+                l2ndcl.decl.localStaticType->stype[]
+            if);
+            (if stype[]<>NONE then
+                (* got it; show result *)
+                (NONE,0,true)->stype.print;
+                newline;
+                (if stype##<=staticPatternType## then
+                    (* pattern types are illustrated when outside Emacs *)
+                    (if verboseOutput then
+                        true->doDisplay;
+                        (* customize listing *)
+                        (current[],stype[])
+                          ->(&sptypeVisualizer[]).init
+                          ->setAttributeVisualizerAndInform
+                    if)
+                if);
+                leave L
+            if)
+         #);
+         (* not found *)
+         (# msg: ^text
+         do 'Cannot obtain the static type of '->msg[];
+            (defaultPos.typename).withIndefArticle->msg.puttext;
+            msg[]->shortHelp;
+            false->doDisplay
+         #)
+      #)
+
+-- GbetaGetLocalSubstance:dopart --
+do
+   L: (#
+      do (root[],t[],defaultPos[])->findPosition
+         (# l2ospec: ^l2ObjectSpecification;
+            l2mpar: ^l2MainPart;
+            l2ndcl: ^l2NameDcl;
+            l2eval: ^l2Evaluation;
+            stsub: ^staticSubstance;
+            attrvis: ^attributeVisualizer
+         do (if true
+             // current##<=l2ObjectSpecification## then
+                current[]->l2ospec[];
+                l2ospec.localStaticSubstance->stsub[]
+             // current##<=l2MainPart## then
+                current[]->l2mpar[];
+                l2mpar.localStaticContext->stsub[]
+             // current##<=l2NameDcl## then
+                current[]->l2ndcl[];
+                l2ndcl.localStaticSubstance->stsub[]
+             // current##<=l2Evaluation## then
+                '\nNB: Obtaining substance by dereferencing transient'->putline;
+                current[]->l2eval[];
+                (l2eval[],l2eval[])
+                  ->l2eval.localOCPByTransient
+                  ->stsub[]
+            if);
+
+            (if stsub[]<>NONE then
+                (* got it *)
+                (NONE,0,true)->stsub.print;
+                newline;
+                (if verboseOutput then
+                    (* outside Emacs: illustrate some substances *)
+                    stsub[]
+                      ->getStaticSubstanceVisualizer
+                      ->attrvis[]
+                      ->setAttributeVisualizer; (* !!! AndInform? *)
+                    (attrvis[]<>NONE)->doDisplay
+                if);
+                leave L
+            if)
+         #);
+         (* nothing found *)
+         (# msg: ^text
+         do 'Cannot obtain the static substance of '->msg[];
+            (defaultPos.typename).withIndefArticle->msg.puttext;
+            msg[]->shortHelp;
+            false->doDisplay
+         #)
+      #)
+
+-- GbetaGetStaticTransientBase:dopart --
+do
+   L: (root[],t[],defaultPos[])->findPosition
+   (# qualification::l2Evaluation
+   do current[]->l2eval[];
+      INNER getStaticTransientBase;
+      (NONE,0,true)->stran.print;
+      leave L
+   #)
+
+-- GbetaGetStaticTransientOut:dopart --
+do
+   l2eval.localStaticTransientOut->stran[]
+
+-- GbetaGetStaticTransientIn:dopart --
+do
+   l2eval.localStaticTransientIn->stran[]
+
+(*
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

@@ -1,0 +1,30 @@
+ORIGIN 'nameref';
+BODY 'nameaplbody';
+--- CompilerLib: Attributes ---
+(* NameApl: reference an attribute by its name *)
+NameApl: NameRef
+  (#
+     print::< (# do INNER; str[]->s.append #);
+     resolve::<
+       (#
+          blockod,startod,od: ^ObjectDescriptor;
+	  thislevel: @integer;
+          onelevel: @Boolean;
+       <<SLOT NameAplResolve: DoPart>>
+       #);
+     checkComplete::< (# do INNER; resolve #);
+  enter str
+  do NONE->nme[]; INNER
+  exit this(NameApl)[]
+  #);
+
+
+Remote: NameApl
+  (#
+     print:: (# do s[]->prec.print; '.'->s.append #);
+     resolve:: (# <<SLOT RemoteResolve: DoPart>> #);
+     checkPath:: (# do prec.checkPath #);
+     checkComplete:: (# do prec.checkComplete #);
+  enter prec[]
+  do this(Remote)[]->prec.encl[]; INNER
+  #);

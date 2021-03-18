@@ -1,0 +1,64 @@
+ORIGIN '../betaenv';
+INCLUDE 'filebody';
+BUILD default 'betamain.o' 'ext/betamain.c' '$CC -c -I ext $1 -o $0';
+BUILD default 'gc.o'       'ext/gc.c'       '$CC -c -I ext $1 -o $0';
+BUILD default 'mmalloc.o'  'ext/mmalloc.c'  '$CC -c -I ext $1 -o $0';
+--- BetaenvInit: ObjectDescriptor ---
+(# f: ^file
+do
+   &file[]->f[]->keyboard[];
+   0->f.private.fd;
+   true->f.private.open;
+
+   &file[]->f[]->screen[];
+   1->f.private.fd;
+   true->f.private.open;
+#)
+
+
+--- BetaenvCleanup: ObjectDescriptor ---
+(# f: ^file
+do
+   (if screen##=file## then screen[]->f[]; f.flush if);
+   (if keyboard##=file## then keyboard[]->f[]; f.flush if);
+#)
+
+
+--- BetaenvStop: DoPart ---
+do
+   (if msg[]<>NONE then msg[]->putline if);
+   (if why=failureTrace then
+      'Sorry, cannot generate stack traces yet!'->putline
+   if);
+   (if why=normal then 0->doexit if);
+   1->doexit;
+
+
+--- BetaenvException: DoPart ---
+do
+   (if msg[]=NONE then &text[]->msg[]; failureTrace->termCode if);
+   INNER;
+   (if not continue and (err[]=NONE) then
+      '\nBETA runtime EXCEPTION:\n'->msg.prepend; (termCode, msg[])->stop
+   if);
+
+--- BetaenvRaise: DoPart ---
+do
+   &(# do leave raise #)[]->finish[];
+   failureTrace->termCode;
+   INNER;
+   '\nBETA runtime error: RAISE could not deliver the following error:\n'
+      ->msg.prepend;
+   (termCode, msg[])->stop;
+
+--- BetaenvRaiseDeliverTo: DoPart ---
+do
+   (if dest##<>exception## then
+      &dest[]->exc[];
+      this(raise)[]->exc.err[];
+      termCode->exc.termCode;
+      msg[]->exc.msg[];
+      exc;
+      (if exc.continue then finish if);
+      exc.termCode->termCode;
+   if);

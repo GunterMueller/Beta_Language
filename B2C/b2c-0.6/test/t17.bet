@@ -1,0 +1,10 @@
+ORIGIN '~beta/basiclib/current/betaenv';
+--- Program: ObjectDescriptor ---
+(# mytext: text (# #);
+   t: @mytext
+do
+   (* yeah, we got it.  This BETA program can say 'hello world!' *)
+   'Hello'->t; ' world!'->t.append->putline;
+   ''->putline;
+   'and alive!'->t; 'I am here '->t.prepend->putline;
+#)

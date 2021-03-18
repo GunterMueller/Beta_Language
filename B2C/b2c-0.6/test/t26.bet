@@ -1,0 +1,7 @@
+ORIGIN '~beta/basiclib/current/betaenv';
+--- Program: ObjectDescriptor ---
+(* This file should NOT compile! *)
+(#
+   a:< (# #);
+   b:< a;
+#)

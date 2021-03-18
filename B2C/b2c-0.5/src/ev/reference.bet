@@ -1,0 +1,65 @@
+ORIGIN '../evaluationlib.bet';
+INCLUDE 'basic';
+INCLUDE 'type';
+INCLUDE '../attributelib';
+INCLUDE '../attributebitch';
+INCLUDE '../ctype';
+INCLUDE '../objectdesc';
+INCLUDE '../eelib';
+INCLUDE '../ad/bitch';
+--- ObjectReferenceCheckComplete: DoPart ---
+do
+   oe.checkFollow;
+   oe.checkComplete;
+   (if oe.dynamic<>0 then
+      (if not oe.obj.ispattern then 'This should be a pattern!'->error if);
+   else
+      (if oe.obj.ispattern then 'An object is expected here!'->error if);
+   if);
+   (if (oe.obj.getpatt->od[])<>NONE then
+      (if od.isbasic then
+        'References to basic items (like Integer, Boolean, etc.) are forbidden!'
+	   ->error;
+      if)
+   if);
+
+
+--- ObjectReferenceDoCexpr: DoPart ---
+do ctype_objectptr->oe.DoCexpr
+
+
+--- ObjectReferenceType: DoPart ---
+do evtype_ref->value
+
+
+--- ObjectReferenceAssignable: DoPart ---
+do
+   (# sd: ^SimpleDecl
+   do
+      (if oe.ad.att.att[]<>NONE then
+	 (if oe.ad.att.att##<=SimpleDecl## then
+	    oe.ad.att.att[]->sd[];
+	    (if sd.type=1 then true->value if);
+	 if)
+      else
+         true->value
+      if);
+   #)
+
+
+--- ObjectReferenceReduce: ObjectDescriptor ---
+(#
+   od: ^ObjectDescriptor;
+   ad: ^AttributeDenotation;
+   before2: ^Evaluation;
+do
+   (if toadd[]=NONE then oe.ad[]->ad[] else toadd[]->oe.ad.copy->ad[] if);
+
+   ad.reduce->before[];
+   (if ad.ispattern then
+      (ad[],true)->ee.item->(ad[],before2[]);
+      (before[],before2[])->EvaluationJoin->before[];
+   if);
+   (ad[],0)->&ObjectEvaluation->&ObjectReference->enteropt[];
+   (ad[],0)->&ObjectEvaluation->&ObjectReference->exitopt[];
+#)

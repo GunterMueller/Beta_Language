@@ -1,0 +1,8 @@
+include(advancedstd.m4)dnl
+_deflr(`',`')dnl
+define(`_adv_toc_entry',
+  `_advref(define(`inx',incr(inx))inx,<LI>$1</LI>)')dnl
+define(`inx',`0')dnl
+begin_adv(`Contents')
+
+<OL>

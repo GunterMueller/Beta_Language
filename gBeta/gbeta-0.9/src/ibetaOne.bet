@@ -1,0 +1,245 @@
+(* FILE "./ibetaOne.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaOne.bet,v 1.42 2001/07/01 21:44:10 eernst Exp $
+ *)
+
+ORIGIN 'ibetaTwo';
+BODY 'private/ibetaOnebody'
+
+-- InterpreterBaseLib:attributes --
+
+(************************************************************* 
+ *                                                           * 
+ *               Level One - run-time entities               * 
+ *                                                           * 
+ *************************************************************)
+
+l1IndexEntity: l1Entity
+  (* Used for index variables of for-statements etc. *)
+  (# <<SLOT IndexEntityLib:attributes>>;
+     init::(# enter value do INNER #);
+     
+     (* ----- Introspection ----- *)
+     
+     typename::(# do 'index'->value[] #);
+     shortTypename::(# do 'I'->value[] #);
+     print::(# <<SLOT IndexEntityPrint:dopart>> #);
+     printShort::(# <<SLOT IndexEntityPrintShort:dopart>> #);
+     
+     (* ----- Execution ----- *)
+     
+     execute::(# <<SLOT IndexEntityExecute:dopart>> #);
+     getEnterIter::(# <<SLOT IndexEntityGetEnterIter:dopart>> #);
+     getExitIter::(# <<SLOT IndexEntityGetExitIter:dopart>> #);
+     getEnterExitIter::getEnterExitIterIndependent;
+     
+     (* ----- Substance ----- *)
+     
+     value: @integer
+     
+  exit value
+  #);
+
+l1PatternRefEntity: l1Entity
+  (# <<SLOT PatternRefEntityLib:attributes>>;
+
+     init::(# enter (qual[],value[]) do INNER #);
+     
+     (* ----- Introspection ----- *)
+     
+     typename::(# do 'pattern reference'->value[] #);
+     shortTypename::(# do 'PR'->value[] #);
+     print::(# <<SLOT PatternRefEntityPrint:dopart>> #);
+     printShort::(# <<SLOT PatternRefEntityPrintShort:dopart>> #);
+     
+     (* ----- Execution ----- *)
+     
+     execute::(# <<SLOT PatternRefEntityExecute:dopart>> #);
+     getEnterIter::(# <<SLOT PatternRefEntityGetEnterIter:dopart>> #);
+     getExitIter::(# <<SLOT PatternRefEntityGetExitIter:dopart>> #);
+     getEnterExitIter::(# <<SLOT PatternRefEntityGetEnterExitIter:dopart>> #);
+     
+     (* ----- Substance ----- *)
+     
+     qual: ^l1PatternEntity;            (* R/O and never NONE, after init *)
+     value: ^l1PatternEntity 		(* NONE means "NONE" *)
+     
+  enter value[]
+  exit value[]
+  #);
+
+l1ObjectRefEntity: l1Entity
+  (# <<SLOT ObjectRefEntityLib:attributes>>;
+     init::(# enter (qual[],value[],exact) do INNER #);
+     
+     (* ----- Introspection ----- *)
+     
+     typename::(# do 'object reference'->value[] #);
+     shortTypename::(# do 'OR'->value[] #);
+     print::(# <<SLOT ObjectRefEntityPrint:dopart>> #);
+     printShort::(# <<SLOT ObjectRefEntityPrintShort:dopart>> #);
+     
+     (* ----- Execution ----- *)
+     
+     execute::(# <<SLOT ObjectRefEntityExecute:dopart>> #);
+     getEnterIter::(# <<SLOT ObjectRefEntityGetEnterIter:dopart>> #);
+     getExitIter::(# <<SLOT ObjectRefEntityGetExitIter:dopart>> #);
+     getEnterExitIter::(# <<SLOT ObjectRefEntityGetEnterExitIter:dopart>> #);
+     
+     (* ----- Substance ----- *)
+     
+     qual: ^l1PatternEntity;            (* R/O and never NONE, after init *)
+     value: ^l1ObjectEntity; 		(* NONE means "NONE" *)
+     exact: @boolean                    (* value and qual must match exactly *)
+
+  enter value[]
+  exit value[]
+  #);
+
+l1RepetitionEntity: l1Entity
+  (# <<SLOT RepetitionEntityLib:attributes>>;
+     
+     init::
+       (# enter (rdecl[],enclosing[]) <<SLOT RepetitionEntityInit:dopart>> #);
+     
+     (* ----- Introspection ----- *)
+     
+     typename::(# do 'repetition'->value[] #);
+     shortTypename::(# do 'R'->value[] #);
+     print::(# <<SLOT RepetitionEntityPrint:dopart>> #);
+     printShort::(# <<SLOT RepetitionEntityPrintShort:dopart>> #);
+     
+     (* ----- Accessing Individual Elements ----- *)
+
+     put:
+       (* put entity 'val' at index 'inx' of this repetition entity *)
+       (# thrd: ^thread;                (* Current thread of execution *)
+          unwind: ##stackUnwinder;      (* Never NONE *)
+          inx: @integer;                (* Where to 'put' the 'val' *)
+          val: ^l1Entity                (* Never NONE *)
+       enter (thrd[],unwind##,inx,val[])
+       <<SLOT RepetitionEntityPut:dopart>>
+       #);
+
+     get:
+       (* exit the entity at index 'inx' of this repetition entity *)
+       (# thrd: ^thread;                (* Current thread of execution *)
+          unwind: ##stackUnwinder;      (* Never NONE *)
+          inx: @integer;                (* Where to 'get' the 'val' from *)
+          val: ^l1Entity                (* Never NONE *)
+       enter (thrd[],unwind##,inx)
+       <<SLOT RepetitionEntityGet:dopart>>
+       exit val[]
+       #);
+     
+     (* ----- Execution ----- *)
+     
+     execute::(# <<SLOT RepetitionEntityExecute:dopart>> #);
+     getEnterIter::(# <<SLOT RepetitionEntityGetEnterIter:dopart>> #);
+     getExitIter::(# <<SLOT RepetitionEntityGetExitIter:dopart>> #);
+     getEnterExitIter::getEnterExitIterIndependent;
+     
+     (* ----- Substance ----- *)
+     
+     qual: ^l1PatternEntity;            (* Qualification, for obj/ptn ref.s *)
+     qualExact: @boolean;               (* Whether the qual. is exact, "^=" *)
+     value: [0] ^l1Entity;		(* No entry ever NONE *)
+     rdecl: ^l2RepetitionDecl;          (* Never NONE *)
+     enclosing: ^substanceSlice;        (* Where 'rdecl' and I live *)
+     private: @<<SLOT RepetitionEntityPrivate:descriptor>>
+  #);
+
+l1DelegateEntity: l1Entity
+  (# <<SLOT DelegateEntityLib:attributes>>;
+     init::(# enter target[] #);
+     
+     (* ----- Introspection ----- *)
+     
+     typename::(# do 'delegation'->value[] #);
+     shortTypename::(# do 'D'->value[] #);
+     print::(# <<SLOT DelegateEntityPrint:dopart>> #);
+     printShort::(# <<SLOT DelegateEntityPrintShort:dopart>> #);
+     
+     (* ----- Execution ----- *)
+     
+     execute::(# <<SLOT DelegateEntityExecute:dopart>> #);
+     getEnterIter::(# <<SLOT DelegateEntityGetEnterIter:dopart>> #);
+     getExitIter::(# <<SLOT DelegateEntityGetExitIter:dopart>> #);
+     getEnterExitIter::getEnterExitIterIndependent;
+     
+     (* ----- Substance ----- *)
+     
+     target: ^l1MapElement              (* Never NONE, const after init *)
+  #);
+
+l1PrimitiveValueEntity: l1Entity
+  (# <<SLOT PrimitiveValueEntityLib:attributes>>;
+     
+     (* ----- Introspection ----- *)
+     
+     print::< (# <<SLOT PrimitiveValueEntityPrint:dopart>> #);
+     printShort::< (# <<SLOT PrimitiveValueEntityPrintShort:dopart>> #)
+  #);
+
+l1BooleanSourceEntity: l1PrimitiveValueEntity
+  (# <<SLOT BooleanSourceEntityLib:attributes>>;
+     init::(# enter value #);
+     
+     (* ----- Introspection ----- *)
+     
+     typename::(# do 'boolean source'->value[] #);
+     shortTypename::(# do 'BS'->value[] #);
+     print::(# <<SLOT BooleanSourceEntityPrint:dopart>> #);
+     printShort::(# <<SLOT BooleanSourceEntityPrintShort:dopart>> #);
+     
+     (* ----- Execution ----- *)
+     
+     getEnterIter::
+       (# <<SLOT BooleanSourceEntityGetEnterIter:dopart>> #);
+     getExitIter::
+       (# <<SLOT BooleanSourceEntityGetExitIter:dopart>> #);
+     getEnterExitIter::
+       (# <<SLOT BooleanSourceEntityGetEnterExitIter:dopart>> #);
+     
+     (* ----- Substance ----- *)
+     
+     value: @boolean
+  #)
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

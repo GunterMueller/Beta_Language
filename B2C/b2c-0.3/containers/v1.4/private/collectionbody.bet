@@ -1,0 +1,14 @@
+ORIGIN '../collection';
+--- CollectionUnion: DoPart ---
+do theOther.scan (# do (if not (current[]->h) then current[]->ins if) #)
+
+--- CollectionDiff: DoPart ---
+do theOther.scan (# do (if current[]->h then current[]->del if) #)
+
+--- CollectionSect: DoPart ---
+do scan (# do (if not (current[]->theOther.has) then current[]->del if) #)
+
+--- CollectionSymDiff: DoPart ---
+do
+   theOther.scan
+     (# do (if current[]->h then current[]->del else current[]->ins if) #)

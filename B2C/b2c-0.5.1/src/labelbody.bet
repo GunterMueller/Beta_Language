@@ -1,0 +1,112 @@
+ORIGIN 'label';
+INCLUDE 'eelib';
+INCLUDE 'cintf';
+INCLUDE 'nametable';
+--- LabelAssign: DoPart ---
+do currentLabel.l[]->enclLabel[]; this(Label)[]->currentLabel.l[]
+
+
+--- LabelDeassign: DoPart ---
+do enclLabel[]->currentLabel.l[]; sLeave.Getname; sRestart.Getname;
+
+
+--- LabelReduce: DoPart ---
+do
+   currentLabel.l[]->saveLabel[];
+   (if sLeave.nonlocal or sRestart.nonlocal then
+      this(Label)[]->currentLabel.l[];
+      ee.getod->od[];
+      od.private.llabel+1->testOD;
+      od.private.llabel+2->testLR->od.private.llabel;
+      &Global->ee.add;
+   if);
+   &sLeave.Mark;
+   INNER;
+   &sRestart.Mark;
+   saveLabel[]->currentLabel.l[]
+
+
+--- LabelSectionLib: Attributes ---
+(* get a (temporary) name for this label, if it has been used *)
+Getname:
+  (#
+  do
+     (if local or nonlocal then
+	c_file.NameMapper.state->mapname;
+	'L'->mapname.prepend;
+	c_file.NameMapper.advance;
+	(if nonlocal then DefineLabel##->c_file.cstrucdef if);
+     if);
+  #);
+
+
+(* define a globally visible "handle" for this label *)
+DefineLabel:
+  (#
+  do
+     'char '->c_file.cstream.puttext;
+     mapname[]->c_file.cstream.puttext;
+     '[] = "'->c_file.cstream.puttext;
+     type->c_file.cstream.puttext;
+     ' '->c_file.cstream.put;
+     nme->c_file.cstream.puttext;
+     '";\n'->c_file.cstream.puttext;
+  #);
+
+
+(* add a label to the currently generated .c file *)
+Mark: Evaluation
+  (#
+     DoDo::
+       (#
+       do
+	  mapname[]->c_file.cstream.puttext;
+	  ':'->c_file.cstream.put;
+	  cintf.emptyStatement->c_file.cstream.puttext;
+	  ';\n'->c_file.cstream.puttext;
+       #);
+  do (if local or nonlocal then this(Mark)[]->ee.add if)
+  #);
+
+
+--- LabelLib: Attributes ---
+(* handle global LEAVE/RESTART *)
+Global: Evaluation
+  (#
+     DoDo::
+       (#
+       do
+	  '    if(0) {\nL'->c_file.cstream.puttext;
+	  testOD->c_file.cstream.putint;
+	  ':\n\tif(LRobject != (struct object *) th) return 0;\nL'
+	    ->c_file.cstream.puttext;
+	  testLR->c_file.cstream.putint;
+	  ':\n'->c_file.cstream.puttext;
+	  (if sRestart.nonlocal then
+	     '\tif(LRlabel == '->c_file.cstream.puttext;
+	     sRestart.mapname[]->c_file.cstream.puttext;
+	     ') goto '->c_file.cstream.puttext;
+	     sRestart.mapname[]->c_file.cstream.puttext;
+	     ';\n'->c_file.cstream.puttext;
+	  if);
+	  (if sLeave.nonlocal then
+	     '\tif(LRlabel != '->c_file.cstream.puttext;
+	     sLeave.mapname[]->c_file.cstream.puttext;
+	     ') '->c_file.cstream.puttext;
+	  else
+	     '\t'->c_file.cstream.puttext;
+	  if);
+	  (* If neither the leave nor the restart label matched: try to
+	   * test the next enclosing label.  If there is no such label,
+	   * return from this function with failure. *)
+	  (if saveLabel[]<>NONE then
+	     'goto L'->c_file.cstream.puttext;
+	     saveLabel.testLR->c_file.cstream.putint;
+	     ';\n'->c_file.cstream.puttext;
+	  else
+	     'return 0;\n'->c_file.cstream.puttext;
+	  if);
+	  '    }\n'->c_file.cstream.puttext;
+       #);
+  exit this(Global)[]
+  #);

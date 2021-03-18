@@ -1,0 +1,28 @@
+ORIGIN 'bfile';
+--- CompilerLib: Attributes ---
+(* Imperatives *)
+Imperative: BETAlist
+  (#
+     listtype:: Imperative;
+     isslot:< BooleanValue;
+     DoDo:< (# do INNER #);
+     reduce:< Object;
+  do INNER
+  exit this(Imperative)[]
+  #);
+
+ImperativePtr: BETAlistPtr
+  (#
+     listtype:: Imperative;
+     print::
+       (#
+	  lead: ^text;
+	  nlev:: (# do (if not ptr.isslot then (3,lead[])->s.newlevel if) #);
+	  sep2:: (# do '; '->t[] #);
+	  blev:: (# do (if not ptr.isslot then s.backlevel; s.newline if) #);
+	  nline:: (# do s.newline #);
+       enter lead[]
+       #);
+     reduce: iterate (# do el.reduce #);
+     DoDo: recurse (# rc:: (# do el.DoDo #) #);
+  #);

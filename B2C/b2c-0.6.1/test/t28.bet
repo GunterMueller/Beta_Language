@@ -1,0 +1,16 @@
+ORIGIN '~beta/basiclib/current/betaenv';
+INCLUDE '~beta/basiclib/current/file';
+CINCLUDE default '<math.h>';
+LINKOPT default '-lm';
+--- Program: ObjectDescriptor ---
+(#
+   res: @integer;
+   foo: ^object;
+do
+   (5 , 3)->pow->res; res->putint; newline;
+   (7, 3)->&pow->res; res->putint; newline;
+#)
+
+--- lib: attributes ---
+pow: external (# base,exp,result: @real enter (base,exp) exit result #);
+random: external (# value: @integer exit value #);

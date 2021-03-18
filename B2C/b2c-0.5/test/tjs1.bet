@@ -1,0 +1,9 @@
+ORIGIN '../basiclib/v1.4/betaenv';
+BODY 'tjs1body.bet';
+BODY 'tjs1bdy';
+--- program: ObjectDescriptor ---
+(#
+   <<SLOT tjs1att: Attributes>>
+   a:@<<SLOT tjs1A: ObjectDescriptor>>;
+   do a
+#)

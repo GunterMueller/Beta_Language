@@ -1,0 +1,213 @@
+ORIGIN '../file';
+--- lib: Attributes ---
+Copen: external
+   (# n:[1]@char; fl,m,fd: @integer enter (n,fl,m) do 'open'->callC exit fd #);
+Cclose: external
+   (# fd,res: @integer enter fd do 'close'->callC exit res #);
+Cwrite: external
+   (# fd,buf,cnt,res: @integer enter (fd,buf,cnt) do 'write'->callC exit res #);
+Cread: external
+   (# fd,buf,cnt,res: @integer enter (fd,buf,cnt) do 'read'->callC exit res #);
+Clseek: external
+   (# fd,dist,wh,res: @integer enter (fd,dist,wh) do 'lseek'->callC exit res #);
+
+(* file modes - these are probably non-standard, so should be moved elsewhere *)
+O_RDONLY: (# exit 0 #);
+O_WRONLY: (# exit 1 #);
+O_RDWR:   (# exit 2 #);
+O_CREAT:  (# exit 64 #);
+O_TRUNC:  (# exit 512 #);
+
+P_RW:     (# exit 6+6*8+6*8*8 #);
+
+
+--- FilePrivate: ObjectDescriptor ---
+(#
+   fd: @integer;
+   buf: [1] @char;
+   bufpos,bufmax: @integer;
+   open,dirty: @boolean;
+
+   checkopen: @
+     (#
+     do (if not open then &fileRaise (# do 'File not open!\n'->msg #) if);
+     exit open
+     #);
+
+   doopen:
+     (# flags,mode,res: @integer; append: @boolean
+     enter (flags,mode,append)
+     do
+	(if open then &doclose if);
+	(entry.private.path,flags,mode)->Copen->res;
+	(if res<0 then
+	   &openRaise
+	else
+	   (if append then
+	      (if ((res,0,FromEnd)->Clseek)<0 then
+		 res->Cclose;
+		 &FileRaise (# do 'Seek to end of file failed\n'->msg #);
+	      if);
+	   if);
+	   res->fd;
+	   true->open;
+	   (if not unbuffered then 4096->buf.new if);
+	if);
+     #);
+
+   doclose:
+     (#
+     do
+	flushBuf;
+	(if (fd->Cclose)<0 then &fileRaise (# do 'Close failed\n'->msg #) if);
+     #);
+
+   flushBuf: @
+     (# res: @integer
+     do
+	(if dirty then
+	   0->bufpos;
+	   l: (if bufpos<bufmax then
+	      (fd, @@buf[bufpos+1], bufmax-bufpos)->Cwrite->res;
+	      (if res<0 then &writeRaise; bufmax-bufpos->res if);
+	      bufpos+res->bufpos;
+	   if);
+	   false->dirty;
+	   0->bufpos->bufmax;
+	if);
+     #);
+
+   fillBuf: @
+     (#
+     do
+        (if checkopen then
+	   flushBuf;
+	   (fd, @@buf[1], buf.range)->Cread->bufmax;
+	   (if bufmax<0 then &readRaise; 0->bufmax if);
+	else
+	   0->bufmax;
+	if);
+	0->bufpos;
+     #)
+#)
+
+
+--- FileEOS: DoPart ---
+do
+   (if private.bufpos<private.bufmax then
+      false->value
+   else
+      private.fillBuf; (private.bufmax=0)->value
+   if)
+
+
+--- FilePeek: DoPart ---
+do
+   (if private.bufpos>=private.bufmax then private.fillBuf if);
+   (if private.bufmax=0 then
+      &EOSraise;
+   else
+      private.buf[private.bufpos+1]->ch;
+   if);
+
+
+--- FileGet: DoPart ---
+do
+   (if private.bufpos>=private.bufmax then private.fillBuf if);
+   (if private.bufmax=0 then
+      &EOSraise;
+   else
+      private.buf[private.bufpos+1->private.bufpos]->ch;
+   if);
+
+
+--- FilePut: DoPart ---
+do
+   (if private.bufpos>=private.buf.range then private.flushBuf if);
+   (if not private.dirty then
+      (if not private.checkopen then leave put if);
+
+      (* we have to back up the file pointer *)
+      (* !!! the following concept only works for binary files *)
+      (if private.bufmax>0 then
+	 (if ((private.fd,-private.bufmax,FromCurrent)->Clseek)<0 then
+	    &writeRaise (# do 'Backing up file position failed\n'->msg #);
+	    leave put;
+	 if);
+      if);
+      true->private.dirty;
+   if);
+   ch->private.buf[private.bufpos+1->private.bufpos];
+   (if private.bufpos>=private.bufmax then private.bufpos->private.bufmax if);
+   (if private.bufpos>=private.buf.range then private.flushBuf if);
+
+
+--- FilePuttext: DoPart ---
+do
+   (* !!! this is not efficient - but fast to implement *)
+   0->i; l: (if i<t.length then i+1->i->t.inxGet->put; restart l if);
+
+
+--- FileSetPos: DoPart ---
+do
+   (if private.checkopen then
+      (* If we are doing a relative seek, consider, that the user of the
+       * file wants to seek from the current position in the read/write
+       * buffer, while the operating system's file descriptor will be
+       * located right after the end of that buffer, after `flushBuf' has
+       * been completed. *)
+      (if (mode=FromCurrent) then
+	 p+private.bufpos->p; (if not private.dirty then p-private.bufmax->p if)
+      if);
+      private.flushBuf;
+      0->private.bufmax->private.bufpos;
+      (if ((private.fd,p,mode)->Clseek->p)<0 then
+	 &fileRaise (# do 'Setting file position failed!\n'->msg #);
+      if);
+   if);
+
+
+--- FileGetPos: DoPart ---
+do
+   (if private.checkopen then
+      (if ((private.fd,0,FromCurrent)->Clseek->p)<0 then
+	 &fileRaise (# do 'Getting file position failed!\n'->msg #);
+      else
+	 p+private.bufpos->p; (if not private.dirty then p-private.bufmax->p if)
+      if);
+   if);
+
+
+--- FileLength: DoPart ---
+do (* !!! this is a BAD BAD BAD hack *)
+   0->value
+
+
+--- FileOpenRead: DoPart ---
+do (O_RDONLY, P_RW, false)->private.doopen;
+--- FileOpenWrite: DoPart ---
+do (O_WRONLY + O_TRUNC + O_CREAT, P_RW, false)->private.doopen;
+--- FileOpenAppend: DoPart ---
+do (O_WRONLY + O_CREAT, P_RW, true)->private.doopen;
+--- FileOpenReadWrite: DoPart ---
+do (O_RDWR + O_CREAT, P_RW, false)->private.doopen;
+--- FileOpenReadAppend: DoPart ---
+do (O_RDWR + O_CREAT, P_RW, true)->private.doopen;
+
+
+--- FileFlush: DoPart ---
+do private.flushBuf
+
+
+--- FileClose: DoPart ---
+do private.doclose
+
+
+--- DiskEntryPrivate: ObjectDescriptor ---
+(#
+   path: @text;
+#)
+--- DiskEntryPathSet: DoPart ---
+do t->private.path
+--- DiskEntryPathGet: DoPart ---
+do &text[]->t[]; private.path->t

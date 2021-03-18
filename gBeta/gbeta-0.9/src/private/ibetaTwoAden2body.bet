@@ -1,0 +1,788 @@
+(* FILE "./private/ibetaTwoAden2body.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaTwoAden2body.bet,v 1.13 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN 'ibetaTwoAdenbody'
+
+(************************************************************ 
+ *                                                          * 
+ *                     l2ComputedRemote                     * 
+ *                                                          * 
+ ************************************************************)
+
+-- ComputedRemotePrint:dopart --
+do
+   '('->output;
+   (dest[],indentation,false,false)->Evaluations.print;
+   ').'->output;
+   (dest[],indentation,false)->NameApl.print
+
+-- ComputedRemoteScanImpl:dopart --
+do
+   (preCB[],postCB[])->Evaluations.scanImpl;
+   (preCB[],postCB[])->NameApl.scanImpl
+
+-- ComputedRemoteBindNames:dopart --
+do
+   (if NameApl.status
+    // freshNameAplStatus then
+       halfbakedNameAplStatus->NameApl.status;
+       
+       (* ----- set up the apl-dcl binding ----- *)
+       
+       (# context: ^staticContext;
+          computedOCP: ^staticOCP
+       do
+          (* first find the substance this computed remote lives in *)
+          (position[],scope.world[],this(l2ComputedRemote)[])
+            ->scope.getInitialContext
+            ->context[];
+          
+          (* get the computed object *)
+          (this(l2ComputedRemote)[],context[]
+          ,scope.world[],this(l2ComputedRemote)[],Evaluations.Identity[])
+            ->Evaluations.getOCPByTransient
+            ->computedOCP[]
+            ->scope.world.enhance;
+          
+          (* check that this entity is appropriate for remote access *)
+          (if computedOCP.sptype.kind 
+              (* !!! note that this test is probably too crude *)
+           // objectTypeKind // objectRefTypeKind 
+           // patternTypeKind // patternRefTypeKind then (* OK *)
+           else
+              (# msg: ^text
+              do 'Attempting to computed-remote-access into '->msg[];
+                 (computedOCP.sptype.typename).withIndefArticle
+                   ->msg.puttext;
+                 (msg[]
+                 ,'The evaluation (in paren.s) must deliver an object reference'
+                 ,this(l2ComputedRemote)[])->staticError
+              #)
+          if);
+          
+          (*test-obs  ('ComputedRemoteBind','b')->computedOCP.observe; *)
+          
+          (* lookup the name apl *)
+          (NameApl.value[],NameApl[])
+            ->computedOCP.lookupName
+            ->NameApl.decl[];
+                  
+          (if NameApl.decl[]<>NONE then 
+              (if (NameApl.decl.mpsAst[]=NONE) or 
+                  (mpsAst.frag.father=NameApl.decl.mpsAst.frag.father) then
+                  (* same fragment or 'decl' predefined: OK *)
+               else
+                  (* different fragments *)
+                  (if not 
+                      ((mpsAst.frag.father,NameApl.decl.mpsAst.frag.father)
+                        ->fragmentVisible) then
+                      (* !!! no access to this decl: 
+                       * ought to try 'lookupName' in the 
+                       * rest of 'adenContext' since there might 
+                       * be a shadowed but visible name above this
+                       * invisible one! (see also similar comment 
+                       * elsewhere) *)
+                      NameApl[]->staticUndefinedError
+                      (* !! Or: mark name for dynamic lookup *)
+                  if)
+              if);
+              
+              (* found it, set up 'stype' and 'rtp' *)
+              (computedOCP[],scope.world[],this(l2ComputedRemote)[])
+                ->NameApl.decl.decl.getStaticType
+                ->NameApl.stype[];
+              computedOCP.getSyntax
+                ->NameApl.rtp.initialSyntax[];
+              (NameApl.rtp[],NameApl.decl.scope.location)
+                ->computedOCP.appendSuffixPathToAst;
+              (NameApl.decl[]
+              ,NameApl.decl.decl.isIndirect
+              ,NameApl.decl.decl.isRepeated)
+                ->NameApl.rtp.addStepLookup
+           else
+              (* did not find it *)
+              NameApl[]->staticUndefinedError
+              (* !! .. or mark name for dynamic lookup? *)
+          if)
+       #);
+
+       (* that is it! *)
+       doneNameAplStatus->NameApl.status
+       
+    // halfbakedNameAplStatus then
+       ('Circular dependency in declared names'
+       ,'Change the inheritance hierarchy or some part object declarations'
+       ,NameApl[])->staticError
+       
+    // doneNameAplStatus then
+       (* no action *)
+       
+    else
+       'l2nameApl with unrecognized status'
+         ->internalError
+   if)
+
+-- ComputedRemoteGetType:dopart --
+do
+   (# computedContext: ^staticOCP
+   do
+      (this(l2ComputedRemote)[],context[],world[]
+      ,usageAst[],Evaluations.Identity[])
+        ->Evaluations.getOCPByTransient
+        ->computedContext[]
+        ->world.enhance;
+          
+      (*test-obs  ('CRem/GetType,context','s')->computedContext.observe; *) 
+      (* !!! coercion? *)
+      
+      (* find the static type of the name apl, and of the computed remote *)
+      (computedContext[],world[],usageAst[])
+        ->NameApl.decl.decl.getStaticType
+        ->stype[]
+   #)
+
+-- ComputedRemoteGetQuaType:dopart --
+do
+   (# computedContext: ^staticOCP
+   do
+      (this(l2ComputedRemote)[],context[],world[]
+      ,usageAst[],Evaluations.Identity[])
+        ->Evaluations.getOCPByTransient
+        ->computedContext[]
+        ->world.enhance;
+          
+      (*test-obs  ('CRem/GetType,context','s')->computedContext.observe; *) 
+      (* !!! coercion? *)
+      
+      (* find the static type of the name apl, and of the computed remote  *)
+      (computedContext[],world[],usageAst[])
+        ->NameApl.decl.decl.getStaticQuaType
+        ->(qual[],qualExact)
+   #)
+
+-- ComputedRemoteLocalType:dopart --
+do
+   (* since the static type of a computed remote is the
+    * static type of its name appl as seen in the context
+    * of the substance for its evaluation, this is _the_
+    place where we can setup the 'stype_cache' of the name appl *)
+   stype_cache[]->NameApl.stype_cache[]
+
+-- ComputedRemoteGetSub:dopart --
+do
+   (# computedContext: ^staticOCP
+   do
+      (* get the computed object *)
+      (this(l2ComputedRemote)[],context[],world[]
+      ,this(l2ComputedRemote)[],Evaluations.Identity[])
+        ->Evaluations.getOCPByTransient
+        ->computedContext[]
+        ->world.enhance;
+      
+      (*test-obs  ('CRem/GetSub,context','S')->computedContext.observe; *)
+      (* !!! coercion? *)
+      
+      (* find the static type of the name apl, and of the computed remote  *)
+      (computedContext[],world[],usageAst[])
+        ->NameApl.decl.getStaticSubstance
+        ->stsub[]
+   #)
+
+-- ComputedRemoteStaticWalkToDecl:dopart --
+do
+   (# computedContext: ^staticOCP
+   do
+      (* get the computed object *)
+      (this(l2ComputedRemote)[],from[],world[]
+      ,this(l2ComputedRemote)[],Evaluations.Identity[])
+        ->Evaluations.getOCPByTransient
+        ->computedContext[]
+        ->world.enhance;
+      (* !!! coercion? *)
+
+      (* the computed OCP is where the NameApl.decl should live *)
+      (if NameApl.decl.scope.location->computedContext.setFocus then
+          computedContext[]->to[]
+       else
+          NameApl[]->staticUndefinedError
+      if)
+   #)
+
+-- ComputedRemoteStaticVisitToDecl:dopart --
+do 
+   (# computedContext: ^staticOCP
+   do
+      (* get the computed object *)
+      (this(l2ComputedRemote)[],from[],world[]
+      ,this(l2ComputedRemote)[],Evaluations.Identity[])
+        ->Evaluations.getOCPByTransient
+        ->computedContext[]
+        ->world.enhance;
+      (* !!! coercion? *)
+
+      (* the computed OCP is where the NameApl.decl should live *)
+      (if NameApl.decl.scope.location->computedContext.setFocus then
+          computedContext[]->to[]
+       else
+          NameApl[]->staticUndefinedError
+      if)
+   #)
+
+-- ComputedRemoteLib:attributes --
+
+getComputedObjectGenerate:
+  (* generate code to get hold of the computed object, and deliver 
+   * the static description of the entity looked up via NameApl *)
+  (# solution: (# exit 'Make "expr" deliver exactly one object reference' #);
+     l2eval: ^l2Evaluation;
+     context: ^staticSubstance;
+     world: ^staticContextDB;
+     usageAst: ^l2AstNode;
+     program: ^betaByteCodeList;
+     cInfo: ^compileInfo;
+     final_stsub: ^staticSubstance;
+     subExitCplr: ^exitCompiler;
+     path: ^runtimePath;
+     stran: ^staticTransient;
+     oref_stran: ^staticORefTransient;
+     framePos: @integer;
+     computed_stocp: ^staticOCP;
+     subSTran: ^staticTransient
+  enter (context[],world[],usageAst[],program[],cInfo[])
+  do (*lazy*) (if not namesBound then bindnames if);
+     (* for now (?), only a one-element evaluation list is allowed *)
+     (if Evaluations.size=1 then
+         (Evaluations.head).elm[]->l2eval[]
+      else
+         (# msg: ^text
+         do 'In "(evals).attr", "evals" is an evaluation list of length '
+              ->msg[];
+            Evaluations.size->msg.putint;
+            (msg[]
+            ,'Use exactly one evaluation here'
+            ,usageAst[])->staticError
+         #)
+     if);
+     
+     (* deal with the evaluation *)
+     (context[],world[],usageAst[])
+       ->l2eval.getExitCompiler
+       ->subExitCplr[];
+     (subExitCplr[],program[],cInfo[])->generateExitOneValue
+     (# EmptyOutput::
+          (# do ('In "(expr).attr", "expr" delivers nothing'
+             ,solution,usageAst[])->staticError
+          #);
+        MultipleOutputs::
+          (# do ('In "(expr).attr", "expr" delivers more than one value'
+             ,solution,usageAst[])->staticError
+          #)
+     #)->subSTran[];
+     (if subSTran##<=staticORefTransient## then
+         subSTran[]->oref_stran[]
+      else
+         (* does not deliver an object ref. *)
+         (# msg: ^text
+         do 'In "(expr).attr", "expr" delivers '->msg[];
+            (subSTran.typename).withIndefArticle->msg.puttext;
+            (msg[],solution,usageAst[])->staticError
+         #)
+     if);
+     (if oref_stran.sptype.kind<>objectTypeKind then
+         (* objectRefTypeKind: ensure that the result is not NONE *)
+         'ibetaTwoAden2body.bet/320'
+           ->(&checkNoneOrefCode[]).init
+           ->program.append
+     if);
+     (* move the computed object to 'tmpObjs' *)
+     cInfo.allocateTmp->framePos;
+     ('ibetaTwoAden2body.bet/326',framePos)
+       ->(&moveObjectTmpCode[]).init
+       ->program.append;
+     (* create a description of this object using the given type *)
+     (NONE,NONE,context.getInitialSyntax)
+       ->(&runtimePath[]).init
+       ->path[];
+     (oref_stran.sptype[],(Evaluations.head).elm[],framePos)
+       ->(&runtimeTmpStep[]).init
+       ->path.append;
+     (context[],path[],NONE,usageAst[])
+       ->oref_stran.sptype.staticInstantiate
+       ->computed_stocp[]
+       ->world.enhance;
+     (if not (NameApl.decl.scope.location->computed_stocp.setFocus) then
+         'Could not setFocus in getComputedObjectGenerate'
+           ->internalError
+     if);
+     (NameApl.decl.value[],world[],usageAst[])
+       ->computed_stocp.getByLookup
+       ->final_stsub[];
+     (if final_stsub[]=NONE then
+         ('In "(expr).name", "name" is not declared'
+         ,'Check the type of "expr" and the spelling of "name"'
+         ,usageAst[])->staticError
+     if)
+  exit (computed_stocp[],final_stsub[])
+  #)
+
+-- ComputedRemoteObserveSemAtt:dopart --
+do
+   (* identify *)
+   '"'->output;
+   (dest[],indentation,false)->print;
+   '"'->output;
+   (* output details *)
+   (# position: @runtimePath;
+      computedContext: ^staticOCP
+   do
+      (* get the computed object *)
+      (NONE,NONE,scope.location)
+        ->position.init;
+      (this(l2ComputedRemote)[]
+      ,(position[],scope.world[],this(l2ComputedRemote)[])
+        ->scope.getInitialContext
+      ,scope.world[],this(l2ComputedRemote)[],Evaluations.Identity[])
+        ->Evaluations.getOCPByTransient
+        ->computedContext[];
+      '\nComputed object: '->output;
+      (dest[],indentation,false)->computedContext.print
+   #);
+   (dest[],title[],category)->NameApl.observeSemAtt
+
+-- ComputedRemoteGetCplr:dopart ---
+do
+   &exeCompiler
+   (# subCplr: ^exeCompiler;
+      computed_stocp: ^staticOCP;
+      final_stsub: ^staticSubstance;
+      generate::
+        (# do (context[],world[],usageAst[],program[],cInfo[])
+             ->getComputedObjectGenerate
+             ->(computed_stocp[],final_stsub[]);
+           final_stsub.copy->final_stsub[];
+           (world[],this(l2ComputedRemote)[],usageAst[])
+             ->final_stsub.getCompiler
+             ->subCplr[];
+           (program[],cInfo[])
+             ->subCplr.generate
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- ComputedRemoteGetEnterCplr:dopart --
+do
+   &enterCompiler
+   (# subCplr: ^enterCompiler;
+      computed_stocp: ^staticOCP;
+      final_stsub: ^staticSubstance;
+      prepare::
+        (# do (context[],world[],usageAst[],program[],cInfo[])
+             ->getComputedObjectGenerate
+             ->(computed_stocp[],final_stsub[]);
+           final_stsub.copy->final_stsub[];
+           (world[],usageAst[],this(l2ComputedRemote)[]
+           ,this(getEnterCompiler).execute)
+             ->final_stsub.getEnterCompiler
+             ->subCplr[];
+           (program[],cInfo[])
+             ->subCplr.prepare
+        #);
+      more::(# do subCplr.more->value #);
+      generate::
+        (# do (program[],cInfo[])
+             ->subCplr.generate
+             ->stran[]
+        #);
+      cleanup::(# do (program[],cInfo[])->subCplr.cleanup #)
+   #)[]->nc[];
+   usageAst[]->nc.usageAst[]
+
+-- ComputedRemoteGetExitCplr:dopart --
+do
+   &exitCompiler
+   (# subCplr: ^exitCompiler;
+      computed_stocp: ^staticOCP;
+      final_stsub: ^staticSubstance;
+      prepare::
+        (# do (context[],world[],usageAst[],program[],cInfo[])
+             ->getComputedObjectGenerate
+             ->(computed_stocp[],final_stsub[]);
+           final_stsub.copy->final_stsub[];
+           (world[],this(l2ComputedRemote)[],usageAst[])
+             ->final_stsub.getExitCompiler
+             ->subCplr[];
+           (program[],cInfo[])
+             ->subCplr.prepare
+        #);
+      more::(# do subCplr.more->value #);
+      generate::
+        (# do (program[],cInfo[])
+             ->subCplr.generate
+             ->stran[]
+        #);
+      cleanup::(# do (program[],cInfo[])->subCplr.cleanup #)
+   #)[]->xc[];
+   usageAst[]->xc.usageAst[]
+
+-- ComputedRemoteGetEnterExitCplr:dopart --
+do
+   (# subExitCplr: ^exitCompiler
+   do
+      &enterCompiler
+      (# subEnterCplr: ^enterCompiler;
+         computed_stocp: ^staticOCP;
+         final_stsub: ^staticSubstance;
+         prepare::
+           (# do (context[],world[],usageAst[],program[],cInfo[])
+                ->getComputedObjectGenerate
+                ->(computed_stocp[],final_stsub[]);
+              final_stsub.copy->final_stsub[];
+              (world[],this(l2ComputedRemote)[],usageAst[])
+                ->final_stsub.getEnterExitCompiler
+                ->(subEnterCplr[],subExitCplr[]);
+              (program[],cInfo[])
+                ->subEnterCplr.prepare
+           #);
+         more::(# do subEnterCplr.more->value #);
+         generate::
+           (# do (program[],cInfo[])
+             ->subEnterCplr.generate
+             ->stran[]
+        #);
+         cleanup::(# do (program[],cInfo[])->subEnterCplr.cleanup #)
+      #)[]->nc[];
+      usageAst[]->nc.usageAst[];
+   
+      &exitCompiler
+      (# prepare::
+           (# do (program[],cInfo[])->subExitCplr.prepare #);
+         more::(# do subExitCplr.more->value #);
+         generate::
+           (# do (program[],cInfo[])
+                ->subExitCplr.generate
+                ->stran[]
+           #);
+         cleanup::(# do (program[],cInfo[])->subExitCplr.cleanup #)
+      #)[]->xc[];
+      usageAst[]->xc.usageAst[]
+   #)
+
+-- ComputedRemoteGenGetPattern:dopart --
+do
+   (# final_stsub: ^staticSubstance;
+      computed_stocp: ^staticOCP;
+      final_stocp: ^staticOCP
+   do (context[],world[],usageAst[],program[],cInfo[])
+        ->getComputedObjectGenerate
+        ->(computed_stocp[],final_stsub[]);
+      (if final_stsub##<=staticOCP## then
+          final_stsub[]->final_stocp[];
+          (program[],cInfo[],noneAllowed,usageAst[])
+            ->final_stocp.generateGetPattern
+            ->gensptype[]
+       else
+          'Unexpected static substance in ComputedRemoteGenGetPattern'
+            ->internalError
+      if)
+   #)
+
+-- ComputedRemoteGenGetQua:dopart --
+do 
+   (# final_stsub: ^staticSubstance;
+      computed_stocp: ^staticOCP;
+      ignore_exact: @boolean
+   do (context[],world[],usageAst[],program[],cInfo[])
+        ->getComputedObjectGenerate
+        ->(computed_stocp[],final_stsub[]);
+      (if final_stsub##<=staticOCP## then
+          (computed_stocp[],world[],usageAst[],program[],final_stsub.pathTo[])
+            ->NameApl.decl.generateGetQualification
+            ->gensptype[]
+       else
+          'Unexpected static substance in ComputedRemoteGenGetQua'
+            ->internalError
+      if)
+   #)
+
+-- ComputedRemoteGenGetObject:dopart -- 
+do
+   (# final_stsub: ^staticSubstance;
+      computed_stocp: ^staticOCP;
+      final_stocp: ^staticOCP;
+      sptype: ^staticPatternType;
+      path: ^runtimePath;
+      ignore_exact: @boolean;
+      stdSolution:
+        (# do (program[],cInfo[],noneAllowed,usageAst[])
+             ->final_stocp.generateGetObject
+             ->gensptype[]
+        #)
+   do (context[],world[],usageAst[],program[],cInfo[])
+        ->getComputedObjectGenerate
+        ->(computed_stocp[],final_stsub[]);
+      (if final_stsub##<=staticOCP## then
+          final_stsub[]->final_stocp[];
+          (if final_stocp.sptype.kind
+           // patternTypeKind // patternRefTypeKind then
+              (* ignore renew *)
+              stdSolution
+           // objectTypeKind then
+              (* reject renew *)
+              (if renew then 
+                  (# msg,solution: ^text
+                  do 'Attempt to renew (using \'&\') an object'->msg[];
+                     'Use a pattern, a pattern ref, or '->solution[];
+                     'an object ref with \'&\''->solution.puttext;
+                     (msg[],solution[],usageAst[])->staticError
+                  #)
+               else
+                  stdSolution
+              if)
+           // objectRefTypeKind then 
+              (if renew then
+                  (computed_stocp[],world[],usageAst[]
+                  ,program[],final_stocp.pathTo[])
+                    ->NameApl.decl.generateGetQualification
+                    ->sptype[];
+                  'ibetaTwoAden2body.bet/570'
+                    ->(&createObjectCode[]).init
+                    ->program.append;
+                  computed_stocp.pathTo.copyRTP->path[];
+                  NameApl.rtp.deliverCopy->path.appendList;
+                  ('ibetaTwoAden2body.bet/575',path[],sptype[])
+                    ->(&putKeepObjectRefCode[]).init
+                    ->program.append;
+                  (context[],world[],usageAst[])
+                    ->getStaticType
+                    ->gensptype[]
+               else
+                  stdSolution
+              if)
+          if)
+       else
+          'Unexpected static substance in ComputedRemoteGenGetObject'
+            ->internalError
+      if)
+   #)
+
+-- ComputedRemoteGenGetTmp:dopart --
+do
+   (# final_stsub: ^staticSubstance;
+      computed_stocp: ^staticOCP;
+      final_stocp: ^staticOCP;
+      qua_sptype: ^staticPatternType;
+      stocp: ^staticOCP;
+      path: ^runtimePath;
+      framePos: @integer;
+      ignore_exact: @boolean;
+      stdSolution:
+        (# do (program[],cInfo[],usageAst[],Evaluations.Identity[])
+             ->final_stocp.generateGetTmpObject
+             ->genstocp[]
+        #)
+   do (context[],world[],usageAst[],program[],cInfo[])
+        ->getComputedObjectGenerate
+        ->(computed_stocp[],final_stsub[]);
+      (if final_stsub##<=staticOCP## then
+          final_stsub[]->final_stocp[];
+          (if final_stocp.sptype.kind
+           // patternTypeKind // patternRefTypeKind then
+              (* ignore renew *)
+              stdSolution
+           // objectTypeKind then
+              (* reject renew *)
+              (if renew then 
+                  (# msg,solution: ^text
+                  do 'Attempt to renew (using \'&\') an object'->msg[];
+                     'Use a pattern, a pattern ref, or '->solution[];
+                     'an object ref with \'&\''->solution.puttext;
+                     (msg[],solution[],usageAst[])->staticError
+                  #)
+               else
+                  stdSolution
+              if)
+           // objectRefTypeKind then 
+              (if renew then
+                  (computed_stocp[],world[],usageAst[]
+                  ,program[],final_stocp.pathTo[])
+                    ->NameApl.decl.generateGetQualification
+                    ->qua_sptype[];
+                  (context[],world[],usageAst[])
+                    ->getStaticSubstance
+                    ->stocp[];
+                  (Evaluations.Identity[],cInfo.allocateTmp->framePos)
+                    ->stocp.createTmpVersion
+                    ->stocp[]
+                    ->genstocp[];
+                  ('ibetaTwoAden2body.bet/640',framePos)
+                    ->(&createTmpCode[]).init
+                    ->program.append;
+                  computed_stocp.pathTo.copyRTP->path[];
+                  NameApl.rtp.deliverCopy->path.appendList;
+                  ('ibetaTwoAden2body.bet/645',path[],stocp.sptype[],framePos)
+                    ->(&putKeepTmpRefCode[]).init
+                    ->program.append;
+               else
+                  stdSolution
+              if)
+          if)
+       else
+          'Unexpected static substance in ComputedRemoteGenGetTmp'
+            ->internalError
+      if)
+   #)
+
+-- ComputedRemoteGenPutPattern:dopart --
+do
+   (# final_stsub: ^staticSubstance;
+      computed_stocp: ^staticOCP;
+      final_stocp: ^staticOCP;
+      ignore_exact: @boolean (* is always false anyway *)
+   do (context[],world[],usageAst[],program[],cInfo[])
+        ->getComputedObjectGenerate
+        ->(computed_stocp[],final_stsub[]);
+      (if final_stsub##<=staticOCP## then
+          final_stsub[]->final_stocp[];
+          (context[],world[],usageAst[])
+            ->getStaticQuaType
+            ->(gensptype[],ignore_exact);
+          ('ibetaTwoAden2body.bet/675',final_stocp.pathTo[],gensptype[])
+            ->(&putPatternCode[]).init
+            ->program.append
+       else
+          'Unexpected static substance in ComputedRemoteGenPutPattern'
+            ->internalError
+      if)
+   #)
+
+-- ComputedRemoteGenPutObject:dopart --
+do
+   (# final_stsub: ^staticSubstance;
+      computed_stocp: ^staticOCP;
+      final_stocp: ^staticOCP
+   do (context[],world[],usageAst[],program[],cInfo[])
+        ->getComputedObjectGenerate
+        ->(computed_stocp[],final_stsub[]);
+      (if final_stsub##<=staticOCP## then
+          final_stsub[]->final_stocp[];
+          (context[],world[],usageAst[])
+            ->getStaticQuaType
+            ->(gensptype[],qualExact);
+          ('ibetaTwoAden2body.bet/697',final_stocp.pathTo[],gensptype[])
+            ->(&putObjectRefCode[]).init
+            ->program.append
+       else
+          'Unexpected static substance in ComputedRemoteGenPutObject'
+            ->internalError
+      if)
+   #)
+
+-- ComputedRemoteAccessible:dopart --
+do
+   (* !! this may be a bit too pessimistic - it is actually possible
+    * to construct a computed remote that delivers an object which
+    * is uniquely determined and known from elsewhere:
+    * p: (# x: @integer do ((# exit this(P)[] #)).x #) *)
+   false->value
+
+-- ComputedRemoteExistAccess:dopart --
+do
+   (* !! this may be a bit too pessimistic - it is actually possible
+    * to construct a computed remote that delivers an object which
+    * is known from elsewhere to exist and be accessible *)
+   false->value
+
+-- ComputedRemoteLookup:dopart --
+do
+   ((thrd[],unwind##,dContext[])->lookupAttr).to[]->l1ent[]
+
+-- ComputedRemoteLookupAttr:dopart --
+do
+   (# fail: 
+        (# 
+        do 'Trying to walk an "impossible" run-time path'
+             ->internalError
+        #);
+      position: @runtimePath;
+      sContext: ^staticContext;
+      l0tr: ^l0Transient;
+      l0tror: ^l0TransientObjectRef;
+      target_dContext: ^substanceSlice
+   do 
+      (NONE,NONE,scope.location)
+        ->position.init;
+      (position[],scope.world[],this(l2ComputedRemote)[])
+        ->scope.getInitialContext
+        ->sContext[];
+      (thrd[],unwind##,(thrd[],unwind##,sContext[],scope.world[]
+      ,this(l2ComputedRemote)[],dContext[])->Evaluations.getExitIter)
+        ->exitOneValue(# context::(# do 'ibetaTwoAden2body.bet/734'->value[]#)#)
+        ->l0tr[];
+      (if true
+       // l0tr##<=l0TransientObjectRef## then
+          l0tr[]->l0tror[];
+          (if l0tror<>NONE then 
+              (if not (l0tror).private.slices.empty then
+                  (thrd[],unwind##,(l0tror).private.slices.first)
+                    ->NameApl.rtp.performDynamicButOne
+                  (# impossible::(# do fail #)#)
+                    ->target_dContext[];
+                  (thrd[],unwind##,NameApl.decl[])
+                    ->target_dContext.lookupAttr
+                    ->attr[]
+               else
+                  'Trying to computed-remote-access into "Object"'
+                    ->internalError
+              if)
+           else
+              ('Trying to computed-remote-access via NONE object reference'
+              ,thrd[],unwind##)->refNoneError
+          if)
+       // l0tr##<=l0TransientNoneRef## then
+          ('Trying to computed-remote-access via NONE reference'
+          ,thrd[],unwind##)->refNoneError
+       else
+          'Trying to computed-remote-access into non-object-ref'
+            ->internalError
+      if)
+   #)
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

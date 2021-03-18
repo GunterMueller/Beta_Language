@@ -1,0 +1,35 @@
+ORIGIN 'compiler';
+BODY 'labelbody';
+(* labels *)
+--- CompilerLabel: ObjectDescriptor ---
+(# l: ^Label #)
+
+
+--- CompilerLib: Attributes ---
+Label:
+  (#
+     <<SLOT LabelLib: Attributes>>;
+     nme:< (# t: ^text do INNER exit t[] #);
+     ispattern:< BooleanValue;
+     enclLabel,saveLabel: ^Label;
+     section:
+       (#
+	  <<SLOT LabelSectionLib: Attributes>>;
+	  local,nonlocal: @boolean;
+	  mapname: @text;
+	  type:< (# t: ^text do INNER exit t[] #);
+       #);
+     (* Jump to these local labels to handle an incoming nonlocal LEAVE
+      * or RESTART:
+      *)
+     testOD: @integer;
+     testLR: @integer;
+     sLeave: @section (# type:: (# do 'LEAVE'->t[] #) #);
+     sRestart: @section (# type:: (# do 'RESTART'->t[] #) #);
+     assign: (# <<SLOT LabelAssign: DoPart >> #);
+     deassign: (# <<SLOT LabelDeassign: DoPart >> #);
+     reduce:< (# od: ^ObjectDescriptor <<SLOT LabelReduce: DoPart >> #);
+  do
+     NONE->enclLabel[];
+     false->sLeave.local->sLeave.nonlocal->sRestart.local->sRestart.nonlocal;
+  #);

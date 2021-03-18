@@ -1,0 +1,474 @@
+ORIGIN '../terminal';
+BUILD default 'terminalintf.o' 'ext/terminalintf.c' '$CC -c $1 -o $0';
+LINKOPT default '-lncurses';
+INCLUDE '../../../containers/current/btree';
+--- terminalLib: Attributes ---
+(* interface to private C functions *)
+getstdscr: external (# window: @integer exit window #);
+getstdin: external (# file: @integer exit file #);
+getstdout: external (# file: @integer exit file #);
+wininfo: external (# window,arg,res: @integer enter (window,arg) exit res #);
+attinfo: external (# arg,res: @integer enter arg exit res #);
+
+(* start/end ncurses *)
+newterm: external
+  (# type,in,out,screen: @integer
+  enter (type,in,out)
+  exit screen
+  #);
+set_term: external (# screen: @integer enter screen exit screen #);
+delscreen: external (# screen: @integer enter screen #);
+initscr: external (# window: @integer exit window #);
+endwin: external (# #);
+
+(* mode settings *)
+Ccbreak: external (# do 'cbreak'->callC #);
+Cecho: external (# do 'echo'->callC #);
+Cnoecho: external (# do 'noecho'->callC #);
+Ckeypad: external (# window,fl: @integer enter (window,fl) do 'keypad'->callC#);
+Cmeta: external (# window,fl: @integer enter (window,fl) do 'meta'->callC #);
+Cnl: external (# do 'nl'->callC #);
+Cnonl: external (# do 'nonl'->callC #);
+
+(* color and attribute stuff *)
+start_color: external (# #);
+has_colors: external (# flag: @integer exit flag #);
+init_pair: external (# pair,fg,bg: @integer enter (pair,fg,bg) #);
+
+(* window manipulation *)
+waddch: external (# window,ch: @integer enter (window,ch) #);
+wattrset: external (# window,attrs: @integer enter (window,attrs) #);
+werase: external (# window: @integer enter window #);
+wgetch: external (# window,ch: @integer enter window exit ch #);
+wrefresh: external (# window: @integer enter window #);
+wmove: external (# window,x,y: @integer enter (window,x,y) #);
+
+
+keyList:
+  (#
+     top,bottom: ^keyHandler;
+     at:
+       (# kh: ^keyHandler;
+       enter kh[]
+       do
+	  (if kh.private.lst[]<>NONE then kh.unlink if);
+	  this(keyList)[]->kh.private.lst[];
+	  INNER;
+       #);
+     attop: @at
+       (#
+       do
+	  (if (top[]->kh.private.next[])=NONE then
+	     kh[]->bottom[]
+	  else
+	     kh[]->top.private.prev[]
+	  if);
+	  NONE->kh.private.prev[];
+	  kh[]->top[];
+       #);
+     atbottom: @at
+       (#
+       do
+	  (if (bottom[]->kh.private.prev[])=NONE then
+	     kh[]->top[]
+	  else
+	     kh[]->bottom.private.next[]
+	  if);
+	  NONE->kh.private.next[];
+	  kh[]->bottom[];
+       #);
+     theInner: ^keyList;
+     doInner: @keyHandler
+       (# do (if theInner[]<>NONE then key->theInner.run if) #);
+     run: @
+       (# key: @integer; curr: ^keyHandler;
+       enter key
+       do
+          top[]->curr[];
+	  l: (if curr[]<>NONE then
+	     key->curr; curr.private.next[]->curr[]; restart l
+	  if);
+       #);
+     init: (# do doInner[]->attop #);
+  #);
+
+
+
+--- terminalKeyHandlerPrivate: ObjectDescriptor ---
+(#
+   prev,next: ^keyHandler;
+   lst: ^keyList;
+#)
+--- terminalKeyHandlerDone: DoPart ---
+do this(terminal).private.keyDone
+--- terminalKeyHandlerUnlink: DoPart ---
+do
+   (if private.lst[]<>NONE then
+      (if private.prev[]=NONE then
+	 (if private.lst.top[]<>this(keyHandler)[] then
+	    exception (# do 'Error on head of KeyList!'->msg #);
+	 if);
+	 private.next[]->private.lst.top[];
+      else
+	 private.next[]->private.prev.private.next[];
+      if);
+      (if private.next[]=NONE then
+	 (if private.lst.bottom[]<>this(keyHandler)[] then
+	    exception (# do 'Error on head of KeyList!'->msg #);
+	 if);
+	 private.prev[]->private.lst.bottom[];
+      else
+	 private.prev[]->private.next.private.prev[];
+      if);
+      NONE->private.lst[];
+      NONE->private.next[];
+      NONE->private.prev[];
+   if);
+
+
+
+--- terminalPrivate: ObjectDescriptor ---
+(#
+   s: @integer;		(* Screen ID *)
+   kl: @keyList;	(* General application key handlers. *)
+   keyDone: ^object;	(* Execute this for the `done' method in a key handler*)
+   colors: @integer;	(* Number of colors supported by terminal. *)
+   pairs: @integer;	(* Number of color pairs supported by terminal. *)
+   used: @integer;	(* Number of color pairs used. *)
+
+   (* color pair: *)
+   pair: (# number,fg,bg: @integer enter (fg,bg) exit this(pair)[] #);
+
+   (* binary tree with all pairs: *)
+   map: ^maptree;
+   maptree: btree
+     (#
+	element:: pair;
+	compare::
+	  (#
+	  do
+	     left.fg-right.fg->value;
+	     (if value=0 then left.bg-right.bg->value if)
+	  #);
+     #);
+#)
+--- terminalInit: DoPart ---
+do
+   (0,getstdout,getstdin)->newterm->private.s;
+   getstdscr->default.wprivate.w;
+   (* initscr->default.wprivate.w; *)
+   Ccbreak;
+   Cnoecho;
+   (default.wprivate.w,1)->Cmeta;
+   false->default.nokeypad;
+   private.kl.init;
+   INNER;
+   (* Initialize the default Window after any general setup.  Otherwise,
+    * things like colorMode may not be in effect, yet. *)
+   default.init;
+--- terminalFinish: DoPart ---
+do INNER; private.s->set_term; endwin;
+--- terminalKeyTop: DoPart ---
+do kh[]->private.kl.attop;
+--- terminalKeyBottom: DoPart ---
+do kh[]->private.kl.atbottom;
+--- terminalKeyUnlink: DoPart ---
+do kh.unlink
+--- terminalEcho: DoPart ---
+do private.s->set_term; (if value then Cecho else Cnoecho if);
+--- terminalTranslateNL: DoPart ---
+do private.s->set_term; (if value then Cnl else Cnonl if);
+--- terminalSevenBit: DoPart ---
+do
+   private.s->set_term;
+   (if value then
+      (default.wprivate.w,0)->Cmeta
+   else
+      (default.wprivate.w,1)->Cmeta
+   if)
+--- terminalColorMode: DoPart ---
+do
+   (if has_colors=1 then
+      true->value;
+      start_color;
+      &private.maptree[]->private.map[];
+      -98->attinfo->private.colors;
+      -99->attinfo->private.pairs;
+   else
+      false->value;
+   if);
+
+
+--- terminalWindowPrivate: ObjectDescriptor ---
+(#
+   w: @integer;		(* Window ID *)
+   kl: @keyList;	(* window specific key handlers *)
+#)
+--- terminalWindowInit: DoPart ---
+do
+   (if this(window)[]<>default[] then
+   if);
+   INNER;
+--- terminalWindowClear: DoPart ---
+do wprivate.w->werase
+--- terminalWindowSetPos: DoPart ---
+do (wprivate.w,q-1,p-1)->wmove
+--- terminalWindowSize: DoPart ---
+do (wprivate.w,0)->wininfo->x; (wprivate.w,1)->wininfo->y;
+--- terminalWindowPosition: DoPart ---
+do (wprivate.w,2)->wininfo->x; (wprivate.w,3)->wininfo->y;
+--- terminalWindowGet: DoPart ---
+do wprivate.w->wgetch->ch;
+--- terminalWindowGetkey: DoPart ---
+do wprivate.w->wgetch->key;
+--- terminalWindowPut: DoPart ---
+do (wprivate.w,ch)->waddch
+--- terminalWindowPutText: DoPart ---
+do t.scanAll (# do (wprivate.w,ch)->waddch #)
+--- terminalWindowNoKeypad: DoPart ---
+do (if value then (wprivate.w,0)->Ckeypad else (wprivate.w,1)->Ckeypad if)
+--- terminalWindowDraw: DoPart ---
+do private.s->set_term; wprivate.w->wrefresh;
+--- terminalWindowKeyTop: DoPart ---
+do kh[]->wprivate.kl.attop;
+--- terminalWindowKeyBottom: DoPart ---
+do kh[]->wprivate.kl.atbottom;
+--- terminalWindowKeyDo: DoPart ---
+do
+   l:
+     (# olddone: ^object
+     do
+	private.keyDone[]->olddone[];
+        &(# do olddone[]->private.keyDone[]; leave l#)[]->private.keyDone[];
+	NONE->wprivate.kl.theInner[];
+	wprivate.kl[]->private.kl.theInner[];
+	draw;
+	wprivate.w->wgetch->private.kl.run;
+	olddone[]->private.keyDone[];
+     #);
+--- terminalWindowKeyDispatch: DoPart ---
+do
+   l:
+     (# olddone: ^object
+     do
+	private.keyDone[]->olddone[];
+        &(# do leave l#)[]->private.keyDone[];
+	NONE->wprivate.kl.theInner[];
+	wprivate.kl[]->private.kl.theInner[];
+	key->private.kl.run;
+	olddone[]->private.keyDone[];
+     #);
+--- terminalWindowAttributes: DoPart ---
+do
+   (if attr.aprivate.col=-1 then &attr.aprivate.mapcolor if);
+   (wprivate.w,attr.aprivate.attr+attr.aprivate.col)->wattrset;
+
+
+--- terminalKeyToText: DoPart ---
+do
+   (if key
+   //     0 then 'NUL'->s[]
+   //     1 then 'SOH'->s[]
+   //     2 then 'STX'->s[]
+   //     3 then 'ETX'->s[]
+   //     4 then 'EOT'->s[]
+   //     5 then 'ENQ'->s[]
+   //     6 then 'ACK'->s[]
+   //     7 then 'BEL'->s[]
+   //     8 then 'BS'->s[]
+   //     9 then 'HT'->s[]
+   //    10 then 'NL'->s[]
+   //    11 then 'VT'->s[]
+   //    12 then 'NP'->s[]
+   //    13 then 'CR'->s[]
+   //    14 then 'SO'->s[]
+   //    15 then 'SI'->s[]
+   //    16 then 'DLE'->s[]
+   //    17 then 'DC1'->s[]
+   //    18 then 'DC2'->s[]
+   //    19 then 'DC3'->s[]
+   //    20 then 'DC4'->s[]
+   //    21 then 'NAK'->s[]
+   //    22 then 'SYN'->s[]
+   //    23 then 'ETB'->s[]
+   //    24 then 'CAN'->s[]
+   //    25 then 'EM'->s[]
+   //    26 then 'SUB'->s[]
+   //    27 then 'ESC'->s[]
+   //    28 then 'FS'->s[]
+   //    29 then 'GS'->s[]
+   //    30 then 'RS'->s[]
+   //    31 then 'US'->s[]
+   // 8x401 then 'BREAK'->s[]		(* Break key (unreliable) *)
+   // 8x402 then 'DOWN'->s[]		(* Down-arrow *)
+   // 8x403 then 'UP'->s[]		(* Up-arrow *)
+   // 8x404 then 'LEFT'->s[]		(* Left-arrow *)
+   // 8x405 then 'RIGHT'->s[]		(* Right-arrow *)
+   // 8x406 then 'HOME'->s[]		(* Home key (upward+left arrow) *)
+   // 8x407 then 'BACKSPACE'->s[]	(* Backspace (unreliable) *)
+   // 8x510 then 'DELETE LINE'->s[]	(* Delete line *)
+   // 8x511 then 'INSERT LINE'->s[]	(* Insert line *)
+   // 8x512 then 'DELETE CHAR'->s[]	(* Delete character *)
+   // 8x513 then 'INSERT CHAR'->s[]	(* Insert char or enter insert mode *)
+   // 8x514 then 'EXIT INSERT MODE'->s[](* Exit insert mode *)
+   // 8x515 then 'CLEAR'->s[]		(* Clear screen *)
+   // 8x516 then 'EOS'->s[]		(* Clear to end of screen *)
+   // 8x517 then 'EOL'->s[]		(* Clear to end of line *)
+   // 8x520 then 'SCROLL FORWARD'->s[]	(* Scroll 1 line forward *)
+   // 8x521 then 'SCROLL REVERSE'->s[]	(* Scroll 1 line backward (reverse) *)
+   // 8x522 then 'NEXT PAGE'->s[]	(* Next page *)
+   // 8x523 then 'PREV PAGE'->s[]	(* Previous page *)
+   // 8x524 then 'SET TAB'->s[]		(* Set tab *)
+   // 8x525 then 'CLEAR TAB'->s[]	(* Clear tab *)
+   // 8x526 then 'CLEAR ALL TAB'->s[]	(* Clear all tabs *)
+   // 8x527 then 'ENTER'->s[]		(* Enter or send (unreliable) *)
+   // 8x530 then 'SOFT RESET'->s[]	(* Soft (partial) reset (unreliable) *)
+   // 8x531 then 'RESET'->s[]		(* Reset or hard reset (unreliable) *)
+   // 8x532 then 'PRINT'->s[]		(* Print *)
+   // 8x533 then 'LOWER LEFT'->s[]	(* Home down or bottom (lower left) *)
+   // 8x534 then 'KEYPAD A1'->s[]	(* Upper left of keypad *)
+   // 8x535 then 'KEYPAD A3'->s[]	(* Upper right of keypad *)
+   // 8x536 then 'KEYPAD B2'->s[]	(* Center of keypad *)
+   // 8x537 then 'KEYPAD C1'->s[]	(* Lower left of keypad *)
+   // 8x540 then 'KEYPAD C3'->s[]	(* Lower right of keypad *)
+   // 8x541 then 'BACK TAB'->s[]	(* Back tab *)
+   // 8x542 then 'BEGINNING'->s[]	(* Beg (beginning) *)
+   // 8x543 then 'CANCEL'->s[]		(* Cancel *)
+   // 8x544 then 'CLOSE'->s[]		(* Close *)
+   // 8x545 then 'COMMAND'->s[]		(* Cmd (command) *)
+   // 8x546 then 'COPY'->s[]		(* Copy *)
+   // 8x547 then 'CREATE'->s[]		(* Create *)
+   // 8x550 then 'END'->s[]		(* End *)
+   // 8x551 then 'EXIT'->s[]		(* Exit *)
+   // 8x552 then 'FIND'->s[]		(* Find *)
+   // 8x553 then 'HELP'->s[]		(* Help *)
+   // 8x554 then 'MARK'->s[]		(* Mark *)
+   // 8x555 then 'MESSAGE'->s[]		(* Message *)
+   // 8x556 then 'MOVE'->s[]		(* Move *)
+   // 8x557 then 'NEXT'->s[]		(* Next *)
+   // 8x560 then 'OPEN'->s[]		(* Open *)
+   // 8x561 then 'OPTIONS'->s[]		(* Options *)
+   // 8x562 then 'PREVIOUS'->s[]	(* Prev (previous) *)
+   // 8x563 then 'REDO'->s[]		(* Redo *)
+   // 8x564 then 'REFERENCE'->s[]	(* Ref (reference) *)
+   // 8x565 then 'REFRESH'->s[]		(* Refresh *)
+   // 8x566 then 'REPLACE'->s[]		(* Replace *)
+   // 8x567 then 'RESTART'->s[]		(* Restart *)
+   // 8x570 then 'RESUME'->s[]		(* Resume *)
+   // 8x571 then 'SAVE'->s[]		(* Save *)
+   // 8x572 then 'SHIFT BEGINNING'->s[]		(* Shifted Beg (beginning) *)
+   // 8x573 then 'SHIFT CANCEL'->s[]		(* Shifted Cancel *)
+   // 8x574 then 'SHIFT COMMAND'->s[]		(* Shifted Command *)
+   // 8x575 then 'SHIFT COPY'->s[]		(* Shifted Copy *)
+   // 8x576 then 'SHIFT CREATE'->s[]		(* Shifted Create *)
+   // 8x577 then 'SHIFT DELETE CHAR'->s[]	(* Shifted Delete char *)
+   // 8x600 then 'SHIFT DELETE LINE'->s[]	(* Shifted Delete line *)
+   // 8x601 then 'SELECT'->s[]			(* Select *)
+   // 8x602 then 'SHIFT END'->s[]		(* Shifted End *)
+   // 8x603 then 'SHIFT EOL'->s[]		(* Shifted Clear line *)
+   // 8x604 then 'SHIFT EXIT'->s[]		(* Shifted Exit *)
+   // 8x605 then 'SHIFT FIND'->s[]		(* Shifted Find *)
+   // 8x606 then 'SHIFT HELP'->s[]		(* Shifted Help *)
+   // 8x607 then 'SHIFT HOME'->s[]		(* Shifted Home *)
+   // 8x610 then 'SHIFT INSERT CHAR'->s[]	(* Shifted Input *)
+   // 8x611 then 'SHIFT LEFT'->s[]		(* Shifted Left arrow *)
+   // 8x612 then 'SHIFT MESSAGE'->s[]		(* Shifted Message *)
+   // 8x613 then 'SHIFT MOVE'->s[]		(* Shifted Move *)
+   // 8x614 then 'SHIFT NEXT'->s[]		(* Shifted Next *)
+   // 8x615 then 'SHIFT OPTIONS'->s[]		(* Shifted Options *)
+   // 8x616 then 'SHIFT PREVIOUS'->s[]		(* Shifted Prev *)
+   // 8x617 then 'SHIFT PRINT'->s[]		(* Shifted Print *)
+   // 8x620 then 'SHIFT REDO'->s[]		(* Shifted Redo *)
+   // 8x621 then 'SHIFT REPLACE'->s[]		(* Shifted Replace *)
+   // 8x622 then 'SHIFT RIGHT'->s[]		(* Shifted Right arrow *)
+   // 8x623 then 'SHIFT RESUME'->s[]		(* Shifted Resume *)
+   // 8x624 then 'SHIFT SAVE'->s[]		(* Shifted Save *)
+   // 8x625 then 'SHIFT SUSPEND'->s[]		(* Shifted Suspend *)
+   // 8x626 then 'SHIFT UNDO'->s[]		(* Shifted Undo *)
+   // 8x627 then 'SUSPEND'->s[]		(* Suspend *)
+   // 8x630 then 'UNDO'->s[]		(* Undo *)
+   // 8x631 then 'MOUSE'->s[]		(* Mouse event has occurred *)
+   else
+      (if true
+      // ((key>=' ') and (key<='~')) or (key>='\240') and (key<='\377') then
+	 &text[]->s[]; key->s.put
+      // (key>=keyF0) and (key<keyF0+64) then 'F'->s[]; key-keyF0->s.putint;
+      else 'unknown'->s[]
+      if);
+   if);
+
+
+--- terminalAttributePrivate: ObjectDescriptor ---
+(#
+   attr,fg,bg,col,m: @integer;
+
+   mapcolor:
+     (# p: ^private.pair
+     do
+	&private.pair[]->p[];
+	(fg,bg)->p;
+	p[]->private.map.findOne
+	  (#
+	     notFound::
+	       (#
+	       do
+		  (if private.used>=private.pairs then
+		     raise
+		       (#
+		       do
+			  'Too many colors!'->msg.putline;
+			  badColor##->deliverTo;
+		       #);
+		     0->attinfo->col;
+		  else
+		     private.used+1->private.used->attinfo->p.number->col;
+		     (private.used,fg,bg)->init_pair;
+		     p[]->private.map.insert;
+		  if);
+	       #);
+	  do current.number->col;
+	  #);
+     #);
+#)
+--- terminalAttributeModeSet: DoPart ---
+do
+   modenumber->attinfo->aprivate.m;
+   (if value then
+      aprivate.m or aprivate.attr->aprivate.attr
+   else
+      (-1-aprivate.m) and aprivate.attr->aprivate.attr
+   if);
+--- terminalAttributeModeGet: DoPart ---
+do ((modenumber->attinfo) and aprivate.attr)=0->value
+--- terminalAttributeSetForeGround: DoPart ---
+do
+   (if (value<0) or (value>=private.colors) then
+      raise
+        (#
+	do
+	   'Bad foreground color number '->msg.puttext;
+	   value->msg.putint;
+	   msg.newline;
+	   badColor##->deliverTo;
+	#);
+   else
+      value->aprivate.fg; -1->aprivate.col;
+   if);
+--- terminalAttributeSetBackGround: DoPart ---
+do
+   (if (value<0) or (value>=private.colors) then
+      raise
+        (#
+	do
+	   'Bad foreground color number '->msg.puttext;
+	   value->msg.putint;
+	   msg.newline;
+	   badColor##->deliverTo;
+	#);
+   else
+      value->aprivate.bg; -1->aprivate.col;
+   if);
+--- terminalAttributeGetForeGround: DoPart ---
+do aprivate.fg->value
+--- terminalAttributeGetBackGround: DoPart ---
+do aprivate.bg->value

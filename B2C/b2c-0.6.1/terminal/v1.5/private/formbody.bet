@@ -1,0 +1,302 @@
+ORIGIN '../form';
+INCLUDE '../../../containers/current/list';
+--- terminalFormWindowPrivate: ObjectDescriptor ---
+(#
+   attD:  @attrDefault;
+   attF:  @attrField;
+   attFF: @attrFieldFocus;
+   attFS: @attrFieldSelect;
+#)
+
+
+--- terminalFormWindowInit: DoPart ---
+do fprivate.attD; fprivate.attF; fprivate.attFF; fprivate.attFS; INNER;
+
+
+--- WindowFieldPrivate: ObjectDescriptor ---
+(#
+   t: ^text;
+   thex,they,thexmax,thelen,thetextlen,start: @integer;
+   hasFocus,fresh: @boolean;
+
+   setup:
+     (#
+     do
+	size->(thexmax,they);
+	pos->(thex,they);
+	len->thelen;
+	textlen->thetextlen;
+     #);
+
+   kh: @keyHandler
+     (#
+	n: ^text;
+	cursor,length,x: @integer;
+
+	disp: @ (# do false->fresh; display; done #);
+	move: @
+	  (#
+	  do
+	     (if fresh then disp if);
+	     t.getpos->cursor;
+	     (if (cursor<=start) and (start>0) then disp if);
+	     t.length->length;
+	     cursor-thelen->x;
+	     (if (cursor<length) or (length+thex>=thexmax) then x+1->x if);
+	     (if x>start then disp if);
+
+	     (thex+cursor-start,they)->setpos;
+	  #);
+     do
+	t.length->length;
+	t.getPos->cursor;
+	try: (if (key<256) and (key->ascii.isiso) then
+	   (* Try to insert printable character *)
+	   (if fresh then
+	      &text[]->n[]
+	   else
+	      t.copy->n[];
+	      (if not overwrite then (' ',cursor+1)->n.insert if);
+	      cursor->n.setPos;
+	   if);
+	   key->n.put;
+
+	   (if (n.length>thetextlen) and (thetextlen>0) then leave try if);
+	   n[]->t[];
+	   disp;
+	else
+	   (* Process special keys *)
+	   (if key
+	   // keyLEFT then (if cursor>0 then cursor-1->t.setpos; move if);
+	   // keyRIGHT then (if cursor<length then cursor+1->t.setpos; move if);
+	   // keyHOME
+	   // 1 then (if cursor>0 then 0->t.setpos; move if);
+	   // keyEND
+	   // 5 then (if cursor<length then length->t.setpos; move if);
+
+	   // keyBackspace
+	   // '\b' then (if cursor>0 then (cursor,cursor)->t.delete; disp if);
+	   // 4
+	   // 127
+	   // keyDC then
+	      (if cursor<length then (cursor+1,cursor+1)->t.delete; disp if);
+	   if);
+	if);
+     #);
+
+   display:
+     (# x,cursor,length: @integer
+     do
+	t.length->length;
+	(if not hasFocus then 0->cursor else t.getpos->cursor if);
+
+	(if cursor<=start then (if (cursor-1->start)<0 then 0->start if) if);
+	cursor-thelen->x;
+	(if (cursor<length) or (length+thex>=thexmax) then x+1->x if);
+	(if x>start then x->start if);
+
+	(thex,they)->setpos;
+	(if hasFocus then
+	   (if fresh then
+	      fprivate.attFS[]->attributes;
+	   else
+	      fprivate.attFF[]->attributes;
+	   if);
+	else
+	   fprivate.attF[]->attributes;
+	if);
+	start+thelen-length->x;
+	(if x<=0 then
+	   (start+1,start+thelen)->t.sub->puttext
+	else
+	   (start+1,length)->t.sub->puttext;
+	   (if fresh and hasFocus then fprivate.attFF[]->attributes if);
+	   l: (if (x-1->x)>=0 then ' '->put; restart l if);
+	if);
+	fprivate.attD[]->attributes;
+        (thex+cursor-start,they)->setpos;
+     #);
+#)
+
+
+--- WindowFieldCheck: DoPart ---
+do private.t.copy->t[]; INNER
+
+
+--- WindowFieldFocusIn: DoPart ---
+do
+   (if not private.hasFocus then
+      true->private.hasFocus->private.fresh;
+      private.setup;
+      private.display;
+      private.kh[]->keyTop;
+   if);
+
+
+--- WindowFieldFocusOut: DoPart ---
+do
+   (if private.hasFocus then
+      false->private.hasFocus;
+      private.display;
+      private.kh.unlink;
+   if);
+
+
+--- WindowFieldDoEnter: DoPart ---
+do
+   false->checked;
+   t.copy->private.t[];
+   true->private.fresh;
+   (if not private.hasFocus then private.setup if);
+   private.display;
+
+
+--- WindowFieldDoExit: DoPart ---
+do private.t.copy->t[];
+
+
+--- WindowFieldLoad: DoPart ---
+do
+   INNER;
+   t.copy->private.t[];
+   true->private.fresh;
+   (if not private.hasFocus then private.setup if);
+   private.display;
+
+
+--- WindowFieldStore: DoPart ---
+do private.t.copy->t[]; INNER;
+
+
+--- WindowFormPrivate: ObjectDescriptor ---
+list (#
+   element:: FormObject;
+   focus,newFocus: ^theCellType;
+
+   advance: @
+     (#
+     do
+	(if focus[]=NONE then
+	   head->newFocus[]
+	else
+	   focus.succ[]->newFocus[]
+	if);
+	l: (if newFocus[]<>NONE then
+	   (if newFocus.elm.focusNo then
+	      newFocus.succ[]->newFocus[]; restart l
+	   if);
+	if);
+     #);
+
+   goBack: @
+     (#
+     do
+	(if focus[]=NONE then
+	   last->newFocus[]
+	else
+	   focus.pred[]->newFocus[]
+	if);
+	l: (if newFocus[]<>NONE then
+	   (if newFocus.elm.focusNo then
+	      newFocus.pred[]->newFocus[]; restart l
+	   if);
+	if);
+     #);
+
+   kh: @keyHandler
+     (#
+     do
+	NONE->newFocus[];
+	(if key
+	// keyENTER
+	// '\r'
+	// '\n' then
+	   advance;
+	   (if newFocus[]<>NONE then
+	      (if focus.elm.check<>NONE then NONE->newFocus[] if);
+	   else
+	      onReturn;
+	   if);
+	// '\t'
+	// keyDOWN then advance;
+	// keyBTAB
+	// keyUP then goback;
+	if);
+	(if newFocus[]<>NONE then
+	   focus.elm.focusOut; newFocus[]->focus[]; focus.elm.focusIn; done;
+	if);
+     #);
+
+   initRun: @boolean;
+#)
+
+
+--- WindowFormFocusIn: DoPart ---
+do
+   (if private.focus[]=NONE then
+      (if not private.initRun then init if);
+      NONE->private.focus[];
+      private.advance;
+      (if private.newFocus[]<>NONE then
+	 private.kh[]->keyTop;
+	 private.newFocus[]->private.focus[];
+	 private.focus.elm.focusIn;
+      else
+	 raise
+	   (#
+	   do 'Form: there is no field, that accepts the Focus!'->msg.putline;
+	   #);
+      if);
+   if);
+
+
+--- WindowFormFocusOut: DoPart ---
+do
+   (if private.focus[]<>NONE then
+      private.focus.elm.focusOut;
+      private.kh.unlink;
+   if);
+
+
+--- WindowFormFocusNo: DoPart ---
+do
+   INNER;
+   l: (if not value then
+      private.scan (# do (if current.focusNo->value then leave l if) #);
+   if);
+
+
+--- WindowFormLoad: DoPart ---
+do INNER; private.scan (# do current.load #);
+
+
+--- WindowFormCheck: DoPart ---
+do
+   l: private.iterate
+     (#
+     do
+	(if not current.elm.checked then
+	   (if (current.elm.check->err[])<>NONE then
+	      (if (private.focus[]<>NONE) and (private.focus[]<>current.elm[])
+	      then
+		 private.focus.elm.focusOut;
+		 current[]->private.focus[];
+		 private.focus.elm.focusIn;
+	      if);
+	      leave l;
+	   if);
+	if);
+     #);
+   (if err[]<>NONE then INNER if);
+
+
+--- WindowFormStore: DoPart ---
+do private.scan (# do current.store #); INNER;
+
+
+--- WindowFormInit: DoPart ---
+do true->private.initRun; private.init; INNER;
+
+
+--- WindowFormAddObject: DoPart ---
+do obj[]->private.append

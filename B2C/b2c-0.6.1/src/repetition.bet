@@ -1,0 +1,12 @@
+ORIGIN 'compiler';
+INCLUDE 'attribute';
+--- Repetition: ObjectDescriptor ---
+(#
+   pattern: ^ObjectDescriptor; (* the repetition superpattern *)
+   new: ^Attribute; (* the repetition's new method *)
+   extend: ^Attribute; (* the repetition's extend method *)
+   range: ^Attribute; (* the repetition's size - publically accessible *)
+   size: ^Attribute; (* the repetition's size *)
+   alsize: ^Attribute; (* JS the repetition's allocated size *)
+   elsize: ^Attribute; (* the repetition's element's size *)
+#)

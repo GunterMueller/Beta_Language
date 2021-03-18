@@ -1,0 +1,977 @@
+ORIGIN '~beta/mps/astlevel'
+--astInterfaceLib: attributes--
+
+gbeta: TreeLevel
+  (# <<SLOT gbetaAttributes:attributes>>;
+     BetaForm: cons
+       (# #);
+     DescriptorForm: BetaForm
+       (# getObjectDescriptor: getson1(# #);
+          putObjectDescriptor: putson1(# #);
+       exit 2
+       #);
+     AttributesForm: BetaForm
+       (# getAttributes: getson1(# #);
+          putAttributes: putson1(# #);
+       exit 3
+       #);
+     ObjectDescriptor: ObjectSpecification
+       (# getPrefixOpt: getson1(# #);
+          putPrefixOpt: putson1(# #);
+          getMainPart: getson2(# #);
+          putMainPart: putson2(# #);
+       exit 4
+       #);
+     MainPart: cons
+       (# #);
+     LongMainPart: MainPart
+       (# getAttributes: getson1(# #);
+          putAttributes: putson1(# #);
+          getActionPart: getson2(# #);
+          putActionPart: putson2(# #);
+       exit 6
+       #);
+     ShortMainPart: MainPart
+       (# getAttributes: getson1(# #);
+          putAttributes: putson1(# #);
+          getActionPart: getson2(# #);
+          putActionPart: putson2(# #);
+       exit 7
+       #);
+     Attributes: list
+       (# soncat::< AttributeDecl;
+       exit 8
+       #);
+     Prefix: cons
+       (# #);
+     SimplePrefix: Prefix
+       (# getAttributeDenotation: getson1(# #);
+          putAttributeDenotation: putson1(# #);
+       exit 11
+       #);
+     CompositePrefix: Prefix
+       (# getMerge: getson1(# #);
+          putMerge: putson1(# #);
+       exit 12
+       #);
+     AttributeDecl: cons
+       (# #);
+     PatternDecl: AttributeDecl
+       (# getNames: getson1(# #);
+          putNames: putson1(# #);
+          getMerge: getson2(# #);
+          putMerge: putson2(# #);
+       exit 15
+       #);
+     SimpleDecl: AttributeDecl
+       (# getNames: getson1(# #);
+          putNames: putson1(# #);
+          getReferenceSpecification: getson2(# #);
+          putReferenceSpecification: putson2(# #);
+       exit 16
+       #);
+     RepetitionDecl: AttributeDecl
+       (# getNames: getson1(# #);
+          putNames: putson1(# #);
+          getIndex: getson2(# #);
+          putIndex: putson2(# #);
+          getReferenceSpecification: getson3(# #);
+          putReferenceSpecification: putson3(# #);
+       exit 17
+       #);
+     VirtualDecl: AttributeDecl
+       (# getNames: getson1(# #);
+          putNames: putson1(# #);
+          getDisownOpt: getson2(# #);
+          putDisownOpt: putson2(# #);
+          getMerge: getson3(# #);
+          putMerge: putson3(# #);
+          getRestrictionOpt: getson4(# #);
+          putRestrictionOpt: putson4(# #);
+       exit 18
+       #);
+     BindingDecl: AttributeDecl
+       (# getNames: getson1(# #);
+          putNames: putson1(# #);
+          getSwapOpt: getson2(# #);
+          putSwapOpt: putson2(# #);
+          getDisownOpt: getson3(# #);
+          putDisownOpt: putson3(# #);
+          getMerge: getson4(# #);
+          putMerge: putson4(# #);
+          getRestrictionOpt: getson5(# #);
+          putRestrictionOpt: putson5(# #);
+       exit 19
+       #);
+     FinalDecl: AttributeDecl
+       (# getNames: getson1(# #);
+          putNames: putson1(# #);
+          getSwapOpt: getson2(# #);
+          putSwapOpt: putson2(# #);
+          getMerge: getson3(# #);
+          putMerge: putson3(# #);
+       exit 20
+       #);
+     Disown: cons
+       (# exit 22 #);
+     Swap: cons
+       (# exit 24 #);
+     RestrictionPart: cons
+       (# getRestrictions: getson1(# #);
+          putRestrictions: putson1(# #);
+       exit 26
+       #);
+     Restrictions: list
+       (# soncat::< Restriction;
+       exit 27
+       #);
+     Restriction: cons
+       (# getAttributeDenotation: getson1(# #);
+          putAttributeDenotation: putson1(# #);
+       exit 28
+       #);
+     VariablePattern: ReferenceSpecification
+       (# getAttributeDenotation: getson1(# #);
+          putAttributeDenotation: putson1(# #);
+       exit 29
+       #);
+     ReferenceSpecification: cons
+       (# #);
+     StaticItem: ReferenceSpecification
+       (# getMerge: getson1(# #);
+          putMerge: putson1(# #);
+       exit 31
+       #);
+     VirtualStaticItem: ReferenceSpecification
+       (# getDisownOpt: getson1(# #);
+          putDisownOpt: putson1(# #);
+          getAttributeDenotation: getson2(# #);
+          putAttributeDenotation: putson2(# #);
+       exit 32
+       #);
+     FinalStaticItem: ReferenceSpecification
+       (# getMerge: getson1(# #);
+          putMerge: putson1(# #);
+       exit 33
+       #);
+     DynamicItem: ReferenceSpecification
+       (# getExactOpt: getson1(# #);
+          putExactOpt: putson1(# #);
+          getAttributeDenotation: getson2(# #);
+          putAttributeDenotation: putson2(# #);
+       exit 34
+       #);
+     Exact: cons
+       (# exit 36 #);
+     StaticComponent: ReferenceSpecification
+       (# getMerge: getson1(# #);
+          putMerge: putson1(# #);
+       exit 37
+       #);
+     DynamicComponent: ReferenceSpecification
+       (# getExactOpt: getson1(# #);
+          putExactOpt: putson1(# #);
+          getAttributeDenotation: getson2(# #);
+          putAttributeDenotation: putson2(# #);
+       exit 38
+       #);
+     ObjectSpecification: cons
+       (# #);
+     Merge: list
+       (# soncat::< ObjectSpecification;
+       exit 40
+       #);
+     Index: cons
+       (# #);
+     NamedIndex: Index
+       (# getNameDcl: getson1(# #);
+          putNameDcl: putson1(# #);
+          getEvaluation: getson2(# #);
+          putEvaluation: putson2(# #);
+       exit 42
+       #);
+     ActionPart: cons
+       (# getEnterPartOpt: getson1(# #);
+          putEnterPartOpt: putson1(# #);
+          getDoPartOpt: getson2(# #);
+          putDoPartOpt: putson2(# #);
+          getExitPartOpt: getson3(# #);
+          putExitPartOpt: putson3(# #);
+       exit 43
+       #);
+     EnterPart: cons
+       (# getEvaluation: getson1(# #);
+          putEvaluation: putson1(# #);
+       exit 47
+       #);
+     DoPart: cons
+       (# getImperatives: getson1(# #);
+          putImperatives: putson1(# #);
+       exit 48
+       #);
+     ExitPart: cons
+       (# getEvaluation: getson1(# #);
+          putEvaluation: putson1(# #);
+       exit 49
+       #);
+     Imperatives: list
+       (# soncat::< Imp;
+       exit 50
+       #);
+     Imp: cons
+       (# #);
+     LabelledImp: Imp
+       (# getNameDcl: getson1(# #);
+          putNameDcl: putson1(# #);
+          getImp: getson2(# #);
+          putImp: putson2(# #);
+       exit 53
+       #);
+     ForImp: Transaction
+       (# getIndex: getson1(# #);
+          putIndex: putson1(# #);
+          getRepDo: getson2(# #);
+          putRepDo: putson2(# #);
+          getImperatives: getson3(# #);
+          putImperatives: putson3(# #);
+       exit 54
+       #);
+     RepDo: cons
+       (# #);
+     Rep: RepDo
+       (# exit 56 #);
+     Doit: RepDo
+       (# exit 57 #);
+     WhileImp: Imp
+       (# getEvaluation: getson1(# #);
+          putEvaluation: putson1(# #);
+          getRepDo: getson2(# #);
+          putRepDo: putson2(# #);
+          getImperatives: getson3(# #);
+          putImperatives: putson3(# #);
+       exit 58
+       #);
+     GeneralIfImp: Transaction
+       (# getEvaluation: getson1(# #);
+          putEvaluation: putson1(# #);
+          getAlternatives: getson2(# #);
+          putAlternatives: putson2(# #);
+          getElsePartOpt: getson3(# #);
+          putElsePartOpt: putson3(# #);
+       exit 59
+       #);
+     SimpleIfImp: Transaction
+       (# getEvaluation: getson1(# #);
+          putEvaluation: putson1(# #);
+          getImperatives: getson2(# #);
+          putImperatives: putson2(# #);
+          getElsePartOpt: getson3(# #);
+          putElsePartOpt: putson3(# #);
+       exit 60
+       #);
+     WhenImp: Imp
+       (# getNameDcl: getson1(# #);
+          putNameDcl: putson1(# #);
+          getAttributeDenotation: getson2(# #);
+          putAttributeDenotation: putson2(# #);
+          getWhenAlternatives: getson3(# #);
+          putWhenAlternatives: putson3(# #);
+          getElsePartOpt: getson4(# #);
+          putElsePartOpt: putson4(# #);
+       exit 61
+       #);
+     LeaveImp: Imp
+       (# getScopeSpecOpt: getson1(# #);
+          putScopeSpecOpt: putson1(# #);
+       exit 62
+       #);
+     RestartImp: Imp
+       (# getScopeSpecOpt: getson1(# #);
+          putScopeSpecOpt: putson1(# #);
+       exit 63
+       #);
+     InnerImp: Imp
+       (# getScopeSpecOpt: getson1(# #);
+          putScopeSpecOpt: putson1(# #);
+       exit 64
+       #);
+     ScopeSpec: cons
+       (# #);
+     IntegerScopeSpec: ScopeSpec
+       (# getIntegerConst: getson1(# #);
+          putIntegerConst: putson1(# #);
+       exit 67
+       #);
+     NameAplScopeSpec: ScopeSpec
+       (# getNameApl: getson1(# #);
+          putNameApl: putson1(# #);
+       exit 68
+       #);
+     SuspendImp: Imp
+       (# exit 69 #);
+     CodeImp: Imp
+       (# getCodeItems: getson1(# #);
+          putCodeItems: putson1(# #);
+       exit 70
+       #);
+     Alternatives: list
+       (# soncat::< Alternative;
+       exit 71
+       #);
+     Alternative: cons
+       (# getSelections: getson1(# #);
+          putSelections: putson1(# #);
+          getImperatives: getson2(# #);
+          putImperatives: putson2(# #);
+       exit 72
+       #);
+     Selections: list
+       (# soncat::< Selection;
+       exit 73
+       #);
+     Selection: cons
+       (# #);
+     CaseSelection: Selection
+       (# getEvaluation: getson1(# #);
+          putEvaluation: putson1(# #);
+       exit 75
+       #);
+     WhenAlternatives: list
+       (# soncat::< WhenAlternative;
+       exit 76
+       #);
+     WhenAlternative: cons
+       (# getExactOpt: getson1(# #);
+          putExactOpt: putson1(# #);
+          getAttributeDenotation: getson2(# #);
+          putAttributeDenotation: putson2(# #);
+          getImperatives: getson3(# #);
+          putImperatives: putson3(# #);
+       exit 77
+       #);
+     ElsePart: cons
+       (# getImperatives: getson1(# #);
+          putImperatives: putson1(# #);
+       exit 79
+       #);
+     Evaluations: list
+       (# soncat::< Evaluation;
+       exit 80
+       #);
+     Evaluation: Imp
+       (# #);
+     AssignmentEvaluation: Evaluation
+       (# getEvaluation: getson1(# #);
+          putEvaluation: putson1(# #);
+          getTransaction: getson2(# #);
+          putTransaction: putson2(# #);
+       exit 82
+       #);
+     Transaction: Factor
+       (# #);
+     Reference: Transaction
+       (# #);
+     DynamicObjectGeneration: Reference
+       (# #);
+     ObjectDenotation: Reference
+       (# getMerge: getson1(# #);
+          putMerge: putson1(# #);
+       exit 86
+       #);
+     ComputedObjectEvaluation: Reference
+       (# getReference: getson1(# #);
+          putReference: putson1(# #);
+       exit 87
+       #);
+     ObjectReference: Transaction
+       (# getReference: getson1(# #);
+          putReference: putson1(# #);
+       exit 88
+       #);
+     StructureReference: Transaction
+       (# getMerge: getson1(# #);
+          putMerge: putson1(# #);
+       exit 89
+       #);
+     EvalList: Transaction
+       (# getEvaluations: getson1(# #);
+          putEvaluations: putson1(# #);
+       exit 90
+       #);
+     DynamicItemGeneration: DynamicObjectGeneration
+       (# getMerge: getson1(# #);
+          putMerge: putson1(# #);
+       exit 91
+       #);
+     DynamicComponentGeneration: DynamicObjectGeneration
+       (# getMerge: getson1(# #);
+          putMerge: putson1(# #);
+       exit 92
+       #);
+     Primitive: Transaction
+       (# getSimpleEntry: getson1(# #);
+          putSimpleEntry: putson1(# #);
+       exit 93
+       #);
+     Address: Transaction
+       (# getAttributeDenotation: getson1(# #);
+          putAttributeDenotation: putson1(# #);
+       exit 94
+       #);
+     AttributeDenotation: ObjectSpecification
+       (# #);
+     Remote: AttributeDenotation
+       (# getAttributeDenotation: getson1(# #);
+          putAttributeDenotation: putson1(# #);
+          getNameApl: getson2(# #);
+          putNameApl: putson2(# #);
+       exit 96
+       #);
+     ComputedRemote: AttributeDenotation
+       (# getEvaluations: getson1(# #);
+          putEvaluations: putson1(# #);
+          getNameApl: getson2(# #);
+          putNameApl: putson2(# #);
+       exit 97
+       #);
+     Indexed: AttributeDenotation
+       (# getAttributeDenotation: getson1(# #);
+          putAttributeDenotation: putson1(# #);
+          getEvaluation: getson2(# #);
+          putEvaluation: putson2(# #);
+       exit 98
+       #);
+     ThisObject: AttributeDenotation
+       (# getScopeSpecOpt: getson1(# #);
+          putScopeSpecOpt: putson1(# #);
+       exit 99
+       #);
+     QualifiedAttrDen: AttributeDenotation
+       (# getAttributeDenotation: getson1(# #);
+          putAttributeDenotation: putson1(# #);
+          getMerge: getson2(# #);
+          putMerge: putson2(# #);
+       exit 100
+       #);
+     RemotePrimitive: AttributeDenotation
+       (# getAttributeDenotation: getson1(# #);
+          putAttributeDenotation: putson1(# #);
+          getNameApl: getson2(# #);
+          putNameApl: putson2(# #);
+       exit 101
+       #);
+     Expression: Evaluation
+       (# #);
+     RelationalExp: Expression
+       (# #);
+     SimpleExp: Expression
+       (# #);
+     AddExp: SimpleExp
+       (# #);
+     SignedTerm: SimpleExp
+       (# #);
+     Term: SimpleExp
+       (# #);
+     MulExp: Term
+       (# #);
+     EqExp: RelationalExp
+       (# getOperand1: getson1(# #);
+          putOperand1: putson1(# #);
+          getOperand2: getson2(# #);
+          putOperand2: putson2(# #);
+       exit 109
+       #);
+     LtExp: RelationalExp
+       (# getOperand1: getson1(# #);
+          putOperand1: putson1(# #);
+          getOperand2: getson2(# #);
+          putOperand2: putson2(# #);
+       exit 110
+       #);
+     LeExp: RelationalExp
+       (# getOperand1: getson1(# #);
+          putOperand1: putson1(# #);
+          getOperand2: getson2(# #);
+          putOperand2: putson2(# #);
+       exit 111
+       #);
+     GtExp: RelationalExp
+       (# getOperand1: getson1(# #);
+          putOperand1: putson1(# #);
+          getOperand2: getson2(# #);
+          putOperand2: putson2(# #);
+       exit 112
+       #);
+     GeExp: RelationalExp
+       (# getOperand1: getson1(# #);
+          putOperand1: putson1(# #);
+          getOperand2: getson2(# #);
+          putOperand2: putson2(# #);
+       exit 113
+       #);
+     NeExp: RelationalExp
+       (# getOperand1: getson1(# #);
+          putOperand1: putson1(# #);
+          getOperand2: getson2(# #);
+          putOperand2: putson2(# #);
+       exit 114
+       #);
+     PlusExp: AddExp
+       (# getSimpleExp: getson1(# #);
+          putSimpleExp: putson1(# #);
+          getTerm: getson2(# #);
+          putTerm: putson2(# #);
+       exit 115
+       #);
+     MinusExp: AddExp
+       (# getSimpleExp: getson1(# #);
+          putSimpleExp: putson1(# #);
+          getTerm: getson2(# #);
+          putTerm: putson2(# #);
+       exit 116
+       #);
+     OrExp: AddExp
+       (# getSimpleExp: getson1(# #);
+          putSimpleExp: putson1(# #);
+          getTerm: getson2(# #);
+          putTerm: putson2(# #);
+       exit 117
+       #);
+     XorExp: AddExp
+       (# getSimpleExp: getson1(# #);
+          putSimpleExp: putson1(# #);
+          getTerm: getson2(# #);
+          putTerm: putson2(# #);
+       exit 118
+       #);
+     UnaryPlusExp: SignedTerm
+       (# getTerm: getson1(# #);
+          putTerm: putson1(# #);
+       exit 119
+       #);
+     UnaryMinusExp: SignedTerm
+       (# getTerm: getson1(# #);
+          putTerm: putson1(# #);
+       exit 120
+       #);
+     TimesExp: MulExp
+       (# getTerm: getson1(# #);
+          putTerm: putson1(# #);
+          getFactor: getson2(# #);
+          putFactor: putson2(# #);
+       exit 121
+       #);
+     RealDivExp: MulExp
+       (# getTerm: getson1(# #);
+          putTerm: putson1(# #);
+          getFactor: getson2(# #);
+          putFactor: putson2(# #);
+       exit 122
+       #);
+     IntDivExp: MulExp
+       (# getTerm: getson1(# #);
+          putTerm: putson1(# #);
+          getFactor: getson2(# #);
+          putFactor: putson2(# #);
+       exit 123
+       #);
+     ModExp: MulExp
+       (# getTerm: getson1(# #);
+          putTerm: putson1(# #);
+          getFactor: getson2(# #);
+          putFactor: putson2(# #);
+       exit 124
+       #);
+     AndExp: MulExp
+       (# getTerm: getson1(# #);
+          putTerm: putson1(# #);
+          getFactor: getson2(# #);
+          putFactor: putson2(# #);
+       exit 125
+       #);
+     PrimitiveExp: MulExp
+       (# getTerm: getson1(# #);
+          putTerm: putson1(# #);
+          getNameApl: getson2(# #);
+          putNameApl: putson2(# #);
+          getFactor: getson3(# #);
+          putFactor: putson3(# #);
+       exit 126
+       #);
+     Factor: Term
+       (# #);
+     RepetitionSlice: Reference
+       (# getAttributeDenotation: getson1(# #);
+          putAttributeDenotation: putson1(# #);
+          getLow: getson2(# #);
+          putLow: putson2(# #);
+          getHigh: getson3(# #);
+          putHigh: putson3(# #);
+       exit 128
+       #);
+     NotExp: Factor
+       (# getFactor: getson1(# #);
+          putFactor: putson1(# #);
+       exit 129
+       #);
+     NoneExp: Factor
+       (# exit 130 #);
+     UnaryPrimitiveExp: Factor
+       (# getNameApl: getson1(# #);
+          putNameApl: putson1(# #);
+          getFactor: getson2(# #);
+          putFactor: putson2(# #);
+       exit 131
+       #);
+     Names: list
+       (# soncat::< NameDcl;
+       exit 132
+       #);
+     NameDcl: cons
+       (# getNameDecl: getson1(# #);
+          putNameDecl: putson1(# #);
+       exit 133
+       #);
+     NameApl: AttributeDenotation
+       (# getNameAppl: getson1(# #);
+          putNameAppl: putson1(# #);
+       exit 134
+       #);
+     TextConst: Factor
+       (# getString: getson1(# #);
+          putString: putson1(# #);
+       exit 136
+       #);
+     IntegerConst: Factor
+       (# getConst: getson1(# #);
+          putConst: putson1(# #);
+       exit 137
+       #);
+     SimpleIndex: Index
+       (# getEvaluation: getson1(# #);
+          putEvaluation: putson1(# #);
+       exit 138
+       #);
+     CodeItems: list
+       (# soncat::< CodeItem;
+       exit 139
+       #);
+     CodeItem: cons
+       (# #);
+     CodeString: CodeItem
+       (# getString: getson1(# #);
+          putString: putson1(# #);
+       exit 141
+       #);
+     CodeConst: CodeItem
+       (# getConst: getson1(# #);
+          putConst: putson1(# #);
+       exit 142
+       #);
+     ErrorDecl: AttributeDecl
+       (# exit 143 #);
+     ErrorImp: Imp
+       (# exit 144 #);
+
+     grammarIdentification::<
+       (# do 'gbeta' -> theGrammarName #);
+     version::<
+       (# do 21 -> value #);
+     suffix::<
+       (# do '.gb' -> theSuffix #);
+     maxproductions::<
+       (# do 144 -> value #);
+
+     init::<
+       (# <<SLOT InitBody:dopart>> #);
+  #); 
+--InitBody:dopart--
+do
+   2 -> kindArray[1]; 2 -> roomArray[1]; 0 -> sonArray[1]; 
+   unExpanded## -> genRefArray[1]##;
+   1 -> kindArray[2]; 0 -> roomArray[2]; 1 -> sonArray[2]; 
+   DescriptorForm## -> genRefArray[2]##;
+   1 -> kindArray[3]; 0 -> roomArray[3]; 1 -> sonArray[3]; 
+   AttributesForm## -> genRefArray[3]##;
+   1 -> kindArray[4]; 0 -> roomArray[4]; 2 -> sonArray[4]; 
+   ObjectDescriptor## -> genRefArray[4]##;
+   2 -> kindArray[5]; 2 -> roomArray[5]; 0 -> sonArray[5]; 
+   unExpanded## -> genRefArray[5]##;
+   1 -> kindArray[6]; 0 -> roomArray[6]; 2 -> sonArray[6]; 
+   LongMainPart## -> genRefArray[6]##;
+   1 -> kindArray[7]; 0 -> roomArray[7]; 2 -> sonArray[7]; 
+   ShortMainPart## -> genRefArray[7]##;
+   1 -> kindArray[8]; 0 -> roomArray[8]; 0 -> sonArray[8]; 
+   Attributes## -> genRefArray[8]##;
+   3 -> kindArray[9]; 2 -> roomArray[9]; 0 -> sonArray[9]; 
+   Optional## -> genRefArray[9]##;
+   2 -> kindArray[10]; 2 -> roomArray[10]; 0 -> sonArray[10]; 
+   unExpanded## -> genRefArray[10]##;
+   1 -> kindArray[11]; 0 -> roomArray[11]; 1 -> sonArray[11]; 
+   SimplePrefix## -> genRefArray[11]##;
+   1 -> kindArray[12]; 0 -> roomArray[12]; 1 -> sonArray[12]; 
+   CompositePrefix## -> genRefArray[12]##;
+   3 -> kindArray[13]; 2 -> roomArray[13]; 0 -> sonArray[13]; 
+   Optional## -> genRefArray[13]##;
+   2 -> kindArray[14]; 2 -> roomArray[14]; 0 -> sonArray[14]; 
+   unExpanded## -> genRefArray[14]##;
+   1 -> kindArray[15]; 0 -> roomArray[15]; 2 -> sonArray[15]; 
+   PatternDecl## -> genRefArray[15]##;
+   1 -> kindArray[16]; 0 -> roomArray[16]; 2 -> sonArray[16]; 
+   SimpleDecl## -> genRefArray[16]##;
+   1 -> kindArray[17]; 0 -> roomArray[17]; 3 -> sonArray[17]; 
+   RepetitionDecl## -> genRefArray[17]##;
+   1 -> kindArray[18]; 0 -> roomArray[18]; 4 -> sonArray[18]; 
+   VirtualDecl## -> genRefArray[18]##;
+   1 -> kindArray[19]; 0 -> roomArray[19]; 5 -> sonArray[19]; 
+   BindingDecl## -> genRefArray[19]##;
+   1 -> kindArray[20]; 0 -> roomArray[20]; 3 -> sonArray[20]; 
+   FinalDecl## -> genRefArray[20]##;
+   3 -> kindArray[21]; 2 -> roomArray[21]; 0 -> sonArray[21]; 
+   Optional## -> genRefArray[21]##;
+   1 -> kindArray[22]; 0 -> roomArray[22]; 0 -> sonArray[22]; 
+   Disown## -> genRefArray[22]##;
+   3 -> kindArray[23]; 2 -> roomArray[23]; 0 -> sonArray[23]; 
+   Optional## -> genRefArray[23]##;
+   1 -> kindArray[24]; 0 -> roomArray[24]; 0 -> sonArray[24]; 
+   Swap## -> genRefArray[24]##;
+   3 -> kindArray[25]; 2 -> roomArray[25]; 0 -> sonArray[25]; 
+   Optional## -> genRefArray[25]##;
+   1 -> kindArray[26]; 0 -> roomArray[26]; 1 -> sonArray[26]; 
+   RestrictionPart## -> genRefArray[26]##;
+   1 -> kindArray[27]; 0 -> roomArray[27]; 0 -> sonArray[27]; 
+   Restrictions## -> genRefArray[27]##;
+   1 -> kindArray[28]; 0 -> roomArray[28]; 1 -> sonArray[28]; 
+   Restriction## -> genRefArray[28]##;
+   1 -> kindArray[29]; 0 -> roomArray[29]; 1 -> sonArray[29]; 
+   VariablePattern## -> genRefArray[29]##;
+   2 -> kindArray[30]; 2 -> roomArray[30]; 0 -> sonArray[30]; 
+   unExpanded## -> genRefArray[30]##;
+   1 -> kindArray[31]; 0 -> roomArray[31]; 1 -> sonArray[31]; 
+   StaticItem## -> genRefArray[31]##;
+   1 -> kindArray[32]; 0 -> roomArray[32]; 2 -> sonArray[32]; 
+   VirtualStaticItem## -> genRefArray[32]##;
+   1 -> kindArray[33]; 0 -> roomArray[33]; 1 -> sonArray[33]; 
+   FinalStaticItem## -> genRefArray[33]##;
+   1 -> kindArray[34]; 0 -> roomArray[34]; 2 -> sonArray[34]; 
+   DynamicItem## -> genRefArray[34]##;
+   3 -> kindArray[35]; 2 -> roomArray[35]; 0 -> sonArray[35]; 
+   Optional## -> genRefArray[35]##;
+   1 -> kindArray[36]; 0 -> roomArray[36]; 0 -> sonArray[36]; 
+   Exact## -> genRefArray[36]##;
+   1 -> kindArray[37]; 0 -> roomArray[37]; 1 -> sonArray[37]; 
+   StaticComponent## -> genRefArray[37]##;
+   1 -> kindArray[38]; 0 -> roomArray[38]; 2 -> sonArray[38]; 
+   DynamicComponent## -> genRefArray[38]##;
+   2 -> kindArray[39]; 2 -> roomArray[39]; 0 -> sonArray[39]; 
+   unExpanded## -> genRefArray[39]##;
+   1 -> kindArray[40]; 0 -> roomArray[40]; 0 -> sonArray[40]; 
+   Merge## -> genRefArray[40]##;
+   2 -> kindArray[41]; 2 -> roomArray[41]; 0 -> sonArray[41]; 
+   unExpanded## -> genRefArray[41]##;
+   1 -> kindArray[42]; 0 -> roomArray[42]; 2 -> sonArray[42]; 
+   NamedIndex## -> genRefArray[42]##;
+   1 -> kindArray[43]; 0 -> roomArray[43]; 3 -> sonArray[43]; 
+   ActionPart## -> genRefArray[43]##;
+   3 -> kindArray[44]; 2 -> roomArray[44]; 0 -> sonArray[44]; 
+   Optional## -> genRefArray[44]##;
+   3 -> kindArray[45]; 2 -> roomArray[45]; 0 -> sonArray[45]; 
+   Optional## -> genRefArray[45]##;
+   3 -> kindArray[46]; 2 -> roomArray[46]; 0 -> sonArray[46]; 
+   Optional## -> genRefArray[46]##;
+   1 -> kindArray[47]; 0 -> roomArray[47]; 1 -> sonArray[47]; 
+   EnterPart## -> genRefArray[47]##;
+   1 -> kindArray[48]; 0 -> roomArray[48]; 1 -> sonArray[48]; 
+   DoPart## -> genRefArray[48]##;
+   1 -> kindArray[49]; 0 -> roomArray[49]; 1 -> sonArray[49]; 
+   ExitPart## -> genRefArray[49]##;
+   1 -> kindArray[50]; 0 -> roomArray[50]; 0 -> sonArray[50]; 
+   Imperatives## -> genRefArray[50]##;
+   3 -> kindArray[51]; 2 -> roomArray[51]; 0 -> sonArray[51]; 
+   Optional## -> genRefArray[51]##;
+   2 -> kindArray[52]; 2 -> roomArray[52]; 0 -> sonArray[52]; 
+   unExpanded## -> genRefArray[52]##;
+   1 -> kindArray[53]; 0 -> roomArray[53]; 2 -> sonArray[53]; 
+   LabelledImp## -> genRefArray[53]##;
+   1 -> kindArray[54]; 0 -> roomArray[54]; 3 -> sonArray[54]; 
+   ForImp## -> genRefArray[54]##;
+   2 -> kindArray[55]; 2 -> roomArray[55]; 0 -> sonArray[55]; 
+   unExpanded## -> genRefArray[55]##;
+   1 -> kindArray[56]; 0 -> roomArray[56]; 0 -> sonArray[56]; 
+   Rep## -> genRefArray[56]##;
+   1 -> kindArray[57]; 0 -> roomArray[57]; 0 -> sonArray[57]; 
+   Doit## -> genRefArray[57]##;
+   1 -> kindArray[58]; 0 -> roomArray[58]; 3 -> sonArray[58]; 
+   WhileImp## -> genRefArray[58]##;
+   1 -> kindArray[59]; 0 -> roomArray[59]; 3 -> sonArray[59]; 
+   GeneralIfImp## -> genRefArray[59]##;
+   1 -> kindArray[60]; 0 -> roomArray[60]; 3 -> sonArray[60]; 
+   SimpleIfImp## -> genRefArray[60]##;
+   1 -> kindArray[61]; 0 -> roomArray[61]; 4 -> sonArray[61]; 
+   WhenImp## -> genRefArray[61]##;
+   1 -> kindArray[62]; 0 -> roomArray[62]; 1 -> sonArray[62]; 
+   LeaveImp## -> genRefArray[62]##;
+   1 -> kindArray[63]; 0 -> roomArray[63]; 1 -> sonArray[63]; 
+   RestartImp## -> genRefArray[63]##;
+   1 -> kindArray[64]; 0 -> roomArray[64]; 1 -> sonArray[64]; 
+   InnerImp## -> genRefArray[64]##;
+   3 -> kindArray[65]; 2 -> roomArray[65]; 0 -> sonArray[65]; 
+   Optional## -> genRefArray[65]##;
+   2 -> kindArray[66]; 2 -> roomArray[66]; 0 -> sonArray[66]; 
+   unExpanded## -> genRefArray[66]##;
+   1 -> kindArray[67]; 0 -> roomArray[67]; 1 -> sonArray[67]; 
+   IntegerScopeSpec## -> genRefArray[67]##;
+   1 -> kindArray[68]; 0 -> roomArray[68]; 1 -> sonArray[68]; 
+   NameAplScopeSpec## -> genRefArray[68]##;
+   1 -> kindArray[69]; 0 -> roomArray[69]; 0 -> sonArray[69]; 
+   SuspendImp## -> genRefArray[69]##;
+   1 -> kindArray[70]; 0 -> roomArray[70]; 1 -> sonArray[70]; 
+   CodeImp## -> genRefArray[70]##;
+   1 -> kindArray[71]; 0 -> roomArray[71]; 0 -> sonArray[71]; 
+   Alternatives## -> genRefArray[71]##;
+   1 -> kindArray[72]; 0 -> roomArray[72]; 2 -> sonArray[72]; 
+   Alternative## -> genRefArray[72]##;
+   1 -> kindArray[73]; 0 -> roomArray[73]; 0 -> sonArray[73]; 
+   Selections## -> genRefArray[73]##;
+   2 -> kindArray[74]; 2 -> roomArray[74]; 0 -> sonArray[74]; 
+   unExpanded## -> genRefArray[74]##;
+   1 -> kindArray[75]; 0 -> roomArray[75]; 1 -> sonArray[75]; 
+   CaseSelection## -> genRefArray[75]##;
+   1 -> kindArray[76]; 0 -> roomArray[76]; 0 -> sonArray[76]; 
+   WhenAlternatives## -> genRefArray[76]##;
+   1 -> kindArray[77]; 0 -> roomArray[77]; 3 -> sonArray[77]; 
+   WhenAlternative## -> genRefArray[77]##;
+   3 -> kindArray[78]; 2 -> roomArray[78]; 0 -> sonArray[78]; 
+   Optional## -> genRefArray[78]##;
+   1 -> kindArray[79]; 0 -> roomArray[79]; 1 -> sonArray[79]; 
+   ElsePart## -> genRefArray[79]##;
+   1 -> kindArray[80]; 0 -> roomArray[80]; 0 -> sonArray[80]; 
+   Evaluations## -> genRefArray[80]##;
+   2 -> kindArray[81]; 2 -> roomArray[81]; 0 -> sonArray[81]; 
+   unExpanded## -> genRefArray[81]##;
+   1 -> kindArray[82]; 0 -> roomArray[82]; 2 -> sonArray[82]; 
+   AssignmentEvaluation## -> genRefArray[82]##;
+   2 -> kindArray[83]; 2 -> roomArray[83]; 0 -> sonArray[83]; 
+   unExpanded## -> genRefArray[83]##;
+   2 -> kindArray[84]; 2 -> roomArray[84]; 0 -> sonArray[84]; 
+   unExpanded## -> genRefArray[84]##;
+   2 -> kindArray[85]; 2 -> roomArray[85]; 0 -> sonArray[85]; 
+   unExpanded## -> genRefArray[85]##;
+   1 -> kindArray[86]; 0 -> roomArray[86]; 1 -> sonArray[86]; 
+   ObjectDenotation## -> genRefArray[86]##;
+   1 -> kindArray[87]; 0 -> roomArray[87]; 1 -> sonArray[87]; 
+   ComputedObjectEvaluation## -> genRefArray[87]##;
+   1 -> kindArray[88]; 0 -> roomArray[88]; 1 -> sonArray[88]; 
+   ObjectReference## -> genRefArray[88]##;
+   1 -> kindArray[89]; 0 -> roomArray[89]; 1 -> sonArray[89]; 
+   StructureReference## -> genRefArray[89]##;
+   1 -> kindArray[90]; 0 -> roomArray[90]; 1 -> sonArray[90]; 
+   EvalList## -> genRefArray[90]##;
+   1 -> kindArray[91]; 0 -> roomArray[91]; 1 -> sonArray[91]; 
+   DynamicItemGeneration## -> genRefArray[91]##;
+   1 -> kindArray[92]; 0 -> roomArray[92]; 1 -> sonArray[92]; 
+   DynamicComponentGeneration## -> genRefArray[92]##;
+   1 -> kindArray[93]; 0 -> roomArray[93]; 1 -> sonArray[93]; 
+   Primitive## -> genRefArray[93]##;
+   1 -> kindArray[94]; 0 -> roomArray[94]; 1 -> sonArray[94]; 
+   Address## -> genRefArray[94]##;
+   2 -> kindArray[95]; 2 -> roomArray[95]; 0 -> sonArray[95]; 
+   unExpanded## -> genRefArray[95]##;
+   1 -> kindArray[96]; 0 -> roomArray[96]; 2 -> sonArray[96]; 
+   Remote## -> genRefArray[96]##;
+   1 -> kindArray[97]; 0 -> roomArray[97]; 2 -> sonArray[97]; 
+   ComputedRemote## -> genRefArray[97]##;
+   1 -> kindArray[98]; 0 -> roomArray[98]; 2 -> sonArray[98]; 
+   Indexed## -> genRefArray[98]##;
+   1 -> kindArray[99]; 0 -> roomArray[99]; 1 -> sonArray[99]; 
+   ThisObject## -> genRefArray[99]##;
+   1 -> kindArray[100]; 0 -> roomArray[100]; 2 -> sonArray[100]; 
+   QualifiedAttrDen## -> genRefArray[100]##;
+   1 -> kindArray[101]; 0 -> roomArray[101]; 2 -> sonArray[101]; 
+   RemotePrimitive## -> genRefArray[101]##;
+   2 -> kindArray[102]; 2 -> roomArray[102]; 0 -> sonArray[102]; 
+   unExpanded## -> genRefArray[102]##;
+   2 -> kindArray[103]; 2 -> roomArray[103]; 0 -> sonArray[103]; 
+   unExpanded## -> genRefArray[103]##;
+   2 -> kindArray[104]; 2 -> roomArray[104]; 0 -> sonArray[104]; 
+   unExpanded## -> genRefArray[104]##;
+   2 -> kindArray[105]; 2 -> roomArray[105]; 0 -> sonArray[105]; 
+   unExpanded## -> genRefArray[105]##;
+   2 -> kindArray[106]; 2 -> roomArray[106]; 0 -> sonArray[106]; 
+   unExpanded## -> genRefArray[106]##;
+   2 -> kindArray[107]; 2 -> roomArray[107]; 0 -> sonArray[107]; 
+   unExpanded## -> genRefArray[107]##;
+   2 -> kindArray[108]; 2 -> roomArray[108]; 0 -> sonArray[108]; 
+   unExpanded## -> genRefArray[108]##;
+   1 -> kindArray[109]; 0 -> roomArray[109]; 2 -> sonArray[109]; 
+   EqExp## -> genRefArray[109]##;
+   1 -> kindArray[110]; 0 -> roomArray[110]; 2 -> sonArray[110]; 
+   LtExp## -> genRefArray[110]##;
+   1 -> kindArray[111]; 0 -> roomArray[111]; 2 -> sonArray[111]; 
+   LeExp## -> genRefArray[111]##;
+   1 -> kindArray[112]; 0 -> roomArray[112]; 2 -> sonArray[112]; 
+   GtExp## -> genRefArray[112]##;
+   1 -> kindArray[113]; 0 -> roomArray[113]; 2 -> sonArray[113]; 
+   GeExp## -> genRefArray[113]##;
+   1 -> kindArray[114]; 0 -> roomArray[114]; 2 -> sonArray[114]; 
+   NeExp## -> genRefArray[114]##;
+   1 -> kindArray[115]; 0 -> roomArray[115]; 2 -> sonArray[115]; 
+   PlusExp## -> genRefArray[115]##;
+   1 -> kindArray[116]; 0 -> roomArray[116]; 2 -> sonArray[116]; 
+   MinusExp## -> genRefArray[116]##;
+   1 -> kindArray[117]; 0 -> roomArray[117]; 2 -> sonArray[117]; 
+   OrExp## -> genRefArray[117]##;
+   1 -> kindArray[118]; 0 -> roomArray[118]; 2 -> sonArray[118]; 
+   XorExp## -> genRefArray[118]##;
+   1 -> kindArray[119]; 0 -> roomArray[119]; 1 -> sonArray[119]; 
+   UnaryPlusExp## -> genRefArray[119]##;
+   1 -> kindArray[120]; 0 -> roomArray[120]; 1 -> sonArray[120]; 
+   UnaryMinusExp## -> genRefArray[120]##;
+   1 -> kindArray[121]; 0 -> roomArray[121]; 2 -> sonArray[121]; 
+   TimesExp## -> genRefArray[121]##;
+   1 -> kindArray[122]; 0 -> roomArray[122]; 2 -> sonArray[122]; 
+   RealDivExp## -> genRefArray[122]##;
+   1 -> kindArray[123]; 0 -> roomArray[123]; 2 -> sonArray[123]; 
+   IntDivExp## -> genRefArray[123]##;
+   1 -> kindArray[124]; 0 -> roomArray[124]; 2 -> sonArray[124]; 
+   ModExp## -> genRefArray[124]##;
+   1 -> kindArray[125]; 0 -> roomArray[125]; 2 -> sonArray[125]; 
+   AndExp## -> genRefArray[125]##;
+   1 -> kindArray[126]; 0 -> roomArray[126]; 3 -> sonArray[126]; 
+   PrimitiveExp## -> genRefArray[126]##;
+   2 -> kindArray[127]; 2 -> roomArray[127]; 0 -> sonArray[127]; 
+   unExpanded## -> genRefArray[127]##;
+   1 -> kindArray[128]; 0 -> roomArray[128]; 3 -> sonArray[128]; 
+   RepetitionSlice## -> genRefArray[128]##;
+   1 -> kindArray[129]; 0 -> roomArray[129]; 1 -> sonArray[129]; 
+   NotExp## -> genRefArray[129]##;
+   1 -> kindArray[130]; 0 -> roomArray[130]; 0 -> sonArray[130]; 
+   NoneExp## -> genRefArray[130]##;
+   1 -> kindArray[131]; 0 -> roomArray[131]; 2 -> sonArray[131]; 
+   UnaryPrimitiveExp## -> genRefArray[131]##;
+   1 -> kindArray[132]; 0 -> roomArray[132]; 0 -> sonArray[132]; 
+   Names## -> genRefArray[132]##;
+   1 -> kindArray[133]; 0 -> roomArray[133]; 1 -> sonArray[133]; 
+   NameDcl## -> genRefArray[133]##;
+   1 -> kindArray[134]; 0 -> roomArray[134]; 1 -> sonArray[134]; 
+   NameApl## -> genRefArray[134]##;
+   3 -> kindArray[135]; 2 -> roomArray[135]; 0 -> sonArray[135]; 
+   Optional## -> genRefArray[135]##;
+   1 -> kindArray[136]; 0 -> roomArray[136]; 1 -> sonArray[136]; 
+   TextConst## -> genRefArray[136]##;
+   1 -> kindArray[137]; 0 -> roomArray[137]; 1 -> sonArray[137]; 
+   IntegerConst## -> genRefArray[137]##;
+   1 -> kindArray[138]; 0 -> roomArray[138]; 1 -> sonArray[138]; 
+   SimpleIndex## -> genRefArray[138]##;
+   1 -> kindArray[139]; 0 -> roomArray[139]; 0 -> sonArray[139]; 
+   CodeItems## -> genRefArray[139]##;
+   2 -> kindArray[140]; 2 -> roomArray[140]; 0 -> sonArray[140]; 
+   unExpanded## -> genRefArray[140]##;
+   1 -> kindArray[141]; 0 -> roomArray[141]; 1 -> sonArray[141]; 
+   CodeString## -> genRefArray[141]##;
+   1 -> kindArray[142]; 0 -> roomArray[142]; 1 -> sonArray[142]; 
+   CodeConst## -> genRefArray[142]##;
+   1 -> kindArray[143]; 0 -> roomArray[143]; 1 -> sonArray[143]; 
+   ErrorDecl## -> genRefArray[143]##;
+   1 -> kindArray[144]; 0 -> roomArray[144]; 1 -> sonArray[144]; 
+   ErrorImp## -> genRefArray[144]##;

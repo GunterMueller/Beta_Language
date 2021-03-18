@@ -1,0 +1,21 @@
+ORIGIN 'systemjobbody';
+INCLUDE '~beta/basiclib/current/private/file_unixbody';
+--- SystemJobPrivateFdListSet: DoPart ---
+do
+   (* test for errors *)
+   (if current.write and not current.s.private.outPutFile then
+      exception
+        (#
+	do 'Passed a non-writeable file for an output file descriptor!'->msg;
+	#);
+   if);
+
+   (handle,current.s.private.index,current.fd)->systemjobsetfd;
+
+
+--- SystemJobPrivateFdListClose: DoPart ---
+do current.s.private.unixStream->fclose
+
+
+--- SystemJobLib: Attributes ---
+systemjobsetfd: external (# handle,from,to: @integer enter (handle,from,to) #);

@@ -1,0 +1,26 @@
+ORIGIN 'bfile';
+INCLUDE 'attribute';
+BODY 'namebody';
+--- CompilerLib: Attributes ---
+(* Names *)
+Name: BETAlist
+  (#
+     listtype:: Name;
+     encltype:: Attribute;
+     str: @text;
+     mapname: @text;
+     print:: (# do str[]->s.append #);
+     checkName: (# <<SLOT NameCheckName: DoPart>> #);
+     doMapName: (# <<SLOT NameDoMapName: DoPart>> #);
+  enter str
+  do doMapName; INNER
+  exit this(Name)[]
+  #);
+TemporaryName:
+  (# nme: ^Name <<SLOT TemporaryNameDoPart: DoPart>> exit nme[] #);
+NamePtr: BETAlistPtr
+  (#
+     listtype:: Name;
+     print:: (# sep2:: (# do ','->t[] #); #);
+     checkName: iterate (# do el.checkName #);
+  #);

@@ -1,0 +1,5 @@
+# NB: this file should be sourced, ". settag"
+
+# make sure this file is up-to-date just before releasing
+export GBETA_RELEASE_TAG=RELEASE_0_9_6
+echo 'GBETA_RELEASE_TAG =' $GBETA_RELEASE_TAG

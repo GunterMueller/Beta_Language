@@ -1,0 +1,911 @@
+(* FILE "./private/ibetaTransientlibbody.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaTransientlibbody.bet,v 1.24 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN 'ibetaTransientlib';
+INCLUDE 'ibetaOnelib'
+
+-- PairTransientsLib:attributes --
+
+kindFailure: 
+  (# msg: ^text
+  do 'Cannot match '->msg[];
+     (l0tr1.typeName).withIndefArticle->msg.puttext;
+     ' with '->msg.puttext;
+     (l0tr2.typeName).withIndefArticle->msg.puttext;
+     (msg[],thrd[],unwind##)->kindError
+  #)
+
+-- PairTransientsArithBinOp:dopart --
+do
+   (if true 
+    // l0tr1##<=l0TransientBoolean## then
+       kindFailure
+       
+    // l0tr1##<=l0TransientChar## then
+       (* always raise l0tr1 from char to integer *)
+       l0tr1[]->transient_char2integer->l0tr1[];
+       (if true 
+        // l0tr2##<=l0TransientChar## then
+           (* raise l0tr2 from char to integer *)
+           l0tr2[]->transient_char2integer->l0tr2[]
+        // l0tr2##<=l0TransientInteger## then
+           (* OK, no action *)
+        // l0tr2##<=l0TransientString## then 
+           (* get one integer from l0tr2 *)
+           l0tr2[]->transient_string2integer->l0tr2[]
+        else
+           kindFailure
+       if)
+       
+    // l0tr1##<=l0TransientInteger## then
+       (if true 
+        // l0tr2##<=l0TransientChar## then
+           (* raise l0tr2 from char to integer *)
+           l0tr2[]->transient_char2integer->l0tr2[]
+        // l0tr2##<=l0TransientInteger## then
+           (* OK, no action *)
+        // l0tr2##<=l0TransientReal## then
+           (* raise l0tr1 from integer to real *)
+           l0tr1[]->transient_integer2real->l0tr1[]
+        // l0tr2##<=l0TransientString## then 
+           (* extract one integer from l0tr2 *)
+           l0tr2[]->transient_string2integer->l0tr2[]
+        else
+           kindFailure
+       if)
+       
+    // l0tr1##<=l0TransientReal## then
+       (if true 
+        // l0tr2##<=l0TransientInteger## then
+           (* raise l0tr2 from integer to real *)
+           l0tr2[]->transient_integer2real->l0tr2[]
+        // l0tr2##<=l0TransientReal## then
+           (* OK, no action *)
+        else
+           kindFailure
+       if)
+       
+    // l0tr1##<=l0TransientString## then 
+       (if l0tr2##<=l0TransientString## then
+           (# l0trs1,l0trs2: ^l0TransientString
+           do l0tr1[]->l0trs1[];
+              l0tr2[]->l0trs2[];
+              (if l0trs1.singleton and l0trs2.singleton then 
+                  (* adding two literal chars: as int *)
+                  l0tr1[]->transient_string2integer->l0tr1[];
+                  l0tr2[]->transient_string2integer->l0tr2[]
+               (* else: *)
+                  (* !!! Split: this is only correct for "+" *)
+                  (* at most one of the strings is a literal char:
+                   * addition will concatenate the strings: no 
+                   * coercion action needed here *)
+              if)
+           #)
+        else
+           (* l0tr2 not a string; always extract integer from l0tr1 *)
+           l0tr1[]->transient_string2integer->l0tr1[];
+           (if true 
+            // l0tr2##<=l0TransientChar## then
+               (* raise l0tr2 from char to integer *)
+               l0tr2[]->transient_char2integer->l0tr2[]
+            // l0tr2##<=l0TransientInteger## then
+               (* OK, no action *)
+            else
+               kindFailure
+           if)
+       if)
+       
+    // l0tr1##<=l0TransientRepetition## then
+       (if true 
+        // l0tr2##<=l0TransientRepetition## then
+           (* !! _possibly_ OK, no action *)
+           'ibetaTransientlibbody.bet/125'->notyet; (* !!! *)
+        else
+           kindFailure
+       if)
+       
+    else
+       kindFailure
+   if)
+
+-- PairTransientsModBinOp:dopart --
+do
+   (if true 
+       
+    // l0tr1##<=l0TransientBoolean## then
+       kindFailure
+       
+    // l0tr1##<=l0TransientChar## then
+       (* always raise l0tr1 from char to integer *)
+       l0tr1[]->transient_char2integer->l0tr1[];
+       (if true 
+        // l0tr2##<=l0TransientChar## then
+           (* raise l0tr2 from char to integer *)
+           l0tr2[]->transient_char2integer->l0tr2[]
+        // l0tr2##<=l0TransientInteger## then
+           (* OK, no action *)
+        // l0tr2##<=l0TransientString## then 
+           (* get one integer from l0tr2 *)
+           l0tr2[]->transient_string2integer->l0tr2[]
+        else
+           kindFailure
+       if)
+       
+    // l0tr1##<=l0TransientInteger## then
+       (if true 
+        // l0tr2##<=l0TransientChar## then
+           (* raise l0tr2 from char to integer *)
+           l0tr2[]->transient_char2integer->l0tr2[]
+        // l0tr2##<=l0TransientInteger## then
+           (* OK, no action *)
+        // l0tr2##<=l0TransientString## then 
+           (* extract one integer from l0tr2 *)
+           l0tr2[]->transient_string2integer->l0tr2[]
+        else
+           kindFailure
+       if)
+       
+    // l0tr1##<=l0TransientReal## then
+       kindfailure
+       
+    // l0tr1##<=l0TransientString## then
+       (* always extract one integer from l0tr1 *)
+       l0tr1[]->transient_string2integer->l0tr1[];
+       (if true 
+        // l0tr2##<=l0TransientChar## then
+           (* raise l0tr2 from char to integer *)
+           l0tr2[]->transient_char2integer->l0tr2[]
+        // l0tr2##<=l0TransientInteger## then
+           (* OK, no action *)
+        // l0tr2##<=l0TransientString## then 
+           (* extract one integer from l0tr2 *)
+           l0tr2[]->transient_string2integer->l0tr2[]
+        else
+           kindFailure
+       if)
+       
+    // l0tr1##<=l0TransientRepetition## then
+       (if true 
+        // l0tr2##<=l0TransientRepetition## then
+           (* !! _possibly_ OK, no action *)
+           'ibetaTransientlibbody.bet/192'->notyet; (* !!! *)
+        else
+           kindFailure
+       if)
+       
+    else
+       kindFailure
+   if)
+
+-- PairTransientsRDivBinOp:dopart --
+do
+   (if true 
+       
+    // l0tr1##<=l0TransientChar## then
+       (* always raise l0tr1 to real *)
+       l0tr1[]->transient_char2real->l0tr1[];
+       (if true 
+        // l0tr2##<=l0TransientChar## then
+           (* raise l0tr2 to real *)
+           l0tr2[]->transient_char2real->l0tr2[]
+        // l0tr2##<=l0TransientInteger## then
+           (* raise l0tr2 from integer to real *)
+           l0tr2[]->transient_integer2real->l0tr2[]
+        // l0tr2##<=l0TransientString## then 
+           (* get one real from l0tr2 *)
+           l0tr2[]->transient_string2real->l0tr2[]
+        else
+           kindFailure
+       if)
+       
+    // l0tr1##<=l0TransientInteger## then
+       (* always raise l0tr1 to real *)
+       l0tr1[]->transient_integer2real->l0tr1[];
+       (if true 
+        // l0tr2##<=l0TransientChar## then
+           (* raise l0tr2 from char to real *)
+           l0tr2[]->transient_char2real->l0tr2[]
+        // l0tr2##<=l0TransientInteger## then
+           (* raise l0tr2 from integer to real *)
+           l0tr2[]->transient_integer2real->l0tr2[]
+        // l0tr2##<=l0TransientReal## then
+           (* OK, no action *)
+        // l0tr2##<=l0TransientString## then 
+           (* extract one real from l0tr2 *)
+           l0tr2[]->transient_string2real->l0tr2[]
+        else
+           kindFailure
+       if)
+       
+    // l0tr1##<=l0TransientReal## then
+       (if true 
+        // l0tr2##<=l0TransientInteger## then
+           (* raise l0tr2 from integer to real *)
+           l0tr2[]->transient_integer2real->l0tr2[]
+        // l0tr2##<=l0TransientReal## then
+           (* OK, no action *)
+        else
+           kindFailure
+       if)
+       
+    // l0tr1##<=l0TransientString## then
+       (* always extract one real from l0tr1 *)
+       l0tr1[]->transient_string2real->l0tr1[];
+       (if true 
+        // l0tr2##<=l0TransientChar## then
+           (* coerce l0tr2 into real *)
+           l0tr2[]->transient_char2real->l0tr2[]
+        // l0tr2##<=l0TransientInteger## then
+           (* coerce l0tr2 into real *)
+           l0tr2[]->transient_integer2real->l0tr2[]
+        // l0tr2##<=l0TransientString## then
+           (* extract one real from l0tr2 *)
+           l0tr2[]->transient_string2real->l0tr2[]
+        else
+           kindFailure
+       if)
+       
+    // l0tr1##<=l0TransientRepetition## then
+       (if true 
+        // l0tr2##<=l0TransientRepetition## then
+           (* !! _possibly_ OK, no action *)
+           'ibetaTransientlibbody.bet/274'->notyet; (* !!! *)
+        else
+           kindFailure
+       if)
+       
+    else
+       kindFailure
+   if)
+
+-- PairTransientsEqNEqBinOp:dopart --
+do
+   (if true 
+       
+    // l0tr1##<=l0TransientBoolean## then
+       (if true 
+        // l0tr2##<=l0TransientBoolean## then
+           (* OK, no action *)
+        else
+           kindFailure
+       if)
+       
+    // l0tr1##<=l0TransientChar## then
+       (if true 
+        // l0tr2##<=l0TransientChar## then
+           (* OK, no action *)
+        // l0tr2##<=l0TransientInteger## then
+           (* raise l0tr1 from char to integer *)
+           l0tr1[]->transient_char2integer->l0tr1[]
+        // l0tr2##<=l0TransientReal## then
+           (* raise l0tr1 from char to real *)
+           l0tr1[]->transient_char2real->l0tr1[]
+        // l0tr2##<=l0TransientString## then 
+           (* get one char from l0tr2 *)
+           l0tr2[]->transient_string2char->l0tr2[]
+        else
+           kindFailure
+       if)
+       
+    // l0tr1##<=l0TransientInteger## then
+       (if true 
+        // l0tr2##<=l0TransientChar## then
+           (* raise l0tr2 from char to integer *)
+           l0tr2[]->transient_char2integer->l0tr2[]
+        // l0tr2##<=l0TransientInteger## then
+           (* OK, no action *)
+        // l0tr2##<=l0TransientReal## then
+           (* raise l0tr1 from integer to real *)
+           l0tr1[]->transient_integer2real->l0tr1[]
+        // l0tr2##<=l0TransientString## then 
+           (* extract one integer from l0tr2 *)
+           l0tr2[]->transient_string2integer->l0tr2[]
+        else
+           kindFailure
+       if)
+       
+    // l0tr1##<=l0TransientReal## then
+       (if true 
+        // l0tr2##<=l0TransientChar## then
+           (* raise l0tr2 from char to real *)
+           l0tr2[]->transient_char2real->l0tr2[]
+        // l0tr2##<=l0TransientInteger## then
+           (* raise l0tr2 from integer to real *)
+           l0tr2[]->transient_integer2real->l0tr2[]
+        // l0tr2##<=l0TransientReal## then
+           (* OK, no action *)
+        // l0tr2##<=l0TransientString## then 
+           (* extract one real from l0tr2 *)
+           l0tr2[]->transient_string2real->l0tr2[]
+        else
+           kindFailure
+       if)
+       
+    // l0tr1##<=l0TransientString## then
+       (if true 
+        // l0tr2##<=l0TransientChar## then
+           (* raise l0tr2 from char to string *)
+           l0tr2[]->transient_char2string->l0tr2[]
+        // l0tr2##<=l0TransientInteger## then
+           (* extract one integer from l0tr1 *)
+           l0tr1[]->transient_string2integer->l0tr1[]
+        // l0tr2##<=l0TransientReal## then
+           (* extract one real from l0tr1 *)
+           l0tr1[]->transient_string2real->l0tr1[]
+        // l0tr2##<=l0TransientString## then 
+           (* OK, no action *)
+        else
+           kindFailure
+       if)
+       
+    // l0tr1##<=l0TransientObjectRef## then
+       (if true 
+        // l0tr2##<=l0TransientObjectRef## then
+           (* OK, no action *) 
+        // l0tr2##<=l0TransientNoneRef## then
+           (* coerce 'l0tr2' into object ref. which is NONE *)
+           l0tr2.usageAst[]->usageAst[];
+           &l0TransientObjectRef[]->l0tr2[];
+           usageAst[]->l0tr2.usageAst[]
+        else
+           kindFailure
+       if)
+       
+    // l0tr1##<=l0TransientPatternRef## then
+       (if true 
+        // l0tr2##<=l0TransientPatternRef## then
+           (* OK, no action *)
+        // l0tr2##<=l0TransientNoneRef## then
+           (* coerce 'l0tr2' into pattern ref. which is NONE *)
+           l0tr2.usageAst[]->usageAst[];
+           &l0TransientPatternRef[]->l0tr2[];
+           usageAst[]->l0tr2.usageAst[]
+        else
+           kindFailure
+       if)
+       
+    // l0tr1##<=l0TransientNoneRef## then
+       (if true 
+        // l0tr2##<=l0TransientObjectRef## then
+           (* coerce 'l0tr1' into object ref. which is NONE *)
+           l0tr1.usageAst[]->usageAst[];
+           &l0TransientObjectRef[]->l0tr1[];
+           usageAst[]->l0tr1.usageAst[]
+        // l0tr2##<=l0TransientPatternRef## then
+           (* coerce 'l0tr1' into pattern ref. which is NONE *)
+           l0tr1.usageAst[]->usageAst[];
+           &l0TransientPatternRef[]->l0tr1[];
+           usageAst[]->l0tr1.usageAst[]
+        // l0tr2##<=l0TransientNoneRef## then
+           (* OK, no action *)
+        else
+           kindFailure
+       if)
+       
+    // l0tr1##<=l0TransientRepetition## then
+       (if true 
+        // l0tr2##<=l0TransientRepetition## then
+           (* !! _possibly_ OK, no action *)
+           'ibetaTransientlibbody.bet/395'->notyet; (* !!! *)
+        else
+           kindFailure
+       if)
+       
+    else
+       kindfailure
+   if)
+
+-- PairTransientsUnEqBinOp:dopart --
+do
+   (if true 
+       
+    // l0tr1##<=l0TransientBoolean## then
+       (if true 
+        // l0tr2##<=l0TransientBoolean## then
+           (* OK, no action *)
+        else
+           kindFailure
+       if)
+       
+    // l0tr1##<=l0TransientChar## then
+       (if true 
+        // l0tr2##<=l0TransientChar## then
+           (* OK, no action *)
+        // l0tr2##<=l0TransientInteger## then
+           (* raise l0tr1 from char to integer *)
+           l0tr1[]->transient_char2integer->l0tr1[]
+        // l0tr2##<=l0TransientReal## then
+           (* raise l0tr1 from char to real *)
+           l0tr1[]->transient_char2real->l0tr1[]
+        // l0tr2##<=l0TransientString## then 
+           (* raise l0tr1 from char to string *)
+           l0tr1[]->transient_char2string->l0tr1[]
+        else
+           kindFailure
+       if)
+       
+    // l0tr1##<=l0TransientInteger## then
+       (if true 
+        // l0tr2##<=l0TransientChar## then
+           (* raise l0tr2 from char to integer *)
+           l0tr2[]->transient_char2integer->l0tr2[]
+        // l0tr2##<=l0TransientInteger## then
+           (* OK, no action *)
+        // l0tr2##<=l0TransientReal## then
+           (* raise l0tr1 from integer to real *)
+           l0tr1[]->transient_integer2real->l0tr1[]
+        // l0tr2##<=l0TransientString## then 
+           (* extract one integer from l0tr2 *)
+           l0tr2[]->transient_string2integer->l0tr2[]
+        else
+           kindFailure
+       if)
+       
+    // l0tr1##<=l0TransientReal## then
+       (if true 
+        // l0tr2##<=l0TransientChar## then
+           (* raise l0tr2 from char to real *)
+           l0tr2[]->transient_char2real->l0tr2[]
+        // l0tr2##<=l0TransientInteger## then
+           (* raise l0tr2 from integer to real *)
+           l0tr2[]->transient_integer2real->l0tr2[]
+        // l0tr2##<=l0TransientReal## then
+           (* OK, no action *)
+        // l0tr2##<=l0TransientString## then
+           (* extract one real from l0tr2 *)
+           l0tr2[]->transient_string2real->l0tr2[]
+        else
+           kindFailure
+       if)
+       
+    // l0tr1##<=l0TransientString## then
+       (if true 
+        // l0tr2##<=l0TransientChar## then
+           (* raise l0tr2 from char to string *)
+           l0tr2[]->transient_char2string->l0tr2[]
+        // l0tr2##<=l0TransientInteger## then
+           (* extract one integer from l0tr1 *)
+           l0tr1[]->transient_string2integer->l0tr1[]
+        // l0tr2##<=l0TransientReal## then
+           (* extract one real from l0tr1 *)
+           l0tr1[]->transient_string2real->l0tr1[]
+        // l0tr2##<=l0TransientString## then
+           (* OK, no action *)
+        else
+           kindFailure
+       if)
+       
+    // l0tr1##<=l0TransientPatternRef## then
+       (if true 
+        // l0tr2##<=l0TransientPatternRef## then
+           (* OK, no action *)
+        else
+           kindFailure
+       if)
+       
+    // l0tr1##<=l0TransientRepetition## then
+       (if true 
+        // l0tr2##<=l0TransientRepetition## then
+           (* !! _possibly_ OK, no action *)
+           'ibetaTransientlibbody.bet/514'->notyet; (* !!! *)
+        else
+           kindFailure
+       if)
+       
+    else
+       kindFailure
+   if)
+
+-- PairTransientsAndOrBinOp:dopart --
+do
+   (if true 
+       
+    // l0tr1##<=l0TransientBoolean## then
+       (if true 
+        // l0tr2##<=l0TransientBoolean## then
+           (* OK, no action *)
+        else
+           kindFailure
+       if)
+       
+    else
+       kindFailure
+   if)
+
+-- TransientBoolean2char:dopart --
+do
+   &l0TransientChar[]->l0trOut[];
+   l0trIn.usageAst[]->l0trOut.usageAst[];
+   (if l0trIn then 1->l0trOut else 0->l0trOut if)
+
+-- TransientBoolean2integer:dopart --
+do
+   &l0TransientInteger[]->l0trOut[];
+   l0trIn.usageAst[]->l0trOut.usageAst[];
+   (if l0trIn then 1->l0trOut else 0->l0trOut if)
+
+-- TransientBoolean2real:dopart -- 
+do 
+   &l0TransientReal[]->l0trOut[];
+   l0trIn.usageAst[]->l0trOut.usageAst[];
+   (if l0trIn then 1.0->l0trOut else 0.0->l0trOut if)
+
+-- TransientChar2integer:dopart --
+do 
+   &l0TransientInteger[]->l0trOut[];
+   l0trIn.usageAst[]->l0trOut.usageAst[];
+   l0trIn->l0trOut
+
+-- TransientChar2real:dopart --
+do
+   &l0TransientReal[]->l0trOut[];
+   l0trIn.usageAst[]->l0trOut.usageAst[];
+   l0trIn->i->l0trOut
+
+-- TransientChar2string:dopart --
+do
+   &l0TransientString[]->l0trOut[];
+   l0trIn.usageAst[]->l0trOut.usageAst[];
+   &text[]->l0trOut.value[];
+   true->l0trOut.singleton;
+   l0trIn->l0trOut.value.put
+
+-- TransientInteger2boolean:dopart --
+do
+   &l0TransientBoolean[]->l0trOut[];
+   l0trIn.usageAst[]->l0trOut.usageAst[];
+   (l0trIn<>0)->l0trOut
+
+-- TransientInteger2char:dopart --
+do
+   &l0TransientChar[]->l0trOut[];
+   l0trIn.usageAst[]->l0trOut.usageAst[];
+   l0trIn->l0trOut
+
+-- TransientInteger2real:dopart --
+do
+   &l0TransientReal[]->l0trOut[];
+   l0trIn.usageAst[]->l0trOut.usageAst[];
+   l0trIn->l0trOut
+
+-- TransientReal2integer:dopart --
+do
+   &l0TransientInteger[]->l0trOut[];
+   l0trIn.usageAst[]->l0trOut.usageAst[];
+   l0trIn->l0trOut
+
+-- TransientString2char:dopart --
+do
+   &l0TransientChar[]->l0trOut[];
+   l0trIn.usageAst[]->l0trOut.usageAst[];
+   (if l0trIn.singleton then
+       1->l0trIn.value.inxget->l0trOut
+    else
+       (* static analysis should prevent this *)
+       'Failing to extract a single character from a string'
+         ->internalError
+   if)
+
+-- TransientString2integer:dopart --
+do
+   &l0TransientInteger[]->l0trOut[];
+   l0trIn.usageAst[]->l0trOut.usageAst[];
+   (if l0trIn.singleton then
+       1->l0trIn.value.inxget->l0trOut
+    else
+       (* static analysis should prevent this *)
+       'Failing to extract a single character from a string'
+         ->internalError
+   if)
+
+-- TransientString2real:dopart --
+do
+   &l0TransientReal[]->l0trOut[];
+   l0trIn.usageAst[]->l0trOut.usageAst[];
+   (if l0trIn.singleton then
+       (# i: @integer do 1->l0trIn.value.inxget->i->l0trOut #)
+    else
+       (* static analysis should prevent this *)
+       'Failing to extract a single character from a string'
+         ->internalError
+   if)
+
+-- TransientRepetition2string:dopart --
+do
+   (# l1ent: ^l1Entity;
+      l1obj: ^l1ObjectEntity;
+      l1oref: ^l1ObjectRefEntity;
+      cSlice: ^charObjectSlice;
+      l0trc: ^l0TransientChar
+   do 
+      &l0TransientString[]->l0trOut[];
+      l0trIn.usageAst[]->l0trOut.usageAst[];
+      ''->l0trOut.value[];
+      false->l0trOut.singleton;
+      
+      (if l0trIn.value[]<>NONE then
+          (* !! performance alert: we scan the whole string even if
+           * we are only to extract a few chars from a long string *)
+          (for i:l0trIn.value.value.range repeat
+               (if (l0trIn.low<=i) and (i<=l0trIn.high) then
+                   (* transfer a char *)
+                   
+                   (thrd[],unwind##,i)->l0trIn.value.get->l1ent[];
+                   (if true
+                    // l1ent##<=l1ObjectEntity## then
+                       l1ent[]->l1obj[]
+                    // l1ent##<=l1ObjectRefEntity## then
+                       l1ent[]->l1oref[];
+                       (if l1oref=NONE then
+                           ('NONE reference during rep-->string coercion'
+                           ,thrd[],unwind##)->refNoneError
+                        else
+                           l1oref->l1obj[]
+                       if)
+                    else
+                       (* not an object, does certainly not have 
+                        * a char slice; BUT: a repetition is _always_
+                        * a repetition of objects, until now at least .. *)
+                       'Attempt to convert repetition of non-objects to string'
+                         ->internalError
+                   if);
+                   L: (# 
+                      do l1obj.private.slices.scan
+                         (# 
+                         do (if current##<=charObjectSlice## then 
+                                current[]->cSlice[];
+                                cSlice.value->l0trOut.value.put;
+                                leave L
+                            if)
+                         #);
+                         
+                         (* no char slices here; type checking
+                          * should have prevented this *)
+                         'Failed to convert repetition to string'
+                           ->internalError
+                      #)
+                (* else: *)
+                   (* not in selected range of the rep. -- no action *)
+               if)
+          for)
+       else
+          (* the value of a transient repetition should _never_ be NONE *)
+          'Value of transient repetition was NONE!'
+            ->internalError
+      if)
+   #)
+
+-- TransientMany2boolean:dopart --
+do
+   (if true
+    // l0trIn##<=l0TransientBoolean## then 
+       l0trIn[]->l0trOut[]
+    // l0trIn##<=l0TransientInteger## then 
+       l0trIn[]->transient_integer2boolean->l0trOut[]
+    else
+       'Failed to coerce transient to boolean'
+         ->internalError
+   if)
+
+-- TransientMany2char:dopart --
+do
+   (if true
+    // l0trIn##<=l0TransientChar## then 
+       l0trIn[]->l0trOut[]
+    // l0trIn##<=l0TransientBoolean## then 
+       l0trIn[]->transient_boolean2char->l0trOut[]
+    // l0trIn##<=l0TransientInteger## then 
+       l0trIn[]->transient_integer2char->l0trOut[]
+    // l0trIn##<=l0TransientString## then 
+       l0trIn[]->transient_string2char->l0trOut[]
+    else
+       'Failed to coerce transient to char'
+         ->internalError
+   if)
+
+-- TransientMany2integer:dopart --
+do
+   (if true
+    // l0trIn##<=l0TransientInteger## then 
+       l0trIn[]->l0trOut[]
+    // l0trIn##<=l0TransientBoolean## then 
+       l0trIn[]->transient_boolean2integer->l0trOut[]
+    // l0trIn##<=l0TransientChar## then 
+       l0trIn[]->transient_char2integer->l0trOut[]
+    // l0trIn##<=l0TransientReal## then 
+       l0trIn[]->transient_real2integer->l0trOut[]
+    // l0trIn##<=l0TransientString## then 
+       l0trIn[]->transient_string2integer->l0trOut[]
+    else
+       'Failed to coerce transient to integer'
+         ->internalError
+   if)
+
+-- TransientMany2real:dopart --
+do
+   (if true
+    // l0trIn##<=l0TransientReal## then 
+       l0trIn[]->l0trOut[]
+    // l0trIn##<=l0TransientInteger## then 
+       l0trIn[]->transient_integer2real->l0trOut[]
+    else
+       'Failed to coerce transient to integer'
+         ->internalError
+   if)
+
+-- TransientMany2string:dopart --
+do
+   (if true
+    // l0trIn##<=l0TransientChar## then 
+       l0trIn[]->transient_char2string->l0trOut[]
+    // l0trIn##<=l0TransientString## then 
+       l0trIn[]->l0trOut[]
+    // l0trIn##<=l0TransientRepetition## then 
+       (thrd[],unwind##,l0trIn[])->transient_repetition2string->l0trOut[]
+    else
+       'Failed to coerce transient to string'
+         ->internalError
+   if)
+
+-- EnterOneValueLib:attributes --
+
+tooMany: textValue
+  (# 
+  do context->value[];
+     ', offered one value but more than one is expected!'->value.append
+  #);
+
+tooFew: textValue
+  (# 
+  do context->value[];
+     ', offered one value but none are expected!'->value.append
+  #)
+
+-- EnterOneValue:dopart --
+do 
+   ni.prepare;
+   (if ni.more then 
+       l0tr[]->ni;
+       (if ni.more then 
+           ni.cleanup;
+           (tooMany,thrd[],unwind##)->listLengthError
+       if)
+    else
+       ni.cleanup;
+       (tooFew,thrd[],unwind##)->listLengthError
+   if);
+   ni.cleanup
+
+-- ExitOneValueLib:attributes --
+
+tooMany: textValue
+  (# 
+  do context->value[];
+     ', expected one value but got more than one!'->value.append
+  #);
+
+tooFew: textValue
+  (# 
+  do context->value[];
+     ', expected one value but got none!'->value.append
+  #)
+
+-- ExitOneValue:dopart --
+do
+   xi.prepare;
+   (if xi.more then 
+       xi->l0tr[];
+       (if xi.more then 
+           xi.cleanup;
+           (tooMany,thrd[],unwind##)->listLengthError
+       if)
+    else
+       xi.cleanup;
+       (tooFew,thrd[],unwind##)->listLengthError
+   if);
+   xi.cleanup
+
+-- TransientTransferLib:attributes --
+
+tooMany: textValue
+  (# 
+  do context->value[];
+     ', the exit list produced too many values for the enter list!'
+       ->value.append
+  #);
+
+tooFew: textValue
+  (# 
+  do context->value[];
+     ', the exit list produced too few values for the enter list!'
+       ->value.append
+  #)
+
+-- TransientTransfer:dopart --
+do 
+   xi.prepare; 
+   ni.prepare;
+   
+   L: (if xi.more then 
+          (if ni.more then 
+              (* more transients, transfer one and continue *)
+              xi->ni;
+              restart L
+           else
+              (* 'ge' has more, but 'pe' does not want it *)
+              (tooMany,thrd[],unwind##)->listLengthError
+          if)
+       else
+          (if ni.more then 
+              (* 'ge' exhausted, but 'pe' wants more *)
+              (tooFew,thrd[],unwind##)->listLengthError
+           else
+              (* success, iterators finished at the same time *)
+              xi.cleanup;
+              ni.cleanup
+          if)
+      if)
+
+-- GenerateEnterOneValue:dopart --
+do
+   (program[],cInfo[])
+     ->cplr.prepare;
+   (if not cplr.more then EmptyInput if);
+   (program[],cInfo[])
+     ->cplr.generate
+     ->stran[];
+   (if cplr.more then MultipleInputs if);
+   (program[],cInfo[])
+     ->cplr.cleanup
+
+-- GenerateExitOneValue:dopart --
+do
+   (program[],cInfo[])
+     ->cplr.prepare;
+   (if not cplr.more then EmptyOutput if);
+   (program[],cInfo[])
+     ->cplr.generate
+     ->stran[];
+   (if cplr.more then MultipleOutputs if);
+   (program[],cInfo[])
+     ->cplr.cleanup
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

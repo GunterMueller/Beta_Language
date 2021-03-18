@@ -1,0 +1,37 @@
+ORIGIN '../objectdesc';
+INCLUDE '../ad/nameapl';
+BODY 'genfunctionbody';
+--- ObjectDescriptorGenFunction: ObjectDescriptor ---
+(*
+ * This creates a C function, that will later be used to allocate
+ * storage for a new object and do basic initialisations as well.
+ * The generated C output looks as follows:
+ * struct Onew *Nnew(struct Oouter *th)
+ * {
+ *     struct Onew *n = (struct Onew * ) malloc(struct Onew);
+ *     memset(n, 0, sizeof(struct Onew));
+ *     (struct Oouter * ) n->encl1 = th;
+ *     ... (there may be more than one outer pointer) */
+ *
+ *     n->b_var1 = Nstatref1(n);
+ *     ... (initialise all static references)
+ *
+ *     return n;
+ *)
+(#
+   pref: ^ObjectSpecification;
+   fname: ^text;
+   callod: ^ObjectDescriptor;
+   sdec: @SimpleDecl;
+   rem: @Remote;
+   ad: ^AttributeDenotation;
+   ev: ^Evaluation;
+   newptr: @Evaluation (# DoDo:: (# <<SLOT GenFunctionNewPtr: DoPart>> #) #);
+   genee: @OdExecEnv
+     (#
+	head:: (# t: ^text <<SLOT GenFunctionHead: DoPart>> #);
+	tail:: (# <<SLOT GenFunctionTail: DoPart>> #);
+     #);
+enter (pref[],callod[],fname[])
+<<SLOT GenFunctionDoPart: DoPart>>
+#)

@@ -1,0 +1,35 @@
+All files (C) 1996,1997 Kai Petzke, Muellerstrasse 69, D-13349 Berlin, Germany.
+All rights reserved.
+e-mail: wpp@physik.tu-berlin.de
+
+Permission is granted to view, print, compile and modify the
+files in this directory for studying the compiler, or for
+developping, debugging and testing the compiler, as well, as for
+toying around with BETA or even starting real BETA work,
+provided, that you do not use it for mass violation of human
+rights, as stated in the next paragraph.  Permission is also
+granted to make copies of the files for personal purposes, like
+backups, or to keep several versions of the compiler on different
+machines or platforms.
+
+You may not use the b2c compiler in a work, which is aimed at
+developping, maintaining, transporting or using nuclear,
+biological, chemical or similiar weapons, that can cause mass
+death.  You may not use the b2c compiler in any mass persecution,
+that leads to long term imprisonment or execution of people for
+their political believe, sex, religion, color, place of birth or
+faith.
+
+You may distribute this program to up to 50 different people.
+That means, that you may not put the code on a place, where you
+cannot control distribution, like an ftp server.  (This rule is
+going to lower, the better the compiler gets, currently, it is
+there to avoid 1000's of questions running into my mailbox).
+
+If you distribute a modified version, it must:
+a) be marked as a modified version in a prominent place, like the
+   filename of the distribution file AND in the main README file.
+   Please add a README.<your-initials>, too, in the doc
+   subdirectory, as well, as an e-mail address.
+b) have all changes in the source code, that you made, be marked
+   with your initials.

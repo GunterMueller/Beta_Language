@@ -1,0 +1,137 @@
+(* FILE "./private/ibetaTwobody.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaTwobody.bet,v 1.40 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN '../ibetaTwo';
+INCLUDE '~beta/basiclib/numberio';
+INCLUDE 'ibetaCommonlib';
+INCLUDE 'ibetaStaticlib';
+INCLUDE 'ibetaSlicelib';
+BODY 'ibetaTwoAdenbody';
+BODY 'ibetaTwoDeclbody';
+BODY 'ibetaTwoEvalbody';
+BODY 'ibetaTwoImpbody';
+BODY 'ibetaTwoDcl2body';
+BODY 'ibetaTwoExprbody';
+BODY 'ibetaTwoExp2body';
+BODY 'ibetaTwoExp3body';
+BODY 'ibetaTwoExp4body';
+BODY 'ibetaTwoPrimbody'
+
+(************************************************************ 
+ *                                                          * 
+ *                     l2AttributesForm                     * 
+ *                                                          * 
+ ************************************************************)
+
+-- AttributesFormPrint:dopart --
+do
+   (dest[],indentation,false,true)->Attributes.print
+
+-- AttributesFormScanImpl:dopart --
+do
+   (preCB[],postCB[])->Attributes.scanImpl
+
+-- AttributesFormGetIC:dopart --
+do
+   (* !!! To get an initial context from an attributes form,
+    * we must be able to follow fragment refs. cuz there is 
+    * a mainpart somewhere in which all these things live;
+    * probably an attributes-form never should end up in an 
+    * l2beta-representation, since we will have resolved 
+    * the ref when building the l2 (?) Does this mean that 
+    * l2 analysis and execution is non-modularizable? *)
+   'ibetaTwobody.bet/41: '->notyet; (* !!! *)
+
+-- AttributesFormScopeFind:dopart --
+do
+   'ibetaTwobody.bet/46: '->notyet; (* !!! *)
+
+(************************************************************* 
+ *                                                           * 
+ *                       l2SimpleIndex                       * 
+ *                                                           * 
+ *************************************************************)
+
+-- SimpleIndexPrint:dopart --
+do
+   (dest[],indentation,false)->Evaluation.print
+
+-- SimpleIndexScanImpl:dopart --
+do
+   (preCB[],postCB[])->Evaluation.scanImpl
+
+(************************************************************* 
+ *                                                           * 
+ *                        l2NamedIndex                       * 
+ *                                                           * 
+ *************************************************************)
+
+-- NamedIndexPrint:dopart --
+do
+   (dest[],indentation,false)->NameDcl.print;
+   ':'->output;
+   (dest[],indentation,false)->Evaluation.print
+
+-- NamedIndexScanImpl:dopart --
+do
+   (preCB[],postCB[])->NameDcl.scanImpl;
+   (preCB[],postCB[])->Evaluation.scanImpl
+
+-- NamedIndexGetType:dopart --
+do
+   (* this is always an integer source, but the context 
+    * determines static instantiation and compilation *)
+   (# iScope: ^indexScopeNode
+   do (* qua-warn, but an 'l2NamedIndex' is always placed 
+       * in an ast-node with an 'indexScopeNode' *)
+      father.getScopeNode->iScope[];
+      (context[],world[],usageAst[])
+        ->iScope.getStaticIndexType
+        ->stype[]
+   #)
+
+-- NamedIndexGetQuaType:dopart --
+do
+   ('Attempt to obtain the qualification of a named index'
+   ,'Use an object reference or a pattern reference'
+   ,usageAst[])->staticError
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

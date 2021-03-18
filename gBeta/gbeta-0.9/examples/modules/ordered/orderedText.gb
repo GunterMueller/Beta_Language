@@ -1,0 +1,12 @@
+ORIGIN 'betaenv';
+INCLUDE 'ordered'
+
+-- lib:attributes --
+
+text: ordered
+  (# <<SLOT TextLib:attributes>>;
+     cmpType::text;
+     init::(# enter value #);
+     lessEqual::(# do (other.value<=value) -> b #);
+     value: @string
+  #)

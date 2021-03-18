@@ -1,0 +1,43 @@
+ORIGIN '../betaenv';
+--- TextPut: DoPart ---
+do
+   (if (pos+1->pos)>l then
+      (if (pos->l)>rep.range then 5+rep.range/2->rep.extend if)
+   if);
+   c->rep[pos];
+
+
+--- TextInxGet: DoPart ---
+do rep[inx]->value
+
+
+--- TextAppend: DoPart ---
+do
+   (if l+t.l>rep.range then l+t.l-rep.range->rep.extend if);
+   0->pos;
+   loop: (if (pos+1->pos)<=t.l then t.rep[pos]->rep[pos+l]; restart loop if);
+   l+t.l->pos->l;
+
+
+--- TextPrepend: DoPart ---
+do
+   (if t.l>0 then
+      (if l+t.l>rep.range then l+t.l-rep.range->rep.extend if);
+      l->pos;
+      loop: (if pos>0 then rep[pos]->rep[pos+t.l]; pos-1->pos; restart loop if);
+      t.l->pos;
+      loop: (if pos>0 then t.rep[pos]->rep[pos]; pos-1->pos; restart loop if);
+      l+t.l->l;
+   if);
+
+
+--- TextEqual: DoPart ---
+do
+   (if (t.l=l)->value then
+      1->privInt;
+      loop: (if privInt<=l then
+	 (if t.rep[privInt]<>rep[privInt] then false->value; leave loop if);
+	 privInt+1->privInt;
+	 restart loop;
+      if);
+   if)

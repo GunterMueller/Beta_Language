@@ -1,0 +1,11 @@
+ORIGIN 'betaenv';
+INCLUDE 'graph';
+INCLUDE 'list'
+
+-- lib:attributes --
+
+NodesAndEdges:
+  (# g:< @Graph;
+     nodes: @list(# element::g.Node #);
+     edges: @list(# element::g.Edge #)
+  #)

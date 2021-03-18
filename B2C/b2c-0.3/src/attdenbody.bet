@@ -1,0 +1,150 @@
+ORIGIN 'attden';
+INCLUDE 'attributebitch';
+INCLUDE 'getcexprlib';
+INCLUDE 'ad/bitch';
+INCLUDE 'ad/backlevel';
+INCLUDE 'virt/decl';
+--- AttributeDenotationGetod: DoPart ---
+do
+   (if att.att[]<>NONE then
+      (if not att.att.ispattern then
+	 'This should be a pattern!'->error;
+      else
+	 att.att.od[]->od[]
+      if);
+   if)
+
+
+--- AttributeDenotationGetpatt: DoPart ---
+do
+   (if att.att[]<>NONE then
+      (if not att.att.isvirtual or virtualOverride or att.att.ispattern then
+         att.att.od[]->od[]
+      else
+	 att.att.os[]->ad[]; prec[]->ad.copy->ad[]; ad.getod->od[]
+      if);
+   if)
+
+
+--- AttributeDenotationGetmap: DoPart ---
+do
+   &Outermap[]->map[];
+   (if (getod->od[])<>NONE then
+      od.private.om.om.range->map.om.new;
+      (for i:od.private.om.om.range repeat
+         (if (this(AttributeDenotation)[]->od.private.om.om[i].copy
+	      ->map.om[i][])=NONE
+	 then
+	    (od[],0)->&DirectBacklevel->map.om[i][]
+	 if)
+      for)
+   if)
+
+
+--- AttributeDenotationResolve: DoPart ---
+do
+   (if resolved
+     // 0 then
+	-1->resolved;
+	(if prec[]<>NONE then prec.resolve if);
+	INNER;
+	(if resolved<>-1 then
+	   'Illegal recursion detected, while resolving this attribute denotation!\nThis may be caused by a piece of code like the following:\n\tp1: ^p2.a;\n\tp2: ^p1.b;'->error;
+	   NONE->att.att[];
+	if);
+	1->resolved;
+     // -1 then
+	(* mark illegal recursion: *)
+	-2->resolved
+   if);
+
+
+--- AttributeDenotationReduce: DoPart ---
+do
+   (if prec[]<>NONE then
+      (if prec##<=AttributeDenotation## then prec[]->ad[]; ad.reduce->ev[] if)
+   if);
+   INNER
+
+
+--- AttributeDenotationGetcexpr: DoPart ---
+do
+   (if not noprec then (if prec[]<>NONE then t[]->prec.getcexpr->ctype if) if);
+   INNER
+
+
+--- AttributeDenotationPutcexpr: DoPart ---
+do
+   done: (if (t[]->getcexpr->got) <> exp then
+      (if got
+	// ctype_objectptr then
+	   (if exp
+	     // ctype_none
+	     // ctype_object then '*'->t.prepend; leave done
+	     // ctype_patternptr then '->pattern'->t.append; leave done
+	     // ctype_repetitionptr then '->b_ptr'->t.append; leave done
+	   if)
+	// ctype_object then
+	   (if exp
+	     // ctype_none then leave done
+	     // ctype_objectptr then '&'->t.prepend; leave done
+	     // ctype_patternptr then '.pattern'->t.append; leave done
+	     // ctype_repetitionptr then '.b_ptr'->t.append; leave done
+	   if)
+	// ctype_pattern then
+	   (if exp
+	     // ctype_patternptr then '&'->t.prepend; leave done
+	   if)
+	// ctype_pvariable then
+	   (if exp
+	     // ctype_patternptr then '.pattern'->t.append; leave done
+	     // ctype_objectptr then '.encl'->t.append; leave done
+	     // ctype_genfunction then '.pattern->newf'->t.append; leave done
+	   if)
+      if);
+      'putcexpr: got '->puttext; got->putint; newline;
+      'putcexpr: expected '->puttext; exp->putint; newline;
+      (FailureTrace, 'putcexpr: unknown type combination!')->Stop;
+   if);
+   t[]->c_file.cstream.puttext;
+
+
+--- AttributeDenotationIspattern: DoPart ---
+do (if att<>NONE then att.att.ispattern->value if)
+
+
+--- AttributeDenotationIspvariable: DoPart ---
+do (if att<>NONE then att.att.ispvariable->value if)
+
+
+--- AttributeDenotationIsvirtual: DoPart ---
+do
+   (if att.att[]=NONE then
+      false->value;
+   else
+      (if virtualOverride or not att.att.isvirtual then
+	 false->value;
+      else
+	 (if att.att.ispattern then
+	    true->value
+	 else
+	    att.att.os[]->ad[]; prec[]->ad.copy->ad[]; ad.isvirtual->value
+	 if);
+      if);
+   if);
+
+
+--- AttributeDenotationIsref: DoPart ---
+do (if att<>NONE then att.att.isref->value if)
+
+
+--- AttributeDenotationIsrep: DoPart ---
+do (if att<>NONE then att.att.isrep->value if)
+
+
+--- AttributeDenotationMaybeSubPattern: DoPart ---
+do (if att<>NONE then att.att.maybesubpattern->value if)
+
+
+--- AttributeDenotationMaybeNone: DoPart ---
+do (if att<>NONE then att.att.maybenone->value if)

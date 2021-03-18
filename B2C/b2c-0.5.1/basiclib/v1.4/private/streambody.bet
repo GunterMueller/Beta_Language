@@ -1,0 +1,76 @@
+ORIGIN '../betaenv';
+--- StreamPutintDoPart: DoPart ---
+do
+   1->width;
+   INNER;
+   (if n<0 then
+      '-'->put;
+      width-1->width;
+      (* Make sure, that the most negative number is printed out correctly *)
+      (if n<-10 then
+	 width-1->width;
+	 ((-10-n) div 10)+1->r;
+	 ((-10-n) mod 10)+'0'->put;
+      else
+	 -n->r;
+      if);
+   else
+      (if signed then
+	 '+'->put; width-1->width;
+      else
+	 (if blankSign then ' '->put; width-1->width if);
+      if);
+      n->r
+   if);
+   l: (if width>0 then ' '->put; width-1->width; restart l if);
+
+
+--- StreamPutintR: ObjectDescriptor ---
+(# n: @integer
+enter n
+do
+   width-1->width;
+   (if n>9 then
+      n div 10->&r
+   else
+      (if not adjustLeft then
+	 (if zeroPadding then
+	    l: (if width>0 then '0'->put; width-1->width; restart l if);
+	 else
+	    l: (if width>0 then ' '->put; width-1->width; restart l if);
+	 if);
+      if);
+   if);
+   (n mod 10)+'0'->put;
+#)
+
+
+--- StreamGetintDoPart: DoPart ---
+do
+   0->sign;
+   l: (if e then
+      &EOSraise;
+   else
+      (if p->ascii.isspace then g; restart l if);
+      (if sign=0 then
+	 (if p.ch='+' then 1->sign; g; restart l if);
+	 (if p.ch='-' then -1->sign; g; restart l if);
+	 1->sign;
+      if);
+      (if not (p.ch->ascii.isdigit) then
+	 &streamRaise
+	   (#
+	   do
+	      'getint: Got illegal input character "'->msg;
+	      p.ch->msg.put;
+	      '" in stream!'->msg.putline;
+	      syntaxError##->deliverTo;
+	      leave l;
+	   #);
+      if);
+      g-'0'->value;
+      l: (if not e then
+	 (if p->ascii.isdigit then value*10+g-'0'->value; restart l if);
+      if);
+   if);
+   value*sign->value;

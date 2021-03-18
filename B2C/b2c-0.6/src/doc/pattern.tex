@@ -1,0 +1,504 @@
+\section{Pattern structure}
+All standard BETA objects have to carry around a certain amount
+of run time type information.  Rather then including this
+information into each object, most of it is collected into a
+static structure at compile time.  The objects themselves
+therefore only need to carry a pointer to that structure.  This
+pointer is located at a fixed position at the beginning of
+an object's structure; currently this pointer is the first
+element of an object.
+
+\subsection{Pattern relationships}
+BETA defines certain relationships between patterns, respective
+the objects generated from them.  Any given pattern $P$ has a
+superpattern $S(P)$.  The single exception is the \cq{Object}
+pattern, which has no superpattern.  However, \cq{Object} is the
+implicit superpattern of all patterns, whose supperpatterns were
+not specified.
+
+Every pattern $P$ also has a statically enclosing pattern $E(P)$.
+$E(P)$ is the pattern, whose attribute section holds the
+declaration of $P$.  There are two exceptions: the enclosing
+pattern of \cq{Object} may be any pattern or empty.  And because
+\cq{Betaenv} always is the outermost pattern, its enclosing
+pattern is not defined, either.
+
+One might assume, that a pattern $P$, and its superpattern $S(P)$
+have the same enclosing patterns, so that $E(P)$ = $E(S(P))$.  But
+this is in general not true in BETA.  A common example are virtual
+patterns:
+\begin{quote}\begin{verbatim}env: (# virt1:< (# ... #) #);
+myenv: (# virt1::< (# ... #) #);
+\end{verbatim}\end{quote}
+Clearly, the \cq{virt1} pattern of \cq{env} has \cq{env} as
+enclosing pattern, while the \cq{virt1} pattern of \cq{myenv}
+has \cq{myenv} as enclosing pattern.  However, in this special
+example, the equation: $E(S(\cq{myenv.virt1})) =
+S(E(\cq{myenv.virt1}))$ holds true.  These and some other
+relationships will be detected by the compiler, and used for
+various optimizations.  But the general situation in BETA
+is, that any pattern $P$ has
+a set of enclosing patterns $E(P)$, $E(S(P))$, $E(S(S(P)))$,
+\ldots, $E(S^n(P))$, where $S^n(P)$ is the n-th superpattern
+of $P$.
+
+\subsection{Definition of \cq{struct pattern}}
+All required run time type information is stored in a special
+pattern structure.  Objects only hold a pointer to that structure
+instead of reproducing the run time type information over and
+over again.
+
+Like object size may vary, the size of the run time type
+information is not fixed either, but depends on the details of
+the pattern, like the number of virtual methods used.  However,
+the first few fields of the structure are well defined for (almost) all
+patterns.  This common header is defined as \cq{struct pattern}
+in the header file \fq{beta.h}:
+\beq\begin{verbatim}/* standard structure for storing patterns */
+struct pattern {
+    const struct pattern *super;
+    const struct pattern *outer;
+    int len;
+    int outerindx;
+    int (*function)(void *const th);
+    void *(*newf)(void *const th);
+};
+\end{verbatim}\eeq
+
+The meanings of the fields are as follows:
+\begin{itemize}
+\item \cq{super} is a pointer to the superpattern of this pattern,
+    introduced as $S(P)$ in the notation above.
+\item \cq{outer} refers to the structure of the enclosing pattern $E(P)$.
+\item \cq{len} is the length of the objects, that can be generated
+    from this pattern, in bytes.
+\item \cq{outerindx} is an index into the objects generated from
+    this pattern.  It denotes the location, where the pointer to
+    the enclosing object $e(o)$ of that object is stored.
+\item \cq{function} is the first slot of the call table for the
+    various DO parts of this patterns and its superpatterns.  In
+    the case of empty or only trivial DO parts, the value zero
+    will be stored here; otherwise this cell will contain the
+    pointer to a function, which executes the complete DO part
+    of this pattern and its superpatterns.  This function requires
+    one argument, which must be a pointer to an object generated
+    from this pattern.
+
+    After successfull completion of the directives in a DO part,
+    this function will return the value zero.  If an leave or
+    restart imperative occurred, which could not be catched in
+    the DO part itself, a handle for that imperative will be
+    returned.  It is the responsibility of the caller to test
+    the return value and to process the leave/restart handles.
+\item \cq{newf} is a pointer to the object generator function.
+    As even the most trivial objects have an object generator
+    function, this pointer is never zero.  Object creator
+    functions take exactly one argument, which is a pointer
+    to the enclosing object of the newly created object.
+    This argument must be nonzero, except, if the creator of
+    the \cq{Betaenv} object is called.  In either case, this
+    function will return a pointer to the newly generated
+    object.
+\end{itemize}
+
+\section{Objects}
+Storage of BETA objects is different from that of the patterns.
+While a pattern and its superpattern are stored in different
+structures, an object and its ``superobjects'' are always unified
+into one structure.  The first element of an object is always a
+pointer to the pattern structure for that object, then follow the
+data fields and pointers, that were declared in the attributes
+sections of the relevant pattern and its superpattern(s).  The
+fields declared in the outermost superpattern come first, then
+those declared in the second outermost superpattern, and so on.
+So declaring a subpattern of a pattern will extend the object
+structure at the end, while the rest of it is unchanged.
+
+To keep track of the size of an object, the pattern structure
+holds the field \cq{len}, which stores the length of the
+complete object structure of an object generated from that
+pattern.
+
+\subsection{Relations between enclosing objects, and reuse of pointers
+    to them}
+While an object and its ``superobjects'' are always inlined into
+one structure, an object and its enclosing objects are not.
+Rather, any object holds a set of pointers $e_1$, \ldots\ $e_n$
+that point to the enclosing objects.  The compiler tries to
+minimize the number of these pointers to enclosing objects
+by re-using them in a few cases, like when two enclosing
+objects are the same: $e_k = e_i$, or superpatterns of each
+other: $e_k = s^j(e_i)$.  In both cases, $e_k$ can be omitted.
+
+Inside the C structure of the object, these pointers are
+named \cq{encl1}, \cq{encl2} and so on.
+
+In general, for any item in the superpattern list of a pattern, a
+different pointer to an enclosing object is needed.  However,
+these pointers often denote the same object, and it is wise to
+apply a few rules to reduce the number of pointers needed:
+\begin{itemize}
+\item Even though the enclosing pattern of the \cq{Object}
+    pattern is undefined, objects of type \cq{Object} still need
+    a pointer $e_1$ to an enclosing object.  Otherwise, the
+    system would not be able to perform qualification checks at
+    run time.
+
+    But because the \cq{Object} pattern does not define any
+    meaning to the enclosing pointer $e_1$, any direct subclass
+    of \cq{Object} can recycle that pointer $e_1$ for their
+    own purposes, instead of defining a new $e_2$.
+
+\item If a pattern and a subpattern are defined inside the same
+    attribute section, they have the same enclosing pattern.
+    Objects generated from these also have the same enclosing
+    object, so the enclosing object pointer can be reused.
+
+\item Another common situation is, that the enclosing pattern of
+    the superpattern of $P$ is a superpattern of the enclosing
+    pattern of P: $E(S(P)) = S^n(E(P))$, with $n \ge 1$.
+    This is typically the case with virtuals:
+    \beq\begin{verbatim}P: (# V:< (# ... #) ... #);
+Q: P (# ... #);
+R: Q (# V::< (# ... #) ... #);
+\end{verbatim}\eeq
+\end{itemize}
+After these rules have been applied typically only one or two
+pointers are left.  But even these are not independant.  If you
+have the enclosing object $e(o)$ of an object $o$, the enclosing
+objects of the superpattern parts of $o$ (like $e(s(o))$,
+$e(s(s(o)))$ and so on) can be determined by using a
+recursive scheme:
+\begin{itemize}
+\item If $o$ is of type \cq{Object}, we are done, as \cq{Object}
+    has no superpattern, thus no $e(s(o))$ can be determined.
+\item If $o$ is generated from a pattern, that is a direct
+    subpattern of \cq{Object}, $s(o)$ is of type \cq{Object}.  So
+    any object may serve as $e(s(o))$, and we set $e(s(o)) =
+    e(o)$, by applying the first pointer reuse rule above.
+\item In any other case, $o$ must have been generated from a
+    pattern $P$, that has an explicit superpattern $S(P)$.
+    $S(P)$ is denoted using a \tq{prefix} in BETA:
+    \beq\tt P: \tq{Prefix} (\# ... \#)
+    \eeq
+    The \tq{Prefix} can be defined in one of three ways:
+    \begin{enumerate}
+    \item If \tq{Prefix} is a simple pattern name, it must be
+	defined in any of the enclosing patterns of $P(o)$, like
+	$E(P(o))$, $E(E(P(o)))$, and so on.  Otherwise, that
+	pattern name would be an illegal name reference.  So
+	$E(\mbox{\tq{Prefix}}(P(o))) = E(S(P(o)))$ must be equal
+	to $E^n(P(o))$, with $n \ge 1$.  To get the corresponding
+	enclosing object, simply leave out the pattern lookup:
+	$e(s(o)) = e^n(o)$.
+    \item If \tq{Prefix} is of the form
+	\tq{attribute-denotation}.\tq{pattern-name}, things are
+	even easier.  \tq{attribute-denotation} must denote an
+	object, and this object is the enclosing object of the
+	prefix, thus that of the superpattern.
+    \item In case of a virtual binding, the prefix is given as
+        the preceding virtual declaration or virtual binding,
+	which must be present in a superpattern of the enclosing
+	pattern.  So: $e(s(o)) = s^n(e(o))$ for some $n \ge 1$.
+    \end{enumerate}
+\item Repeat the above scheme with $s(o)$ instead of $o$ to
+    determine the enclosing object $e(s(s(o)))$.
+\end{itemize}
+Summarization: only $e(o)$ is required to generate the full set
+of pointers to enclosing objects $e(s^n(o))$, with $n \ge 0$.
+Thus the term "the enclosing object" will be used from now on to
+refer to $e(o)$.
+
+\subsection{Full type qualification}
+From what was said before, we can conclude, that two pieces of
+information are required to fully qualify the type of an object
+in BETA:
+\begin{itemize}
+\item A pointer to the pattern $P(o)$.
+\item A pointer to the enclosing object $e(o)$.
+\end{itemize}
+
+\subsection{Static and dynamic references}
+BETA objects may contain static and dynamic references.  There are
+two possible methods of implementation:
+\begin{itemize}
+\item Store a pointer to the object denoted by this reference in
+    the object structure.
+\item Inline the denoted object into the object structure.
+\end{itemize}
+Inlining in general is the more performant choice.  However,
+inlining is not possible in quite a few cases:
+\begin{itemize}
+\item Dynamic references can never be inlined, because the denoted
+    object may be changed by a reference assignment.
+\item Static references to virtual patterns cannot be inlined,
+    because in a subclass, the virtual might be extended, and
+    would then no longer fit into the place, that has been
+    reserved for it in the inlining process.
+\item Static references to object descriptor slots cannot be
+    inlined, either.
+\end{itemize}
+If none of these rules apply, inlining is performed.
+
+\subsection{Generating objects}
+When a BETA object is generated, the following actions have to be
+performed:
+\begin{itemize}
+\item Allocate sufficient memory.
+\item Clear that memory, so that all numbers are initialized to
+    zero, all booleans are set to false and all references point
+    to NONE.
+\item Set the pointer to the pattern structure.
+\item Set the pointer(s) to the enclosing object(s).
+\item Initialize all static references of this object.
+\end{itemize}
+Especially the last two actions (setting the pointers to the
+enclosing objects and initialising all static references) are
+rather object specific.  It is hard to operate them from a table.
+Therefore, the compiler emits a specific object generator
+function for each pattern.
+
+This function takes just one argument, which is the pointer to
+the enclosing object.  All other information, like the pointer to
+the pattern structure, the lookup of the complete list of
+enclosing objects and the initialization of the static references
+are hardcoded into the function.
+
+In the last step, when static references are initialised, an
+object generator function may (and sometimes has to, especially,
+when virtuals are involved) call other object generator
+functions.  However, when  object generator functions call other
+object generator functions, they will never loop, as recursive
+static references, where an object contains itself, are forbidden
+in BETA for obvious reasons.
+
+The exception to this rule is caused by repetitions: the
+definition of a repetition contains a general BETA expression,
+which calculates the initial size of the repetition, and this
+expression may well cause recursive calls of the object creator
+function.
+
+Generating objects in general has very few side effects.  In most
+cases, despite the allocation of memory, no other global data is
+changed.  The exception are cases, where the \tq{prefix} of a
+pattern or a static reference is a computed remote, a reference
+lookup or similiar.
+
+\subsection{Generating objects from virtual patterns}
+BETA's virtual pattern can be used in two different ways:
+\begin{itemize}
+\item Their type can be queried, either explicitely with the
+    operator \cq{\#\#} or implicitely in a run time qualification
+    check.  In this case, the virtual pattern is used as a virtual
+    type.
+\item They can be used to instantiate BETA objects with the
+    operator \cq{\&}, in a declaration or in an inserted item.
+    After object generation has been completed, the DO part may
+    be called.  This means to use the virtual pattern like a
+    virtual function.
+\end{itemize}
+These operations are not independant of each other.  If we have
+queried the full type of a virtual, we can always use the type
+information to directly generate an object from it.  And if an
+object has been created, the type can be queried from it, too.
+However, object generation may have side effects, so it is not a
+good idea to perform it, unless it is required explicitely.
+
+The full type qualification of a virtual $v$ consists of the
+pattern $P(v)$ and the enclosing object $e(v)$.  While the
+pattern information could be retrieved by a simple indirect table
+lookup into the environment of the virtual, the enclosing object
+$e(v)$ can be a somewhat arbitrary function of that environment.
+Therefore, we need a C function to do the virtual type lookup.
+It takes two parameters on input: a pointer to the object, in
+which the the virtual is to be looked up, and a pointer to
+storage space for the full type qualification.  As a convenience
+and for efficiency, if the later pointer is NULL, an object with
+the type of the virtual will be generated and a pointer to the
+object is returned.
+
+\subsection{Destroying objects}
+There is no method or function in BETA, which can be used for
+destroying an object.  Rather, the compiler and runtime libraries
+are responsible for keeping track which objects are still in use.
+
+In special cases, the compiler might already be able to determine
+at compile time, that a given object has a limited lifetime, and
+allocate it in a space, where it can be easily deallocated, like
+on the stack.  In general, though, the compiler cannot know, how
+long an object will be around.  It is therefore necessary at run
+time to examine, which objects are no longer used, and reclaim
+the storage allocated to them.  This process is called
+\tq{garbage collection}.
+
+An experimental version of a garbage collector has been
+implemented by Jan Okrouhly.
+
+\section{Calling an object's DO-part}
+\label{call-do-part}
+In procedural languages like C, calling a function means, that
+this function will first allocate some local storage on the stack,
+then execute some code, deallocate the storage, and return.  This
+is not true for BETA.  Generating the storage for an object, and
+calling a DO--Part are very well distinct processes.
+
+In procedural languages, passing parameters between a calling and
+a called function is a shared process: the calling function will
+store the values of the parameters in a reserved region (like
+processor registers or the stack), and the called function will
+pick them up there - and later put the return value in the same
+or another reserved region.  This is not true for BETA.  For
+example, the caller may only provide an incomplete set of
+parameters to the called function, as in the following example:
+\begin{quote}\begin{verbatim}env: (#
+   f1: (# A: @integer enter A do A->putint; INNER #);
+   f2: f1
+     (# B: @integer
+     enter B
+     do ' '->put; B->putint; INNER
+     #);
+   X: ^f1
+do
+   &f2[]->X[];
+   1->X
+#);
+\end{verbatim}\end{quote}
+Here, the call \cq{1->X} will execute the joint do part of
+\cq{f1} and \cq{f2}, but processes only the ENTER part of
+\cq{f1}.  Therefore, the ENTER and EXIT directives are completely
+processed in the calling function, not in the called function.
+The general calling sequence for the Do-Part of a pattern
+therefore reads as follows:
+\begin{enumerate}
+\item Generate the object, that shall be called.
+\item Process the ENTER part.
+\item Call the code, that processes the imperatives of the do part.
+\item Process the EXIT part.
+\end{enumerate}
+Any of these steps is optional, depending on the exact form of the
+expressions in the call.
+
+\subsection{Executing the INNER imperative}
+The INNER imperative is a placeholder, where the imperatives of a
+subpattern will later be inserted.  There are two options on how
+to translate the nested do parts of a pattern and its superpattern
+to C functions:
+\begin{itemize}
+\item The compiler recursively interprets all INNER imperatives,
+    and generates code, which executes the complete do part of a
+    pattern --- from the outermost superpattern to the pattern
+    itself.  However, this scheme may result in large executable
+    programs, as the object code of the do-part of a given
+    pattern has to be repeated in all subpatterns of that
+    pattern.
+
+    To execute the do part of a given object, the specific
+    function for that object's type has to be called.
+\item The compiler replaces all INNER imperatives with an
+    indirect function call of the appropriate INNER function.  No
+    code repetition is necessary in this case, but the indirect
+    function call causes delay, and the indirect function call
+    table increases the size of the pattern structure.
+
+    To execute a DO part, the DO part function of the
+    outermost super--object has to be called; this function
+    will automatically call all INNER functions via the
+    indirect call tables.
+\end{itemize}
+
+Currently, the indirect call scheme has been implemented.  In a
+later version of the compiler, it should also support the
+inlining of INNER parts.  Depending on some heuristics, like the
+size of the resulting function, the compiler should decide,
+which scheme to use.
+
+\subsection{Handling of empty and trivial DO parts}
+Many BETA objects have an empty DO part.  No function call is
+generated by the compiler for them.
+
+Other BETA objects, namely abstract superpatterns, have trivial
+DO parts, that contain nothing but one INNER imperative.  The
+most prominent such pattern is the \cq{Object} pattern.  For
+these patterns, no function is generated, either.  The call table
+slot is left open, until a subpattern defines a non-trivial DO
+part.
+
+In some cases, where the DO part of a dynamic reference is to be
+executed, the compiler may not know at compile time, which
+function to call or whether to call a function at all.  In that
+case, an indirection through the first slot of the call table is
+performed, which is very similiar to the lookup of INNER.
+
+\subsection{LEAVE and RESTART}
+There are two more BETA imperatives, that affect the flow of
+execution in non-standard ways: LEAVE and RESTART.  In many
+cases, they can be handled locally and translated into a goto
+statement in C, like where a loop is restarted or left.
+
+However, LEAVE and RESTART can also be used to return control
+to a specific function on the call stack.  In these cases, two
+informations have to be provided:
+\begin{itemize}
+\item A pointer to the object, whose DO part should catch the
+    LEAVE or RESTART.  That object's DO part must be on the
+    calling stack --- or a run time error will occur.
+\item A unique identifier, which denotes the label inside the DO
+    part, which shall be restarted or left.
+\end{itemize}
+These two informations are combined into a leave/restart handle.
+The identifiers are implemented as pointers to predefined
+character strings.  That way, we easily ensure that no identifier
+value is repeated.  Also, the character string can hold details
+about the actual operation being performed, which make the error
+message more verbose in case, that the complete stuck is unwound
+in a LEAVE or RESTART.
+
+The current BETA syntax is quite strict, in that a leave or
+restart statement may only occur in the DO part of a given
+pattern.  Therefore, the following is illegal:
+\begin{quote}\begin{verbatim}interpreter:
+  (#
+     abort: (# do leave interpreter #);
+     syntax_error:
+       (# do 'Syntax error!'->putline; abort #);
+     read_token:
+       (#
+       do
+          ...
+          (if some_error_condition then syntax_error if)
+          ...
+       #);
+  do
+     read_token;
+  #)
+\end{verbatim}\end{quote}
+However, the following will work:
+\begin{quote}\begin{verbatim}interpreter:
+  (#
+     abort: (# do throw_it #);
+     throw_it: ^Object;
+     syntax_error:
+       (# do 'Syntax error!'->putline; abort #);
+     read_token:
+       (#
+       do
+          ...
+          (if some_error_condition then syntax_error if)
+          ...
+       #);
+  do
+     l1:
+       (#
+       do
+          &(# do leave l1 #)[]->throw_it[];
+          read_token;
+       #);
+  #)
+\end{verbatim}\end{quote}
+The advantage of the strict syntax is, that we will know at
+compile time, which LEAVE/RESTART imperatives may occur, and
+which will not.  So we can restrict the number of handles to the
+required minimum.  In the first example, the \cq{abort} method
+might be defined in a different fragment in a different source
+file, and the run time system might be quite surprised to receive
+a handle for the \cq{leave interpreter} imperative.

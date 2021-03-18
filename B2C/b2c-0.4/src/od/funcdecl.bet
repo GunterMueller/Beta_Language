@@ -1,0 +1,70 @@
+ORIGIN '../cintf';
+--- CintfLib: Attributes ---
+(* declaration for the standard one-argument functions: *)
+funcdecl:
+  (# t: ^text
+  enter t[]
+  do
+     (if ansidecl then
+	(if t[]<>NONE then
+	   '(struct O'->c_file.cstream.puttext;
+	   t[]->c_file.cstream.puttext;
+	else
+	   '('->c_file.cstream.put;
+	   void->c_file.cstream.puttext;
+	if);
+	' *'->c_file.cstream.puttext;
+	const->c_file.cstream.puttext;
+	'th'->c_file.cstream.puttext;
+	INNER;
+	')'->c_file.cstream.put;
+     else
+	'()'->c_file.cstream.puttext;
+     if);
+  #);
+
+(* declaration for the two-argument virtual lookup functions: *)
+virtfuncdecl: funcdecl
+  (#
+  do
+     ', struct pvariable *'->c_file.cstream.puttext;
+     const->c_file.cstream.puttext;
+     'p'->c_file.cstream.put;
+  #);
+
+
+(* definition of a function *)
+funcdef:
+  (#
+     t: ^text;
+     decl:< funcdecl;
+     args:< (# t: ^text do 'th'->t[]; INNER exit t[] #)
+  enter t[]
+  do
+     (if ansidecl then
+	t[]->decl; '\n{\n'->c_file.cstream.puttext
+     else
+	'('->c_file.cstream.put;
+	args->c_file.cstream.puttext;
+	')\n    '->c_file.cstream.puttext;
+	(if t[]<>NONE then
+	   'struct O'->c_file.cstream.puttext;
+	   t[]->c_file.cstream.puttext;
+	else
+	   void->c_file.cstream.puttext;
+	if);
+	' *'->c_file.cstream.puttext;
+	const->c_file.cstream.puttext;
+	'th;\n'->c_file.cstream.puttext;
+	INNER;
+	'{\n'->c_file.cstream.puttext;
+     if);
+  #);
+
+virtfuncdef: funcdef
+  (# decl:: virtfuncdecl; args:: (# do 'th, p'->t[] #)
+  do
+     '    struct pvariable *'->c_file.cstream.puttext;
+     const->c_file.cstream.puttext;
+     'p;\n'->c_file.cstream.puttext
+  #);

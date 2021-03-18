@@ -1,0 +1,330 @@
+ORIGIN '../../basiclib/current/betaenv';
+BODY 'private/terminalbody';
+--- lib: attributes ---
+terminal:
+  (#
+     <<SLOT TerminalLib: Attributes>>;
+     private: @<<SLOT terminalPrivate: ObjectDescriptor>>;
+
+     (* Call this to initialize the terminal *)
+     init:< (# <<SLOT terminalInit: DoPart>> #);
+
+     (* Stop terminal mode.  If a draw operation is later executed on
+      * the terminal object, terminal mode will be restored *)
+     finish:< (# <<SLOT terminalFinish: DoPart>> #);
+
+
+     (* Set echo mode on/off.  Default after init: off *)
+     echo: (# value: @Boolean enter value <<SLOT terminalEcho: DoPart>> #);
+     (* Set newline translation on serial device on/off.  After init: off *)
+     translateNL:
+       (# value: @Boolean enter value <<SLOT terminalTranslateNL: DoPart>> #);
+     (* Transfer only 7 ASCII bits, not 8 over the serial device *)
+     sevenBit:
+       (# value: @Boolean enter value <<SLOT terminalSevenBit: DoPart>> #);
+     (* Switch terminal to color mode.  Returns 'true' for success, or
+      * 'false' if terminal does not support colors. *)
+     colorMode: BooleanValue (# <<SLOT terminalColorMode: DoPart>> #);
+
+     (* A window on this terminal *)
+     window: stream
+       (#
+	  <<SLOT WindowLib: Attributes>>;
+	  wprivate: @<<SLOT terminalWindowPrivate: ObjectDescriptor>>;
+
+	  (* You must call `init' to open and initialize the window: *)
+	  init:<
+	    (# x,y,width,height: @integer
+	    enter (x,y,width,height)
+	    <<SLOT terminalWindowInit: DoPart>>
+	    #);
+
+	  (* normal Stream capabilities *)
+	  get:: (# <<SLOT terminalWindowGet: DoPart>> #);
+	  getkey:
+	    (# key: @integer <<SLOT terminalWindowGetKey: DoPart>> exit key #);
+	  put:: (# <<SLOT terminalWindowPut: DoPart>> #);
+	  puttext:: (# <<SLOT terminalWindowPutText: DoPart>> #);
+
+	  (* window manipulation *)
+	  clear: (# <<SLOT terminalWindowClear: DoPart>> #);
+	  (* setpos sets the cursor's x and y coordinate.  Lowest possible
+	   * value: (1,1) for the left upper edge *)
+	  setpos::
+	    (# q: @integer enter q <<SLOT terminalWindowSetPos: DoPart>> #);
+
+	  (* The window's size and position on screen. *)
+	  size:
+	    (# x,y: @integer <<SLOT terminalWindowSize: DoPart>> exit (x,y) #);
+	  position:
+	    (# x,y: @integer
+	    <<SLOT terminalWindowPosition: DoPart>>
+	    exit (x,y)
+	    #);
+
+	  (* mode setting *)
+	  noKeypad:
+	    (# value: @boolean
+	    enter value
+	    <<SLOT terminalWindowNoKeypad: DoPart>>
+	    #);
+
+	  (* set attributes *)
+	  attributes:
+	    (# attr: ^attribute
+	    enter attr[]
+	    <<SLOT terminalWindowAttributes: DoPart>>
+	    #);
+
+	  (* draw the window's contents on the screen *)
+	  draw: (# <<SLOT terminalWindowDraw: DoPart>> #);
+
+	  (* Link in a key handler at the top or bottom of this window's
+	   * key handler list, or unlink it *)
+	  keyLink: (# kh: ^keyHandler enter kh[] do INNER #);
+	  keyTop: keyLink (# <<SLOT terminalWindowKeyTop: DoPart>> #);
+	  keyBottom: keyLink (# <<SLOT terminalWindowKeyBottom: DoPart>> #);
+	  (* use the unlink procedure from the terminal pattern, if required *)
+
+	  (* Read a key, and forward it to all applicable key handlers.
+	   * First the top half of the application's handlers is called,
+	   * then the window specific ones, then the bottom half of the
+	   * application handlers.  Whenever a handler executes the `done'
+	   * method, the dispatch is aborted immediately.
+	   *)
+	  keyDo: (# <<SLOT terminalWindowKeyDo: DoPart>> #);
+	  keyDispatch:
+	    (# key: @integer
+	    enter key
+	    <<SLOT terminalWindowKeyDispatch: DoPart>>
+	    #);
+
+       enter init
+       exit this(window)[]
+       #);
+
+     (* default window, created during init *)
+     default: @defaultType;
+     defaultType:< window;
+
+
+     (* A key handler is invoked with a key code in `key'.  If the
+      * application can successfully handle that key code, it should
+      * execute `done' to prevent execution of any further key handlers.
+      *)
+     keyHandler:
+       (#
+	  <<SLOT terminalKeyHandlerLib: Attributes>>;
+	  private: @<<SLOT terminalKeyHandlerPrivate: ObjectDescriptor>>;
+
+	  key: @integer;
+	  done: (# <<SLOT terminalKeyHandlerDone: DoPart>> #);
+	  unlink: (# <<SLOT terminalKeyHandlerUnlink: DoPart>> #);
+       enter key
+       do INNER
+       #);
+
+     (* Link in a key handler at the top or bottom of the this application's
+      * key handler list, or unlink it from there. *)
+     keyLink: (# kh: ^keyHandler enter kh[] do INNER #);
+     keyTop: keyLink (# <<SLOT terminalKeyTop: DoPart>> #);
+     keyBottom: keyLink (# <<SLOT terminalKeyBottom: DoPart>> #);
+     keyUnlink: keyLink (# <<SLOT terminalKeyUnlink: DoPart>> #);
+
+
+     (* Attributes associated to text *)
+     attribute:
+       (#
+	  <<SLOT AttributeLib: Attributes>>;
+	  aprivate: @<<SLOT terminalAttributePrivate: ObjectDescriptor>>;
+
+	  (* Character modes.  Most terminals support only a few of these. *)
+	  mode:
+	    (#
+	       value: @boolean;
+	       set: (# enter value <<SLOT terminalAttributeModeSet: DoPart>> #);
+	       get: (# <<SLOT terminalAttributeModeGet: DoPart>> exit value #);
+	       modenumber:< IntegerValue;
+	    enter set
+	    exit get
+	    #);
+	  standout:   mode (# modenumber:: (# do -1->value #) #);
+	  underline:  mode (# modenumber:: (# do -2->value #) #);
+	  reverse:    mode (# modenumber:: (# do -3->value #) #);
+	  blink:      mode (# modenumber:: (# do -4->value #) #);
+	  dim:        mode (# modenumber:: (# do -5->value #) #);
+	  bold:       mode (# modenumber:: (# do -6->value #) #);
+	  altcharset: mode (# modenumber:: (# do -7->value #) #);
+	  invis:      mode (# modenumber:: (# do -8->value #) #);
+	  protect:    mode (# modenumber:: (# do -9->value #) #);
+
+	  (* This notification is raised, if an attribute unsupported by the
+	   * terminal is set. *)
+	  badMode:< Notification;
+
+	  (* Character colors.  Not supported on all terminals.  To use
+	   * these, call `colorMode' first. *)
+	  fg: (# enter setforeground exit getforeground #);
+	  bg: (# enter setbackground exit getbackground #);
+
+	  (* This notification is raised, if a color not supported by the
+	   * terminal is set. *)
+	  badColor:< Notification;
+
+	  (* Possible colors.  Note, that YELLOW may only come out fine, if
+	   * also the BOLD attribute is used. *)
+	  black: (# exit 0 #);
+	  red: (# exit 1 #);
+	  green: (# exit 2 #);
+	  yellow: (# exit 3 #);
+	  blue: (# exit 4 #);
+	  magenta: (# exit 5 #);
+	  cyan: (# exit 6 #);
+	  white: (# exit 7 #);
+
+	  setforeground:
+	    (# value: @integer
+	    enter value
+	    <<SLOT terminalAttributeSetForeGround: DoPart>>
+	    #);
+	  setbackground:
+	    (# value: @integer
+	    enter value
+	    <<SLOT terminalAttributeSetBackGround: DoPart>>
+	    #);
+	  getforeground:
+	    (# value: @integer
+	    <<SLOT terminalAttributeGetForeGround: DoPart>>
+	    exit value
+	    #);
+	  getbackground:
+	    (# value: @integer
+	    <<SLOT terminalAttributeGetBackGround: DoPart>>
+	    exit value
+	    #);
+       do INNER
+       exit this(attribute)[]
+       #);
+
+     (* Global setting for use with the FORM package. *)
+     overwrite: @boolean;
+  do INNER
+  #);
+
+
+terminalEnv: terminal
+  (#
+  do init; INNER; finish
+  #);
+
+
+--- TerminalLib: Attributes ---
+keyCODE_YES:	(# exit 8x400 #);	(* A wchar_t contains a key code *)
+keyMIN:		(# exit 8x401 #);	(* Minimum curses key *)
+keyMAX:		(# exit 8x777 #);	(* Maximum key value *)
+
+keyBREAK:	(# exit 8x401 #);	(* Break key (unreliable) *)
+keyDOWN:	(# exit 8x402 #);	(* Down-arrow *)
+keyUP:		(# exit 8x403 #);	(* Up-arrow *)
+keyLEFT:	(# exit 8x404 #);	(* Left-arrow *)
+keyRIGHT:	(# exit 8x405 #);	(* Right-arrow *)
+keyHOME:	(# exit 8x406 #);	(* Home key (upward+left arrow) *)
+keyBACKSPACE:	(# exit 8x407 #);	(* Backspace (unreliable) *)
+keyF0:		(# exit 8x410 #);	(* Function keys.  Space for 64 *)
+keyF:		(# n: @integer enter n do keyF0+n->n exit n #);
+					(* Value of function key n *)
+keyDL:		(# exit 8x510 #);	(* Delete line *)
+keyIL:		(# exit 8x511 #);	(* Insert line *)
+keyDC:		(# exit 8x512 #);	(* Delete character *)
+keyIC:		(# exit 8x513 #);	(* Insert char or enter insert mode *)
+keyEIC:		(# exit 8x514 #);	(* Exit insert char mode *)
+keyCLEAR:	(# exit 8x515 #);	(* Clear screen *)
+keyEOS:		(# exit 8x516 #);	(* Clear to end of screen *)
+keyEOL:		(# exit 8x517 #);	(* Clear to end of line *)
+keySF:		(# exit 8x520 #);	(* Scroll 1 line forward *)
+keySR:		(# exit 8x521 #);	(* Scroll 1 line backward (reverse) *)
+keyNPAGE:	(# exit 8x522 #);	(* Next page *)
+keyPPAGE:	(# exit 8x523 #);	(* Previous page *)
+keySTAB:	(# exit 8x524 #);	(* Set tab *)
+keyCTAB:	(# exit 8x525 #);	(* Clear tab *)
+keyCATAB:	(# exit 8x526 #);	(* Clear all tabs *)
+keyENTER:	(# exit 8x527 #);	(* Enter or send (unreliable) *)
+keySRESET:	(# exit 8x530 #);	(* Soft (partial) reset (unreliable) *)
+keyRESET:	(# exit 8x531 #);	(* Reset or hard reset (unreliable) *)
+keyPRINT:	(# exit 8x532 #);	(* Print *)
+keyLL:		(# exit 8x533 #);	(* Home down or bottom (lower left) *)
+
+(* The keypad is arranged like this: *)
+(*   a1    up    a3   *)
+(*  left   b2  right  *)
+(*   c1   down   c3   *)
+
+keyA1:		(# exit 8x534 #);	(* Upper left of keypad *)
+keyA3:		(# exit 8x535 #);	(* Upper right of keypad *)
+keyB2:		(# exit 8x536 #);	(* Center of keypad *)
+keyC1:		(# exit 8x537 #);	(* Lower left of keypad *)
+keyC3:		(# exit 8x540 #);	(* Lower right of keypad *)
+keyBTAB:	(# exit 8x541 #);	(* Back tab *)
+keyBEG:		(# exit 8x542 #);	(* Beg (beginning) *)
+keyCANCEL:	(# exit 8x543 #);	(* Cancel *)
+keyCLOSE:	(# exit 8x544 #);	(* Close *)
+keyCOMMAND:	(# exit 8x545 #);	(* Cmd (command) *)
+keyCOPY:	(# exit 8x546 #);	(* Copy *)
+keyCREATE:	(# exit 8x547 #);	(* Create *)
+keyEND:		(# exit 8x550 #);	(* End *)
+keyEXIT:	(# exit 8x551 #);	(* Exit *)
+keyFIND:	(# exit 8x552 #);	(* Find *)
+keyHELP:	(# exit 8x553 #);	(* Help *)
+keyMARK:	(# exit 8x554 #);	(* Mark *)
+keyMESSAGE:	(# exit 8x555 #);	(* Message *)
+keyMOVE:	(# exit 8x556 #);	(* Move *)
+keyNEXT:	(# exit 8x557 #);	(* Next *)
+keyOPEN:	(# exit 8x560 #);	(* Open *)
+keyOPTIONS:	(# exit 8x561 #);	(* Options *)
+keyPREVIOUS:	(# exit 8x562 #);	(* Prev (previous) *)
+keyREDO:	(# exit 8x563 #);	(* Redo *)
+keyREFERENCE:	(# exit 8x564 #);	(* Ref (reference) *)
+keyREFRESH:	(# exit 8x565 #);	(* Refresh *)
+keyREPLACE:	(# exit 8x566 #);	(* Replace *)
+keyRESTART:	(# exit 8x567 #);	(* Restart *)
+keyRESUME:	(# exit 8x570 #);	(* Resume *)
+keySAVE:	(# exit 8x571 #);	(* Save *)
+keySBEG:	(# exit 8x572 #);	(* Shifted Beg (beginning) *)
+keySCANCEL:	(# exit 8x573 #);	(* Shifted Cancel *)
+keySCOMMAND:	(# exit 8x574 #);	(* Shifted Command *)
+keySCOPY:	(# exit 8x575 #);	(* Shifted Copy *)
+keySCREATE:	(# exit 8x576 #);	(* Shifted Create *)
+keySDC:		(# exit 8x577 #);	(* Shifted Delete char *)
+keySDL:		(# exit 8x600 #);	(* Shifted Delete line *)
+keySELECT:	(# exit 8x601 #);	(* Select *)
+keySEND:	(# exit 8x602 #);	(* Shifted End *)
+keySEOL:	(# exit 8x603 #);	(* Shifted Clear line *)
+keySEXIT:	(# exit 8x604 #);	(* Shifted Dxit *)
+keySFIND:	(# exit 8x605 #);	(* Shifted Find *)
+keySHELP:	(# exit 8x606 #);	(* Shifted Help *)
+keySHOME:	(# exit 8x607 #);	(* Shifted Home *)
+keySIC:		(# exit 8x610 #);	(* Shifted Input *)
+keySLEFT:	(# exit 8x611 #);	(* Shifted Left arrow *)
+keySMESSAGE:	(# exit 8x612 #);	(* Shifted Message *)
+keySMOVE:	(# exit 8x613 #);	(* Shifted Move *)
+keySNEXT:	(# exit 8x614 #);	(* Shifted Next *)
+keySOPTIONS:	(# exit 8x615 #);	(* Shifted Options *)
+keySPREVIOUS:	(# exit 8x616 #);	(* Shifted Prev *)
+keySPRINT:	(# exit 8x617 #);	(* Shifted Print *)
+keySREDO:	(# exit 8x620 #);	(* Shifted Redo *)
+keySREPLACE:	(# exit 8x621 #);	(* Shifted Replace *)
+keySRIGHT:	(# exit 8x622 #);	(* Shifted Right arrow *)
+keySRSUME:	(# exit 8x623 #);	(* Shifted Resume *)
+keySSAVE:	(# exit 8x624 #);	(* Shifted Save *)
+keySSUSPEND:	(# exit 8x625 #);	(* Shifted Suspend *)
+keySUNDO:	(# exit 8x626 #);	(* Shifted Undo *)
+keySUSPEND:	(# exit 8x627 #);	(* Suspend *)
+keyUNDO:	(# exit 8x630 #);	(* Undo *)
+keyMOUSE:	(# exit 8x631 #);	(* Mouse event has occurred *)
+
+keyToText:
+  (# key: @integer; s: ^text
+  enter key
+  <<SLOT terminalKeyToText: DoPart>>
+  exit s[]
+  #);

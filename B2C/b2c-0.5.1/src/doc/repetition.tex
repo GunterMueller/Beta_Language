@@ -1,0 +1,80 @@
+\section{Repetitions}
+The repetitions defined by BETA are more than just plain arrays.
+Rather, many of the operations on repetitions resemble the
+behaviour of specialized patterns respective objects:
+\begin{itemize}
+\item Certain methods (namely \cq{new}, \cq{extend} and
+    \cq{range}) operate on repetitions pretty much like "normal"
+    methods on conventional objects.
+\item Repetitions have an exit list, that will exit the values of
+    all the elements in the repetition.
+\item Repetitions have an enter list, that can accept the elements
+    exited from another repetition.
+\item The size specifier in a repetition declaration may be any
+    valid BETA expression.  Evaluating that expression may have
+    side effects on other BETA objects.  Normal object generation
+    does not have such side effects.
+
+    In other words: the size specifier adds functional aspects
+    to a repetition, like the do part adds functional aspects
+    to a pattern.
+\end{itemize}
+
+This compiler actually implements BETA repetitions by turning them
+into patterns.  Directly after scanning the declaration of a
+repetition:
+\begin{quote}\tt \tq{name}: [\tq{expression}] @\tq{type}
+\end{quote}
+it is turned into the following:
+\begin{quote}\verb+repetition:+\\
+   \verb+  (#+\\
+   \verb+     size: @integer;+\\
+   \verb+     elsize: @integer;+\\
+   \verb+     range: (# exit size #);+\\
+   \verb+     new: (# enter size do (* +{\it create repetition}\verb+ *) #);+\\
+   \verb+     extend:+\\
+   \verb+       (# by: @integer enter by do (*+
+		    {\it extend it\/} \verb+*) #);+\\
+   \verb+  do INNER+\\
+   \verb+  #);+\\
+   \verb++\\
+   \tq{name}\verb+: @repetition+\\
+   \verb+  (# ptr: ^+\tq{type}\\
+   \verb+  do +\tq{expression}\verb+->size+\\
+   \verb+  #);+
+\end{quote}
+
+This translation arises a few problems, which have to be considered
+carefully:
+\begin{itemize}
+\item The \cq{repetition} superpattern is defined in the main
+    \cq{betaenv} environment.  It may only be used internally by
+    the compiler as a superpattern for the specific repetition
+    patterns as shown above.
+\item Direct access to the \cq{size} and \cq{elsize} fields from
+    outside of the repetition's own methods and do part is not
+    legal.
+\item The \tq{expression} and the \tq{type} of the original
+    repetition declaration are moved to a different level.  This
+    is not a problem except for resolving variable names.  For
+    example, when \tq{type} is \cq{new}, it should refer to a
+    \cq{new} pattern outside of the repetition, not the
+    repetition's own \cq{new} method.
+\end{itemize}
+
+Translating repetitions into patterns also causes a few small
+performance degradations at run time:
+\begin{itemize}
+\item Repetitions inherit the overhead of all BETA objects, namely
+    the pointer to an array of run time type information, and the
+    pointer(s) to the enclosing object(s).
+\item The repetition's initial size is always calculated by
+    calling a separate do part, even, if this expression is
+    constant.
+\item Moving the repetition's \tq{type} and \tq{expression} one
+    level deeper may add one level of indirection to variable
+    lookup.
+\end{itemize}
+Some of these disadvantages will go away, once the compiler learns
+to actually do BETA specific optimizations to the code.  At the
+moment, they are not considered to be a problem.

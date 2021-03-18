@@ -1,0 +1,7 @@
+-- betaenv:descriptor --
+(#
+   s: @string;
+do
+   'test'->s;
+#)
+

@@ -1,0 +1,649 @@
+(* FILE "./private/ibetaVirtualMachineliblib.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaVirtualMachineliblib.bet,v 1.10 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN 'ibetaVirtualMachinelib';
+INCLUDE 'ibetaOnelib'
+
+-- BetaByteCodeLib:attributes --
+
+walkFail:
+  (# path: ^runtimePath;
+     msg: ^text
+  enter path[]
+  do 'Trying to walk an "impossible" run-time path: '->msg[];
+     (msg[],0,false)->path.print;
+     msg[]->internalError
+  #);
+
+boundsCheck:
+  (# targetRep: ^l1RepetitionEntity;
+     targetInx: @integer;
+     thrd: ^thread;
+     unwind: ##stackUnwinder
+  enter (targetRep[],targetInx,thrd[],unwind##)
+  do (if (targetInx<1) or (targetRep.value.range<targetInx) then
+         (# msg: ^text
+         do 'Repetition index out of range: trying to access entry '->msg[];
+            targetInx->msg.putint;
+            (if targetRep.value.range>0 then
+                '\nin a repetition with existing entries in {1..'->msg.puttext;
+                targetRep.value.range->msg.putint;
+                '}'->msg.puttext
+             else
+                '\nin a repetition with no entries'->msg.puttext
+            if);
+            (msg[],thrd[],unwind##)->indexError
+         #)
+     if)
+  #)
+
+-- TransferRepHomCodeLib:attributes --
+
+(* A _ridiculous_ amount of special casing *)
+
+impl2: impl
+  (# i: @integer;
+     from_obj,to_obj: ^l1ObjectEntity;
+  do (for inx:length repeat
+          inx->i;
+          INNER;
+          (if to_execute then (thrd[],unwind##)->to_obj.execute if)
+     for)
+  #);
+
+execute_O_O: impl2 
+  (# do from_targetRep.value[from_offset+i][]->from_obj[];
+     to_targetRep.value[to_offset+i][]->to_obj[];
+     (thrd[],unwind##)->from_obj.execute;
+     INNER
+  #);
+
+execute_O_OR: impl2
+  (# to_oref: ^l1ObjectRefEntity
+  do from_targetRep.value[from_offset+i][]->from_obj[];
+     to_targetRep.value[to_offset+i][]->to_oref[];
+     (if to_oref.value[]<>NONE then
+         to_oref.value[]->to_obj[]
+      else
+         ('NONE reference encountered during repetition value assignment'
+         ,thrd[],unwind##)->refNoneError
+     if);
+     (thrd[],unwind##)->from_obj.execute;
+     INNER
+  #);
+
+execute_O_ORr: impl2
+  (# to_oref: ^l1ObjectRefEntity
+  do from_targetRep.value[from_offset+i][]->from_obj[];
+     to_targetRep.value[to_offset+i][]->to_oref[];
+     INNER
+  #);
+
+execute_O_P: impl2
+  (# to_pref: ^l1PatternRefEntity;
+     to_pat: ^l1PatternEntity
+  do from_targetRep.value[from_offset+i][]->from_obj[];
+     to_targetRep.value[to_offset+i][]->to_pref[];
+     (if to_pref.value[]<>NONE then
+         to_pref.value[]->to_pat[]
+      else
+         ('NONE encountered during assignment to pattern repetition'
+         ,thrd[],unwind##)->refNoneError
+     if);
+     (thrd[],unwind##,NONE(*no attr*))->to_pat.instantiate->to_obj[];
+     (thrd[],unwind##)->from_obj.execute;
+     INNER
+  #);
+
+execute_O_Pp: impl2
+  (# from_pat: ^l1PatternEntity;
+     to_pref: ^l1PatternRefEntity;
+  do from_targetRep.value[from_offset+i][]->from_obj[];
+     from_obj.private.pattern[]->from_pat[];
+     to_targetRep.value[to_offset+i][]->to_pref[];
+     (thrd[],unwind##)->from_obj.execute;
+     INNER
+  #);
+
+execute_OR_O: impl2
+  (# from_oref: ^l1ObjectRefEntity
+  do from_targetRep.value[from_offset+i][]->from_oref[];
+     (if from_oref.value[]<>NONE then
+         from_oref.value[]->from_obj[]
+      else
+         ('NONE reference encountered during repetition evaluation'
+         ,thrd[],unwind##)->refNoneError
+     if);
+     to_targetRep.value[to_offset+i][]->to_obj[];
+     (thrd[],unwind##)->from_obj.execute;
+     INNER
+  #);
+
+execute_OR_OR: impl2
+  (# from_oref: ^l1ObjectRefEntity;
+     to_oref: ^l1ObjectRefEntity
+  do from_targetRep.value[from_offset+i][]->from_oref[];
+     (if from_oref.value[]<>NONE then
+         from_oref.value[]->from_obj[]
+      else
+         ('NONE reference encountered during repetition evaluation'
+         ,thrd[],unwind##)->refNoneError
+     if);
+     to_targetRep.value[to_offset+i][]->to_oref[];
+     (if to_oref.value[]<>NONE then
+         to_oref.value[]->to_obj[]
+      else
+         ('NONE reference encountered during repetition value assignment'
+         ,thrd[],unwind##)->refNoneError
+     if);
+     (thrd[],unwind##)->from_obj.execute;
+     INNER
+  #);
+
+execute_OR_ORr: impl2
+  (# from_oref: ^l1ObjectRefEntity;
+     to_oref: ^l1ObjectRefEntity
+  do from_targetRep.value[from_offset+i][]->from_oref[];
+     from_oref.value[]->from_obj[];
+     to_targetRep.value[to_offset+i][]->to_oref[];
+     INNER
+  #);
+
+execute_OR_P: impl2
+  (# from_oref: ^l1ObjectRefEntity;
+     to_pref: ^l1PatternRefEntity;
+     to_pat: ^l1PatternEntity
+  do from_targetRep.value[from_offset+i][]->from_oref[];
+     (if from_oref.value[]<>NONE then
+         from_oref.value[]->from_obj[]
+      else
+         ('NONE reference encountered during repetition evaluation'
+         ,thrd[],unwind##)->refNoneError
+     if);
+     to_targetRep.value[to_offset+i][]->to_pref[];
+     (if to_pref.value[]<>NONE then
+         to_pref.value[]->to_pat[]
+      else
+         ('NONE encountered during assignment to pattern repetition'
+         ,thrd[],unwind##)->refNoneError
+     if);
+     (thrd[],unwind##,NONE(*no attr*))->to_pat.instantiate->to_obj[];
+     (thrd[],unwind##)->from_obj.execute;
+     INNER
+  #);
+
+execute_OR_Pp: impl2
+  (# from_oref: ^l1ObjectRefEntity;
+     from_pat: ^l1PatternEntity;
+     to_pref: ^l1PatternRefEntity;
+     to_pat: ^l1PatternEntity
+  do from_targetRep.value[from_offset+i][]->from_oref[];
+     (if from_oref.value[]<>NONE then
+         from_oref.value[]->from_obj[]
+      else
+         ('NONE reference encountered during repetition evaluation'
+         ,thrd[],unwind##)->refNoneError
+     if);
+     from_obj.private.pattern[]->from_pat[];
+     to_targetRep.value[to_offset+i][]->to_pref[];
+     (thrd[],unwind##)->from_obj.execute;
+     INNER
+  #);
+
+execute_P_O: impl2
+  (# from_pref: ^l1PatternRefEntity;
+     from_pat: ^l1PatternEntity;
+  do from_targetRep.value[from_offset+i][]->from_pref[];
+     (if from_pref.value[]<>NONE then
+         from_pref.value[]->from_pat[]
+      else
+         ('NONE encountered during evaluation of pattern repetition'
+         ,thrd[],unwind##)->refNoneError
+     if);
+     (thrd[],unwind##,NONE(*no attr*))->from_pat.instantiate->from_obj[];
+     to_targetRep.value[to_offset+i][]->to_obj[];
+     (thrd[],unwind##)->from_obj.execute;
+     INNER
+  #);
+
+execute_P_OR: impl2
+  (# from_pref: ^l1PatternRefEntity;
+     from_pat: ^l1PatternEntity;
+     to_oref: ^l1ObjectRefEntity
+  do from_targetRep.value[from_offset+i][]->from_pref[];
+     (if from_pref.value[]<>NONE then
+         from_pref.value[]->from_pat[]
+      else
+         ('NONE encountered during evaluation of pattern repetition'
+         ,thrd[],unwind##)->refNoneError
+     if);
+     (thrd[],unwind##,NONE(*no attr*))->from_pat.instantiate->from_obj[];
+     to_targetRep.value[to_offset+i][]->to_oref[];
+     (if to_oref.value[]<>NONE then
+         to_oref.value[]->to_obj[]
+      else
+         ('NONE reference encountered during repetition value assignment'
+         ,thrd[],unwind##)->refNoneError
+     if);
+     (thrd[],unwind##)->from_obj.execute;
+     INNER
+  #);
+
+execute_P_ORr: impl2
+  (# from_pref: ^l1PatternRefEntity;
+     from_pat: ^l1PatternEntity;
+     to_oref: ^l1ObjectRefEntity
+  do from_targetRep.value[from_offset+i][]->from_pref[];
+     (if from_pref.value[]<>NONE then
+         from_pref.value[]->from_pat[]
+      else
+         ('NONE encountered during evaluation of pattern repetition'
+         ,thrd[],unwind##)->refNoneError
+     if);
+     (thrd[],unwind##,NONE(*no attr*))->from_pat.instantiate->from_obj[];
+     to_targetRep.value[to_offset+i][]->to_oref[];
+     INNER
+  #);
+
+execute_P_P: impl2
+  (# from_pref: ^l1PatternRefEntity;
+     from_pat: ^l1PatternEntity;
+     to_pref: ^l1PatternRefEntity;
+     to_pat: ^l1PatternEntity
+  do from_targetRep.value[from_offset+i][]->from_pref[];
+     (if from_pref.value[]<>NONE then
+         from_pref.value[]->from_pat[]
+      else
+         ('NONE encountered during evaluation of pattern repetition'
+         ,thrd[],unwind##)->refNoneError
+     if);
+     (thrd[],unwind##,NONE(*no attr*))->from_pat.instantiate->from_obj[];
+     to_targetRep.value[to_offset+i][]->to_pref[];
+     (if to_pref.value[]<>NONE then
+         to_pref.value[]->to_pat[]
+      else
+         ('NONE encountered during assignment to pattern repetition'
+         ,thrd[],unwind##)->refNoneError
+     if);
+     (thrd[],unwind##,NONE(*no attr*))->to_pat.instantiate->to_obj[];
+     (thrd[],unwind##)->from_obj.execute;
+     INNER
+  #);
+
+execute_P_Pp: impl2
+  (# from_pref: ^l1PatternRefEntity;
+     from_pat: ^l1PatternEntity;
+     to_pref: ^l1PatternRefEntity;
+     to_pat: ^l1PatternEntity
+  do from_targetRep.value[from_offset+i][]->from_pref[];
+     from_pref.value[]->from_pat[];
+     to_targetRep.value[to_offset+i][]->to_pref[];
+     (thrd[],unwind##)->from_obj.execute;
+     INNER
+  #);
+
+execute_O_O_boolean: execute_O_O
+  (# oSlice1,oSlice2: ^booleanObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_O_OR_boolean: execute_O_OR
+  (# oSlice1,oSlice2: ^booleanObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_O_P_boolean: execute_O_P
+  (# oSlice1,oSlice2: ^booleanObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_OR_O_boolean: execute_OR_O
+  (# oSlice1,oSlice2: ^booleanObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_OR_OR_boolean: execute_OR_OR
+  (# oSlice1,oSlice2: ^booleanObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_OR_P_boolean: execute_OR_P
+  (# oSlice1,oSlice2: ^booleanObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_P_O_boolean: execute_P_O
+  (# oSlice1,oSlice2: ^booleanObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_P_OR_boolean: execute_P_OR
+  (# oSlice1,oSlice2: ^booleanObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_P_P_boolean: execute_P_P
+  (# oSlice1,oSlice2: ^booleanObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_O_O_char: execute_O_O
+  (# oSlice1,oSlice2: ^charObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_O_OR_char: execute_O_OR
+  (# oSlice1,oSlice2: ^charObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_O_P_char: execute_O_P
+  (# oSlice1,oSlice2: ^charObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_OR_O_char: execute_OR_O
+  (# oSlice1,oSlice2: ^charObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_OR_OR_char: execute_OR_OR
+  (# oSlice1,oSlice2: ^charObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_OR_P_char: execute_OR_P
+  (# oSlice1,oSlice2: ^charObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_P_O_char: execute_P_O
+  (# oSlice1,oSlice2: ^charObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_P_OR_char: execute_P_OR
+  (# oSlice1,oSlice2: ^charObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_P_P_char: execute_P_P
+  (# oSlice1,oSlice2: ^charObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_O_O_integer: execute_O_O
+  (# oSlice1,oSlice2: ^integerObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_O_OR_integer: execute_O_OR
+  (# oSlice1,oSlice2: ^integerObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_O_P_integer: execute_O_P
+  (# oSlice1,oSlice2: ^integerObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_OR_O_integer: execute_OR_O
+  (# oSlice1,oSlice2: ^integerObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_OR_OR_integer: execute_OR_OR
+  (# oSlice1,oSlice2: ^integerObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_OR_P_integer: execute_OR_P
+  (# oSlice1,oSlice2: ^integerObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_P_O_integer: execute_P_O
+  (# oSlice1,oSlice2: ^integerObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_P_OR_integer: execute_P_OR
+  (# oSlice1,oSlice2: ^integerObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_P_P_integer: execute_P_P
+  (# oSlice1,oSlice2: ^integerObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_O_O_real: execute_O_O
+  (# oSlice1,oSlice2: ^realObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_O_OR_real: execute_O_OR
+  (# oSlice1,oSlice2: ^realObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_O_P_real: execute_O_P
+  (# oSlice1,oSlice2: ^realObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_OR_O_real: execute_OR_O
+  (# oSlice1,oSlice2: ^realObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_OR_OR_real: execute_OR_OR
+  (# oSlice1,oSlice2: ^realObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_OR_P_real: execute_OR_P
+  (# oSlice1,oSlice2: ^realObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_P_O_real: execute_P_O
+  (# oSlice1,oSlice2: ^realObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_P_OR_real: execute_P_OR
+  (# oSlice1,oSlice2: ^realObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_P_P_real: execute_P_P
+  (# oSlice1,oSlice2: ^realObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_O_O_string: execute_O_O
+  (# oSlice1,oSlice2: ^stringObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_O_OR_string: execute_O_OR
+  (# oSlice1,oSlice2: ^stringObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_O_P_string: execute_O_P
+  (# oSlice1,oSlice2: ^stringObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_OR_O_string: execute_OR_O
+  (# oSlice1,oSlice2: ^stringObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_OR_OR_string: execute_OR_OR
+  (# oSlice1,oSlice2: ^stringObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_OR_P_string: execute_OR_P
+  (# oSlice1,oSlice2: ^stringObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_P_O_string: execute_P_O
+  (# oSlice1,oSlice2: ^stringObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_P_OR_string: execute_P_OR
+  (# oSlice1,oSlice2: ^stringObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_P_P_string: execute_P_P
+  (# oSlice1,oSlice2: ^stringObjectSlice
+  do from_obj.private.slices.lastLink[]->oSlice1[];
+     to_obj.private.slices.lastLink[]->oSlice2[];
+     oSlice1.value->oSlice2.value
+  #);
+
+execute_O_OR_oref: execute_O_ORr(# do from_obj[]->to_oref.value[] #);
+execute_OR_OR_oref: execute_OR_ORr(# do from_obj[]->to_oref.value[] #);
+execute_P_OR_oref: execute_P_ORr(# do from_obj[]->to_oref.value[] #);
+
+execute_O_OR_ptn: impl(# do 'ibetaVMlibbody.bet/3590'->notyet; (* !!! *) #);
+execute_O_P_ptn: execute_O_Pp(# do from_pat[]->to_pref.value[] #);
+execute_OR_OR_ptn: impl(# do 'ibetaVMlibbody.bet/3592'->notyet; (* !!! *) #);
+execute_OR_P_ptn: execute_OR_Pp(# do from_pat[]->to_pref.value[] #);
+execute_P_OR_ptn: impl(# do 'ibetaVMlibbody.bet/3594'->notyet; (* !!! *) #);
+execute_P_P_ptn: execute_P_Pp(# do from_pat[]->to_pref.value[] #)
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

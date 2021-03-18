@@ -1,0 +1,4 @@
+ORIGIN '../attden';
+INCLUDE '../attribute';
+--- AttributeDenotationAtt: ObjectDescriptor ---
+(# att: ^Attribute enter att[] exit att[] #)

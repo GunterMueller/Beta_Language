@@ -1,0 +1,8 @@
+#!/bin/sh
+
+for n in *.el; do
+    emacs --batch \
+	--eval '(load-file "beta-mode.el")' \
+	--eval '(load-file "gbeta-mode.el")' \
+	--eval '(byte-compile-file "'$n'")'
+done

@@ -1,0 +1,8 @@
+ORIGIN '../basiclib/v1.4/betaenv';
+--- Lib: Attributes ---
+put5:
+  (# a,b,c,d,e: @char
+  enter (a,b,c,d,e)
+  do a->put; b->put; c->put; d->put; e->put
+  #);
+

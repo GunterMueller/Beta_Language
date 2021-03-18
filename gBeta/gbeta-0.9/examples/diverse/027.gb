@@ -1,0 +1,7 @@
+(* used to show a static analysis bug which 
+ * made the path to 's' too complicated *)
+-- betaenv:descriptor --
+(# a: @(# s: string enter s #);
+   as: @a.s (* 'info as' gives 'origin at {"a",<-2}'! *)
+do 'test'->a
+#)

@@ -1,0 +1,16 @@
+ORIGIN '../basiclib/v1.4/betaenv';
+--- program: objectDescriptor ---
+(#
+   (* illegal recursion in static part of program: *)
+   p: (# v:< p; o: @v; i: @integer enter i do i+1->i; INNER exit i #);
+   o: @p;
+
+   (* illegal recursion in enter/exit lists *)
+   A: (# bb: ^B; exit bb #);
+   B: (# aa: ^A; exit aa #);
+
+   aa: @A;
+   bb: @B;
+do
+   aa->bb;
+#)

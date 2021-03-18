@@ -1,0 +1,2042 @@
+(* FILE "./beta2abeta/private/beta2abetabody.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: beta2abetabody.bet,v 1.57 2001/07/01 21:44:10 eernst Exp $
+ *)
+
+ORIGIN 'beta2abetaAutogen';
+INCLUDE '~beta/basiclib/numberio';
+INCLUDE 'betaastbody';
+INCLUDE '../../utils'
+
+-- Beta2abetaLib:attributes --
+
+checkFocus:
+  (# focus: ^fragmentGraph.node;
+     mpsAst,mpsFather: ^ast;
+     frag: ^fragment
+  enter (focus[],mpsAst[])
+  do (if focus.group[]<>mpsAst.frag.father then
+         '----------'->putline;
+         (if mpsAst.frag[]<>NONE then
+             mpsAst.frag[]->frag[];
+             frag.fullname->putline
+         if);
+         focus.group.fullname->putline;
+         '----------'->putline;
+         'Focus did not correspond to syntax'
+           ->ib.internalError
+     if)
+  #);
+
+quote:
+  (# orig,t: ^text
+  enter orig[]
+  do orig.copy->t[];
+     '"'->t.prepend;
+     '"'->t.append
+  exit t[]
+  #);
+
+NamesAstext: textValue
+  (# l2nlst: ^interpreterbase.l2NameDclList
+  enter l2nlst[]
+  do '[ '->value[];
+     l2nlst.scan(# do current.value[]->value.append; ' '->value.append #);
+     ']'->value.append
+  #);
+
+unexpected:
+  (# msg: ^text
+  enter msg[]
+  do 'Unexpected astnode encountered ('->msg.prepend;
+     ')'->msg.append;
+     (failure,msg[])->stop
+  #);
+
+unsupported:
+  (# msg: ^text
+  enter msg[]
+  do 'Unsupported construct encountered ('->msg.prepend;
+     ')'->msg.append;
+     (failure,msg[])->stop
+  #);
+
+asl2_NameDcl:
+  (# theNameDcl: ^NameDcl;
+     theNameDecl: ^NameDecl;
+     l2ndecl: ^interpreterbase.l2NameDcl;
+     dn: ^interpreterbase.declNode;
+     t: ^text
+  enter (theNameDcl[],dn[])
+  do (&ib.l2NameDcl[]).init->l2ndecl[];
+     (theNameDcl.getNameDecl->theNameDecl[]).getText->t[];
+     t->l2ndecl.value;
+     dn[]->l2ndecl.decl[];
+     theNameDcl[]->l2ndecl.mpsAst[]
+  exit l2ndecl[]
+  #);
+
+asl2_NameApl:
+  (# theNameApl: ^NameApl;
+     theNameAppl: ^NameAppl;
+     l2napl: ^interpreterbase.l2NameApl;
+     t: ^text
+  enter theNameApl[]
+  do (&ib.l2NameApl[]).init->l2napl[];
+     (theNameApl.getNameAppl->theNameAppl[]).getText->t[];
+     t->l2napl.value;
+     theNameApl[]->l2napl.mpsAst[]
+  exit l2napl[]
+  #);
+
+fill_l2list:
+  (# fetchSlot:
+       (# slot: ^slotDesc
+       enter slot[]
+       do (focus[],slot.name,-1)->graph.findSlots
+          (# foundAst: ^ast
+          do (if true 
+              // ff.root##<=expectedType## then
+                 ff.root[]->foundAst[];
+                 (dclNode[],foundAst[],expectedType##)
+                   ->astOrSlotToLevelTwo
+                   ->l2lst.append
+              // ff.root##<=unexpanded## then 
+                 (if ff.root##<=optional## then 
+                     (* !!! ignore optionals, seem to turn up everywhere *)
+                  else
+                     (dclNode[],ff.root[],expectedType##)
+                       ->astOrSlotToAst
+                       ->(dclNode[],foundAst[]);
+                     (dclNode[],foundAst[],expectedType##)
+                       ->astOrSlotToLevelTwo
+                       ->l2lst.append
+                 if)
+              // (AttributeDecl##<=expectedType##) and
+                 (ff.root##<=AttributesForm##) then 
+                 (# aform: ^AttributesForm
+                 do ff.root[]->aform[];
+                    (dclNode[],aform.getAttributes
+                    ,l2lst[],expectedType##)->fill_l2list
+                 #)
+              // (ObjectDescriptor##<=expectedType##) and
+                 (ff.root##<=DescriptorForm##) then
+                 (# dform: ^DescriptorForm
+                 do ff.root[]->dform[];
+                    (dclNode[],dform.getObjectDescriptor,expectedType##)
+                      ->astOrSlotToLevelTwo
+                      ->l2lst.append
+                 #)
+              else
+                 ff.root[]->badAst
+             if)
+          #)
+       #);
+     focus: ^fragmentGraph.node;
+     theMpsList: ^list;
+     expectedType: ##ast;
+     l2lst: ^interpreterbase.l2list (* not-none, and initialized *)
+  enter (focus[],theMpsList[],l2lst[],expectedType##)
+  do (*test-focus*) (focus[],theMpsList[])->checkFocus;
+     theMpsList.newerScan
+     (# predefined::
+          (# unexpan: ^unexpanded
+          do (if current##<=unexpanded## then 
+                 current[]->unexpan[];
+                 (if unexpan.isSlot then 
+                     (* this is really an attributes SLOT! *)
+                     unexpan.theSlot->fetchSlot
+                  else
+                     (if unexpan##<=optional## then 
+                         (* !!! ignore *)
+                      else
+                         (* syntax contains regular unexpanded node *)
+                         theMpsList[]->incompleteProgram
+                     if)
+                 if)
+              else
+                 (* other predefined *)
+                 'beta2abetabody.bet/147'->notyet; (* !!! *)
+             if)
+          #)
+     do (focus[],current[],expectedType##)
+          ->astOrSlotToLevelTwo
+          ->l2lst.append
+     #)
+  #);
+
+fill_l2NameDclList:
+  (# fetchSlot:
+       (# slot: ^slotDesc;
+          l2ndcl: ^interpreterbase.l2NameDcl
+       enter slot[]
+       do 'beta2abetabody.bet/178'->notyet; (* !!! *)
+       exit l2ndcl[]
+       #);
+     theNames: ^Names;
+     l2ndlst: ^interpreterbase.l2NameDclList; (* not-none, and initialized *)
+     dn: ^interpreterbase.declNode
+  enter (theNames[],l2ndlst[],dn[])
+  do theNames.newerScan
+     (# predefined::
+          (# unexpan: ^unexpanded
+          do (if current##<=unexpanded## then 
+                 current[]->unexpan[];
+                 (if unexpan.isSlot then 
+                     (* this is really an attributes SLOT! *)
+                     unexpan.theSlot->fetchSlot->l2ndlst.append
+                  else
+                     (if unexpan##<=optional## then 
+                         (* !!! ignore *)
+                      else
+                         (* syntax contains regular unexpanded node *)
+                         theNames[]->incompleteProgram
+                     if)
+                 if)
+              else
+                 (* other predefined *)
+                 'beta2abetabody.bet/176'->notyet; (* !!! *)
+             if)
+          #)
+     do (current[],dn[])
+          ->asl2_NameDcl
+          ->l2ndlst.append 
+     #)
+  #);
+
+vdeclCase:
+  (# inDeclType:< AttributeDecl;
+     outDeclType:< ib.l2VDecl;
+     
+     focus: ^fragmentGraph.node;
+     node: ^inDeclType;
+     theNames: ^Names;
+     theOSpecNode: ^ast;
+     l2decl: ^outDeclType
+
+  enter (focus[],node[])
+     
+  do (*test-focus*) (focus[],node[])->checkFocus;
+     
+     (* "extract sub-nodes from node" does not typecheck when
+      * placed here, so we must put it in all specializations. *)
+     INNER;
+     
+     (* create new level-2 node *)
+     (&outDeclType[]).init->l2decl[];
+     
+     (* transform *)
+     (theNames[],l2decl.Names[],l2decl.theDeclNode[])
+       ->fill_l2NameDclList;
+     (focus[],theOSpecNode[],ObjectSpecification##)
+       ->astOrSlotToLevelTwo
+       ->l2decl.ObjectSpecifications.append;
+     theOSpecNode[]->l2decl.ObjectSpecifications.Identity.mpsAst[];
+     
+  exit l2decl[]
+  #);
+
+badAst:
+  (# mpsAst: ^ast
+  enter mpsAst[]
+  do ('Found AST node which is neither a SLOT nor as expected by the grammar'
+     ,mpsAst[])->ib.astError
+  #);
+
+badFrag:
+  (# ff: ^fragmentForm;
+     slot: ^slotDesc;
+     name,msg: ^text
+  enter (ff[],slot[])
+  do 'Fragment form "'->msg[];
+     ff.fullname->msg.puttext;
+     '"\ndoes not match syntax category for SLOT in\n"'->msg.puttext;
+     slot.frag.fullname->msg.puttext;
+     '"'->msg.puttext;
+     msg[]->ib.fragmentError
+  #);
+
+incompleteProgram:
+  (* This should perhaps be well-defined, allowed *)
+  (# mpsAst: ^ast
+  enter mpsAst[]
+  do ('Program is incomplete'
+     ,mpsAst[])->ib.astError
+  #);
+
+astOrSlotToAstBase:
+  (# focus: ^fragmentGraph.node;
+     inputAst: ^ast;
+     expectedType: ##ast;
+     unexpan: ^unexpanded;
+     slot: ^slotDesc;
+     ff: ^fragmentForm;
+     dclNode: ^fragmentGraph.node;
+     outputAst: ^ast
+  enter (focus[],inputAst[],expectedType##)
+  do (*test-focus*) (focus[],inputAst[])->checkFocus;
+     (if true 
+      // inputAst##<=expectedType## then 
+         focus[]->dclNode[];
+         inputAst[]->outputAst[]
+         
+      // inputAst##<=unexpanded## then 
+         inputAst[]->unexpan[];
+         (if unexpan.isSlot then 
+             unexpan.theSlot->slot[];
+             (focus[],slot.name,-1)->graph.findSlot
+             (# notFound::
+                  (# msg: ^text
+                  do 'Could not find a fragment form named "'->msg[];
+                     slot.name->msg.puttext;
+                     '"'->msg.put;
+                     msg[]->ib.fragmentError
+                  #);
+                ambiguous::
+                  (# msg: ^text
+                  do 'Conflict between two SLOT declarations:\n\t'->msg[];
+                     f1.fullname->msg.putline;
+                     '\t'->msg.puttext;
+                     f2.fullname->msg.putline;
+                     msg[]->ib.fragmentError
+                  #)
+             #)->(dclNode[],ff[]);
+             (if true 
+              // ff.root##<=expectedType## then 
+                 ff.root[]->outputAst[]
+              // ff.root##<=unexpanded## then
+                 (# recur: ##astOrSlotToAstBase
+                 do this(astOrSlotToAstBase)##->recur##;
+                    (focus[],inputAst[],expectedType##)
+                      ->&recur
+                      ->(dclNode[],outputAst[])
+                 #)
+              // (ObjectDescriptor##<=expectedType##) and 
+                 (ff.root##<=DescriptorForm##) then
+                 (# dform: ^DescriptorForm
+                 do ff.root[]->dform[];
+                    dform.getObjectDescriptor->outputAst[]
+                 #)
+              // (Attributes##<=expectedType##) and 
+                 (ff.root##<=AttributesForm##) then
+                 (# aform: ^AttributesForm
+                 do ff.root[]->aform[];
+                    aform.getAttributes->outputAst[]
+                 #)
+              else
+                 (ff[],slot[])->badFrag
+             if)
+          else
+             (if inputAst##<=optional## then 
+                 (* ignore *)
+              else
+                 (* real unexpanded *)
+                 INNER astOrSlotToAstBase
+             if)
+         if)
+     if)
+  exit (dclNode[],outputAst[])
+  #);
+
+astOrSlotToAst: astOrSlotToAstBase(# do unexpan[]->incompleteProgram #);
+astOrSlotOrMissingToAst: astOrSlotToAstBase(# do NONE->outputAst[] #);
+
+astOrSlotToLevelTwo:
+  (# focus: ^fragmentGraph.node;
+     mpsAst: ^ast;
+     expectedType: ##ast;
+     unexpan: ^unexpanded;
+     slot: ^slotDesc;
+     ff: ^fragmentForm;
+     dclNode: ^fragmentGraph.node;
+     l2ast: ^interpreterbase.l2AstNode
+  enter (focus[],mpsAst[],expectedType##)
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     (if true
+      // mpsAst##<=expectedType## then
+         (* syntax present, transform *)
+         (focus[],mpsAst[])->asl2->l2ast[]
+      // mpsAst##<=unexpanded## then
+         (* syntax in SLOT? *)
+         mpsAst[]->unexpan[];
+         (if unexpan.isSlot then 
+             unexpan.theSlot->slot[];
+             (focus[],slot.name,-1)->graph.findSlot
+             (# notFound::
+                  (# msg: ^text
+                  do 'Could not find a fragment form named "'->msg[];
+                     slot.name->msg.puttext;
+                     '"'->msg.put;
+                     msg[]->ib.fragmentError
+                  #);
+                ambiguous::
+                  (# msg: ^text
+                  do 'Conflict between two SLOT declarations:\n\t'->msg[];
+                     f1.fullname->msg.putline;
+                     '\t'->msg.puttext;
+                     f2.fullname->msg.putline;
+                     msg[]->ib.fragmentError
+                  #)
+             #)->(dclNode[],ff[]);
+             (if true
+              // ff.root##<=expectedType## then 
+                 (dclNode[],ff.root[])
+                   ->asl2
+                   ->l2ast[]
+              // ff.root##<=unexpanded## then 
+                 (focus[],mpsAst[],expectedType##)
+                   ->&astOrSlotToLevelTwo
+                   ->l2ast[]
+              // (ObjectDescriptor##<=expectedType##) and 
+                 (ff.root##<=DescriptorForm##) then
+                 (# dform: ^DescriptorForm
+                 do ff.root[]->dform[];
+                    (dclNode[],dform.getObjectDescriptor,expectedType##)
+                      ->astOrSlotToLevelTwo
+                      ->l2ast[]
+                 #)
+              // (Attributes##<=expectedType##) and 
+                 (ff.root##<=AttributesForm##) then
+                 (# aform: ^AttributesForm
+                 do ff.root[]->aform[];
+                    (dclNode[],aform.getAttributes,expectedType##)
+                      ->astOrSlotToLevelTwo
+                      ->l2ast[]
+                 #)
+              else
+                 (ff[],slot[])->badFrag
+             if)
+          else
+             (if mpsAst##<=optional## then
+                 (* !!! ignore *)
+              else
+                 (* syntax contains regular unexpanded node *)
+                 mpsAst[]->incompleteProgram
+             if)
+         if)
+      else
+         mpsAst[]->badAst
+     if)
+  exit l2ast[]
+  #);
+
+astListOrSlotToLevelTwo:
+  (# focus: ^fragmentGraph.node;
+     mpsAst: ^ast;
+     expectedType,expectedElmType: ##ast;
+     unexpan: ^unexpanded;
+     slot: ^slotDesc;
+     ff: ^fragmentForm;
+     l2lst: ^interpreterbase.l2List
+  enter (focus[],mpsAst[],l2lst[],expectedType##,expectedElmType##)
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     (if true
+      // mpsAst##<=expectedType## then
+         (* syntax present, transform *)
+         (focus[],mpsAst[],l2lst[],expectedElmType##)->fill_l2list
+      // mpsAst##<=unexpanded## then
+         (* syntax in SLOT? *)
+         mpsAst[]->unexpan[];
+         (if unexpan.isSlot then 
+             unexpan.theSlot->slot[];
+             (focus[],slot.name,-1)->graph.findSlots
+             (#
+             do (if true
+                 // (ff.root##<=expectedType##) or
+                    (ff.root##<=unexpanded##) then
+                    (dclNode[],ff.root[],l2lst[],expectedType##
+                    ,expectedElmType##)->&astListOrSlotToLevelTwo
+                 // (ObjectDescriptor##<=expectedType##) and 
+                    (ff.root##<=DescriptorForm##) then
+                    (# dform: ^DescriptorForm
+                    do ff.root[]->dform[];
+                       (dclNode[],dform.getObjectDescriptor,expectedType##)
+                         ->astOrSlotToLevelTwo
+                         ->l2lst.append
+                    #)
+                 // (Attributes##<=expectedType##) and 
+                    (ff.root##<=AttributesForm##) then
+                    (# aform: ^AttributesForm
+                    do ff.root[]->aform[];
+                       (dclNode[],aform.getAttributes,l2lst[]
+                       ,expectedType##,expectedElmType##)
+                         ->&astListOrSlotToLevelTwo
+                    #)
+                 else
+                    (ff[],slot[])->badFrag
+                if)
+             #)
+          else
+             (if mpsAst##<=optional## then
+                 (* !!! ignore *)
+              else
+                 (* syntax contains regular unexpanded node *)
+                 mpsAst[]->incompleteProgram
+             if)
+         if)
+      else
+         mpsAst[]->badAst
+     if)
+  #);
+
+attributesOrSlotToLevelTwo:
+  (# fetchSlot:
+       (# slot: ^slotDesc
+       enter slot[]
+       do (focus[],slot.name,-1)->graph.findSlots
+          (# foundAst: ^ast
+          do (if true 
+              // ff.root##<=Attributes## then
+                 ff.root[]->foundAst[]
+              // ff.root##<=AttributesForm## then 
+                 ff.root[]->aform[];
+                 aform.getAttributes->foundAst[]
+              // ff.root##<=unexpanded## then 
+                 (dclNode[],ff.root[],Attributes##)
+                   ->astOrSlotToAst
+                   ->(dclNode[],foundAst[])
+              else
+                 ff.root[]->badAst
+             if);
+             (dclNode[],foundAst[],l2lst[])->&attributesOrSlotToLevelTwo
+          #)
+       #);
+     focus: ^fragmentGraph.node;
+     mpsAst,auxAst: ^ast;
+     aform: ^AttributesForm;
+     attr: ^Attributes;
+     unexpan: ^unexpanded;
+     l2lst: ^interpreterbase.l2List
+  enter (focus[],mpsAst[],l2lst[])
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     (if true
+      // mpsAst##<=Attributes## then
+         (focus[],mpsAst[],l2lst[],AttributeDecl##)->fill_l2list
+      // mpsAst##<=AttributesForm## then 
+         mpsAst[]->aform[];
+         (focus[],aform.getAttributes,l2lst[])
+           ->&attributesOrSlotToLevelTwo
+      // mpsAst##<=unexpanded## then
+         mpsAst[]->unexpan[];
+         (if unexpan.isSlot then 
+             (* syntax in lib-SLOT *)
+             unexpan.theSlot->fetchSlot;
+             (* check whether there are attr.decls after the SLOT-appl *)
+             (if mpsAst.nextbrother<>NONE then
+                 (mpsAst.nextbrother).dump
+             if)
+          else
+             (if unexpan##<=optional## then 
+                 (* !!! ignore *)
+              else
+                 (* syntax contains regular unexpanded node *)
+                 mpsAst[]->incompleteProgram
+             if)
+         if)
+      else
+         mpsAst[]->badAst
+     if)
+  #);
+
+descriptorOrSlotToLevelTwo:
+  (# notFound:
+       (# name,msg: ^text
+       enter name[]
+       do 'Could not find a fragment form named "'->msg[];
+          name[]->msg.puttext;
+          '"'->msg.put;
+          msg[]->ib.fragmentError
+       #);
+     focus: ^fragmentGraph.node;
+     mpsAst: ^ast;
+     dform: ^DescriptorForm;
+     unexpan: ^unexpanded;
+     slot: ^slotDesc;
+     ff: ^fragmentForm;
+     foundSome: @boolean;
+     foundAst: ^ast;
+     l2ast: ^interpreterbase.l2AstNode
+  enter (focus[],mpsAst[])
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     (if true
+      // mpsAst##<=ObjectDescriptor## then
+         (* syntax present, transform *)
+         (focus[],mpsAst[])->asl2->l2ast[]
+      // mpsAst##<=DescriptorForm## then
+         mpsAst[]->dform[];
+         (focus[],dform.getObjectDescriptor)
+           ->descriptorOrSlotToLevelTwo
+           ->l2ast[]
+      // mpsAst##<=unexpanded## then
+         (* syntax in SLOT? *)
+         mpsAst[]->unexpan[];
+         (if unexpan.isSlot then 
+             unexpan.theSlot->slot[];
+             false->foundSome;
+             (focus[],slot.name,-1)->graph.findSlots
+             (# ambiguous:
+                  (# f1,f2: ^fragmentForm;
+                     msg: ^text
+                  enter (f1[],f2[])
+                  do 'Conflict between two SLOT declarations:\n\t'->msg[];
+                     f1.fullname->msg.putline;
+                     '\t'->msg.puttext;
+                     f2.fullname->msg.putline;
+                     msg[]->ib.fragmentError
+                  #)
+             do (if true 
+                 // ff.root##<=ObjectDescriptor## then
+                    (if foundSome then 
+                        (foundAst.frag[],ff[])->ambiguous
+                     else
+                        true->foundSome;
+                        ff.root[]->foundAst[];
+                        (dclNode[],foundAst[])
+                          ->descriptorOrSlotToLevelTwo
+                          ->l2ast[]
+                    if)
+                 // ff.root##<=DescriptorForm## then 
+                    (if foundSome then 
+                        (foundAst.frag[],ff[])->ambiguous
+                     else
+                        true->foundSome;
+                        ff.root[]->dform[];
+                        dform.getObjectDescriptor->foundAst[];
+                        (dclNode[],foundAst[])
+                          ->descriptorOrSlotToLevelTwo
+                          ->l2ast[]
+                    if)
+                 // ff.root##<=unexpanded## then 
+                    (if foundSome then 
+                        (foundAst.frag[],ff[])->ambiguous
+                     else
+                        true->foundSome;
+                        (dclNode[],ff.root[],Attributes##)
+                          ->astOrSlotToAst
+                          ->descriptorOrSlotToLevelTwo
+                          ->l2ast[]
+                    if)
+                if)
+             #);
+             (if not foundSome then slot.name->notFound if)
+          else
+             (if unexpan##<=optional## then 
+                 (* !!! ignore *)
+              else
+                 (* syntax contains regular unexpanded node *)
+                 mpsAst[]->incompleteProgram
+             if)
+         if)
+      else
+         mpsAst[]->badAst
+     if)
+  exit l2ast[]
+  #);
+
+DescriptorFormCase: beta2abetaPrefix
+  (# name::(# do 'DescriptorForm'->value[] #);
+     node: ^DescriptorForm
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (focus[],node.getObjectDescriptor)
+       ->descriptorOrSlotToLevelTwo
+       ->l2ast[]
+  #);
+
+AttributesFormCase: beta2abetaPrefix
+  (# name::(# do 'AttributesForm'->value[] #);
+     node: ^AttributesForm;
+     l2attr: ^interpreterbase.l2AttributesForm
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     
+     (* create new level-2 node *)
+     (&ib.l2AttributesForm[]).init->l2attr[];
+     
+     (* transform and collect attributes *)
+     (focus[],node.getAttributes,l2attr.Attributes[])
+       ->attributesOrSlotToLevelTwo;
+     
+     (* deliver result *)
+     l2attr[]->l2ast[]
+  #);
+
+ObjectDescriptorCase: beta2abetaPrefix
+  (# name::(# do 'ObjectDescriptor'->value[] #);
+     node: ^ObjectDescriptor;
+     maybePrefix: ^ast;
+     theMainPart: ^MainPart;
+     l2desc: ^interpreterbase.l2ObjectDescriptor
+       
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     
+     (* create new level-2 node *)
+     (&ib.l2ObjectDescriptor[]).init->l2desc[];
+     
+     (* transform prefix *)
+     node.getPrefixOpt->maybePrefix[];
+     (if maybePrefix.symbol=Prefix then
+         (# thePrefix: ^Prefix;
+         do maybePrefix[]->thePrefix[];
+            (focus[],thePrefix.getAttributeDenotation,AttributeDenotation##)
+              ->astOrSlotToLevelTwo
+              ->l2desc.Prefix.append
+         #)
+     if);
+     
+     (* transform main-part *)
+     (focus[],node.getMainPart,MainPart##)
+       ->astOrSlotToLevelTwo
+       ->l2desc.MainPart[];
+     
+     (* deliver result *)
+     l2desc[]->l2ast[]
+  #);
+
+MainPartCase: beta2abetaPrefix
+  (# name::(# do 'MainPart'->value[] #);
+     node: ^MainPart;
+     ActionPartOrSlot: ^ast;
+     unexpan: ^unexpanded;
+     slot: ^slotDesc;
+     ff: ^fragmentForm;
+     dclNode,enterDclNode,doDclNode,exitDclNode: ^fragmentGraph.node;
+     theActionPart: ^ActionPart;
+     theEnterPart: ^EnterPart;
+     theDopart: ^Dopart;
+     theExitPart: ^ExitPart;
+     l2mpart: ^interpreterbase.l2MainPart
+       
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     
+     (* create new level-2 node *)
+     (&ib.l2MainPart[]).init->l2mpart[];
+     
+     (* transform and collect attributes *)
+     (focus[],node.getAttributes,l2mpart.Attributes[])
+       ->attributesOrSlotToLevelTwo;
+     
+     (* extract action part *)
+     (focus[],node.getActionPart,ActionPart##)
+       ->astOrSlotToAst
+       ->(dclNode[],theActionPart[]);
+     (if theActionPart[]<>NONE then 
+         (dclNode[],theActionPart.getEnterPartOpt,EnterPart##)
+           ->astOrSlotOrMissingToAst
+           ->(enterDclNode[],theEnterPart[]);
+         (dclNode[],theActionPart.getDoPartOpt,DoPart##)
+           ->astOrSlotOrMissingToAst
+           ->(doDclNode[],theDoPart[]);
+         (dclNode[],theActionPart.getExitPartOpt,ExitPart##)
+           ->astOrSlotOrMissingToAst
+           ->(exitDclNode[],theExitPart[])
+     if);
+     
+     (* transform enter-part *)
+     (if theEnterPart[]<>NONE then
+         (enterDclNode[],theEnterPart.getEvaluation,Evaluation##)
+           ->astOrSlotToLevelTwo
+           ->l2mpart.EnterPartOpt[]
+     if);
+     
+     (* transform and collect imperatives from do-part *)
+     (if theDoPart[]<>NONE then
+         (doDclNode[],theDoPart.getImperatives,l2mpart.DoPartOpt[],
+         Imperatives##,Imp##)
+           ->astListOrSlotToLevelTwo
+     if);
+     
+     (* transform exit-part *)
+     (if theExitPart[]<>NONE then
+         (exitDclNode[],theExitPart.getEvaluation,Evaluation##)
+           ->astOrSlotToLevelTwo
+           ->l2mpart.ExitPartOpt[]
+     if);
+     
+     (* deliver result *)
+     l2mpart[]->l2ast[]
+  #);
+
+AttributesCase: beta2abetaPrefix
+  (# name::(# do 'Attributes'->value[] #)
+  do 'Attributes'->unexpected
+     (* done in MainPart and AttributesForm *)
+  #);
+
+PrefixCase: beta2abetaPrefix
+  (# name::(# do 'Prefix'->value[] #)
+  do 'Prefix'->unexpected
+     (* done in ObjectDescriptor *)
+  #);
+
+PatternDeclCase: beta2abetaPrefix
+  (# name::(# do 'PatternDecl'->value[] #);
+     msg::(# do l2pdecl.Names[]->NamesAsText->value[] #);
+     node: ^PatternDecl;
+     theNames: ^Names;
+     theObjectDescriptorOrSlot: ^ast;
+     l2pdecl: ^interpreterbase.l2PatternDecl
+       
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     
+     (* create new level-2 node *)
+     (&ib.l2PatternDecl[]).init->l2pdecl[];
+     
+     (* extract names from node *)
+     node.getNames->theNames[];
+     (theNames[],l2pdecl.Names[],l2pdecl.theDeclNode[])
+       ->fill_l2NameDclList;
+     
+     (* extract object descriptor from node *)
+     node.getObjectDescriptor->theObjectDescriptorOrSlot[];
+     (focus[],theObjectDescriptorOrSlot[])
+       ->descriptorOrSlotToLevelTwo
+       ->l2pdecl.ObjectSpecifications.append;
+     theObjectDescriptorOrSlot[]
+       ->l2pdecl.ObjectSpecifications.Identity.mpsAst[];
+     
+     (* deliver result *)
+     l2pdecl[]->l2ast[]
+  #);
+
+SimpleDeclCase: beta2abetaPrefix
+  (# name::(# do 'SimpleDecl'->value[] #);
+     msg::(# do l2sdecl.Names[]->NamesAsText->value[] #);
+     node: ^SimpleDecl;
+     theNames: ^Names;
+     l2sdecl: ^interpreterbase.l2SimpleDecl
+       
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     
+     (* create new level-2 node *)
+     (&ib.l2SimpleDecl[]).init->l2sdecl[];
+     
+     (* transform names *)
+     node.getNames->theNames[];
+     (theNames[],l2sdecl.Names[],l2sdecl.theDeclNode[])
+       ->fill_l2NameDclList;
+     
+     (* transform rhs *)
+     (focus[],node.getReferenceSpecification,ReferenceSpecification##)
+       ->astOrSlotToLevelTwo
+       ->l2sdecl.ReferenceSpecification[];
+     
+     (* deliver result *)
+     l2sdecl[]->l2ast[]
+  #);
+
+RepetitionDeclCase: beta2abetaPrefix
+  (# name::(# do 'RepetitionDecl'->value[] #);
+     msg::(# do theL2Names[]->NamesAsText->value[] #);
+     node: ^RepetitionDecl;
+     theNames: ^Names;
+     theL2Index: ^interpreterbase.l2AstNode;
+     theL2Names: ^interpreterbase.l2NameDclList
+       
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     
+     (* extract sub-nodes from node *)
+     node.getNames->theNames[];
+     (focus[],node.getIndex,Index##)
+       ->astOrSlotToLevelTwo
+       ->theL2Index[];
+     
+     (* check which kind of index we got *)
+     (if true 
+      // theL2Index##<=ib.l2SimpleIndex## then
+         (# l2rdecl: ^interpreterbase.l2RepetitionDecl
+         do (* create new level-2 node *)
+            (&ib.l2RepetitionDecl[]).init->l2rdecl[];
+            
+            (* transform *)
+            (theNames[],l2rdecl.Names[],l2rdecl.theDeclNode[])
+              ->fill_l2NameDclList;
+            l2rdecl.Names[]->theL2Names[]; (* to enable 'msg' *)
+            theL2Index[]->l2rdecl.SimpleIndex[];
+            (focus[],node.getReferenceSpecification,ReferenceSpecification##)
+              ->astOrSlotToLevelTwo
+              ->l2rdecl.ReferenceSpecification[];
+            
+            (* deliver result *)
+            l2rdecl[]->l2ast[]
+         #);
+         
+      // theL2Index##<=ib.l2NamedIndex## then
+         (# l2nrdcl: ^interpreterbase.l2NamedRepetitionDecl;
+            l2rsco: ^interpreterbase.l2RepetitionScope;
+         do (* create new level-2 nodes, connect them *)
+            (&ib.l2NamedRepetitionDecl[]).init->l2nrdcl[];
+            (&ib.l2RepetitionScope[]).init->l2rsco[];
+            mpsAst[]->l2rsco.mpsAst[]; (* !! any better choice? *)
+            l2rsco[]->l2nrdcl.RepetitionScope[];
+            
+            (* transform *)
+            (theNames[],l2nrdcl.Names[],l2nrdcl.theDeclNode[])
+              ->fill_l2NameDclList;
+            l2nrdcl.Names[]->theL2Names[]; (* to enable 'msg' *)
+            theL2Index[]->l2rsco.NamedIndex[];
+            (focus[],node.getReferenceSpecification,ReferenceSpecification##)
+              ->astOrSlotToLevelTwo
+              ->l2rsco.ReferenceSpecification[];
+            
+            (* deliver result *)
+            l2nrdcl[]->l2ast[]
+         #)
+      else
+         node.getIndex->badAst
+     if)
+  #);
+
+VirtualDeclCase: beta2abetaPrefix
+  (# name::(# do 'VirtualDecl'->value[] #)
+  do (focus[],mpsAst[])->vdeclCase
+     (# inDeclType::VirtualDecl;
+        outDeclType::ib.l2VirtualDecl
+     do (* extract sub-nodes from node *)
+        node.getNames->theNames[];
+        node.getObjectSpecification->theOSpecNode[]
+     #)->l2ast[]
+  #);
+
+BindingDeclCase: beta2abetaPrefix
+  (# name::(# do 'BindingDecl'->value[] #)
+  do (focus[],mpsAst[])->vdeclCase
+     (# inDeclType::BindingDecl;
+        outDeclType::ib.l2BindingDecl
+     do (* extract sub-nodes from node *)
+        node.getNames->theNames[];
+        node.getObjectSpecification->theOSpecNode[]
+     #)->l2ast[]
+  #);
+
+FinalDeclCase: beta2abetaPrefix
+  (# name::(# do 'FinalDecl'->value[] #)
+  do (focus[],mpsAst[])->vdeclCase
+     (# inDeclType::FinalDecl;
+        outDeclType::ib.l2FinalDecl
+     do (* extract sub-nodes from node *)
+        node.getNames->theNames[];
+        node.getObjectSpecification->theOSpecNode[]
+     #)->l2ast[]
+  #);
+
+VariablePatternCase: beta2abetaPrefix
+  (# name::(# do 'VariablePattern'->value[] #);
+     node: ^VariablePattern;
+     l2vpat: ^interpreterbase.l2VariablePattern
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2VariablePattern[]).init->l2vpat[];
+     (focus[],node.getAttributeDenotation,AttributeDenotation##)
+       ->astOrSlotToLevelTwo
+       ->l2vpat.AttributeDenotation[];
+     l2vpat[]->l2ast[]
+  #);
+
+StaticItemCase: beta2abetaPrefix
+  (# name::(# do 'StaticItem'->value[] #);
+     node: ^StaticItem;
+     theObjectSpecification: ^ObjectSpecification;
+     l2sitem: ^interpreterbase.l2StaticItem
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2StaticItem[]).init->l2sitem[];
+     node.getObjectSpecification->theObjectSpecification[];
+     (focus[],theObjectSpecification[],ObjectSpecification##)
+       ->astOrSlotToLevelTwo
+       ->l2sitem.ObjectSpecifications.append;
+     theObjectSpecification[]->l2sitem.ObjectSpecifications.Identity.mpsAst[];
+     l2sitem[]->l2ast[]
+  #);
+
+DynamicItemCase: beta2abetaPrefix
+  (# name::(# do 'DynamicItem'->value[] #);
+     node: ^DynamicItem;
+     l2ditem: ^interpreterbase.l2DynamicItem
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2DynamicItem[]).init->l2ditem[];
+     (focus[],node.getAttributeDenotation,AttributeDenotation##)
+       ->astOrSlotToLevelTwo
+       ->l2ditem.AttributeDenotation[];
+     l2ditem[]->l2ast[]
+  #);
+
+StaticComponentCase: beta2abetaPrefix
+  (# name::(# do 'StaticComponent'->value[] #);
+     node: ^StaticComponent;
+     theObjectSpecification: ^ObjectSpecification;
+     l2scomp: ^interpreterbase.l2StaticComponent
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2StaticComponent[]).init->l2scomp[];
+     node.getObjectSpecification->theObjectSpecification[];
+     (focus[],theObjectSpecification[],ObjectSpecification##)
+       ->astOrSlotToLevelTwo
+       ->l2scomp.ObjectSpecifications.append;
+     theObjectSpecification[]->l2scomp.ObjectSpecifications.Identity.mpsAst[];
+     l2scomp[]->l2ast[]
+  #);
+
+DynamicComponentCase: beta2abetaPrefix
+  (# name::(# do 'DynamicComponent'->value[] #);
+     node: ^DynamicComponent;
+     l2dcomp: ^interpreterbase.l2DynamicComponent
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2DynamicComponent[]).init->l2dcomp[];
+     (focus[],node.getAttributeDenotation,AttributeDenotation##)
+       ->astOrSlotToLevelTwo
+       ->l2dcomp.AttributeDenotation[];
+     l2dcomp[]->l2ast[]
+  #);
+
+NamedIndexCase: beta2abetaPrefix
+  (# name::(# do 'NamedIndex'->value[] #);
+     node: ^NamedIndex;
+     l2ninx: ^interpreterbase.l2NamedIndex
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2NamedIndex[]).init->l2ninx[];
+     (node.getNameDcl,l2ninx.theDeclNode[])
+       ->asl2_NameDcl
+       ->l2ninx.NameDcl[];
+     (focus[],node.getEvaluation,Evaluation##)
+       ->astOrSlotToLevelTwo
+       ->l2ninx.Evaluation[];
+     l2ninx[]->l2ast[]
+  #);
+
+ActionPartCase: beta2abetaPrefix
+  (# name::(# do 'ActionPart'->value[] #)
+  do 'ActionPart'->unexpected
+     (* done in ObjectDescriptor *)
+  #);
+
+EnterPartCase: beta2abetaPrefix
+  (# name::(# do 'EnterPart'->value[] #)
+  do 'EnterPart'->unexpected
+     (* done in ObjectDescriptor *)
+  #);
+
+DoPartCase: beta2abetaPrefix
+  (# name::(# do 'DoPart'->value[] #)
+  do 'DoPart'->unexpected
+     (* done in ObjectDescriptor *)
+  #);
+
+ExitPartCase: beta2abetaPrefix
+  (# name::(# do 'ExitPart'->value[] #)  
+  do 'ExitPart'->unexpected
+     (* done in ObjectDescriptor *)
+  #);
+
+ImperativesCase: beta2abetaPrefix
+  (# name::(# do 'Imperatives'->value[] #)
+  do 'Imperatives'->unexpected
+     (* done in DoPart,ForImp,SimpleIfImp,Alternative,ElsePart *)
+  #);
+
+LabelledImpCase: beta2abetaPrefix
+  (# name::(# do 'LabelledImp'->value[] #);
+     node: ^LabelledImp;
+     l2limp: ^interpreterbase.l2LabelledImp
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2LabelledImp[]).init->l2limp[];
+     (node.getNameDcl,l2limp.theDeclNode[])
+       ->asl2_NameDcl
+       ->l2limp.NameDcl[];
+     (* 1->l2limp.NameDcl.offset; to be compatible with ordinary part obj.s *)
+     (focus[],node.getImp,Imp##)
+       ->astOrSlotToLevelTwo
+       ->l2limp.Imp[];
+     l2limp[]->l2ast[]
+  #);
+
+ForImpCase: beta2abetaPrefix
+  (# name::(# do 'ForImp'->value[] #);
+     node: ^ForImp;
+     theL2Index: ^interpreterbase.l2AstNode
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (focus[],node.getIndex,Index##)
+       ->astOrSlotToLevelTwo
+       ->theL2Index[];
+     
+     (* distinguish between for with/w.out named index *)
+     (if true
+      // theL2Index##<=ib.l2SimpleIndex## then
+         (# l2sfimp: ^interpreterbase.l2SimpleForImp
+         do (&ib.l2SimpleForImp[]).init->l2sfimp[];
+            theL2Index[]->l2sfimp.SimpleIndex[];
+            (focus[],node.getImperatives,l2sfimp.Imperatives[],
+            Imperatives##,Imp##)
+              ->astListOrSlotToLevelTwo;
+            l2sfimp[]->l2ast[]
+         #)
+      // theL2Index##<=ib.l2NamedIndex## then
+         (# l2nfimp: ^interpreterbase.l2NamedForImp
+         do (&ib.l2NamedForImp[]).init->l2nfimp[];
+            theL2Index[]->l2nfimp.NamedIndex[];
+            (focus[],node.getImperatives,l2nfimp.Imperatives[],
+            Imperatives##,Imp##)
+              ->astListOrSlotToLevelTwo;
+            l2nfimp[]->l2ast[]
+         #) 
+     if)
+  #);
+
+GeneralIfImpCase: beta2abetaPrefix
+  (# name::(# do 'GeneralIfImp'->value[] #);
+     node: ^GeneralIfImp;
+     maybeElsePart: ^ast;
+     theElsePart: ^ElsePart;
+     l2gif: ^interpreterbase.l2GeneralIfImp
+       
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2GeneralIfImp[]).init->l2gif[];
+     (focus[],node.getEvaluation,Evaluation##)
+       ->astOrSlotToLevelTwo
+       ->l2gif.Evaluation[];
+     (focus[],node.getAlternatives,l2gif.Alternatives[],
+     Alternatives##,Alternative##)
+       ->astListOrSlotToLevelTwo;
+     node.getElsePartOpt->maybeElsePart[];
+     (if maybeElsePart.symbol=ElsePart then
+         maybeElsePart[]->theElsePart[];
+         (focus[],theElsePart.getImperatives,l2gif.ElsePartOpt[],
+         Imperatives##,Imp##)
+           ->astListOrSlotToLevelTwo
+     if);
+     l2gif[]->l2ast[]
+  #);
+
+SimpleIfImpCase: beta2abetaPrefix
+  (# name::(# do 'SimpleIfImp'->value[] #);
+     node: ^SimpleIfImp;
+     maybeElsePart: ^ast;
+     theElsePart: ^ElsePart;
+     l2sif: ^interpreterbase.l2SimpleIfImp
+       
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2SimpleIfImp[]).init->l2sif[];
+     (focus[],node.getEvaluation,Evaluation##)
+       ->astOrSlotToLevelTwo
+       ->l2sif.Evaluation[];
+     (focus[],node.getImperatives,l2sif.Imperatives[],Imperatives##,Imp##)
+       ->astListOrSlotToLevelTwo;
+     node.getElsePartOpt->maybeElsePart[];
+     (if maybeElsePart.symbol=ElsePart then
+         maybeElsePart[]->theElsePart[];
+         (focus[],theElsePart.getImperatives,l2sif.ElsePartOpt[],
+         Imperatives##,Imp##)
+           ->astListOrSlotToLevelTwo
+     if);
+     l2sif[]->l2ast[]
+  #);
+
+LeaveImpCase: beta2abetaPrefix
+  (# name::(# do 'LeaveImp'->value[] #);
+     node: ^LeaveImp;
+     l2limp: ^interpreterbase.l2LeaveImp
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2LeaveImp[]).init->l2limp[];
+     node.getNameApl
+       ->asl2_NameApl
+       ->l2limp.NameAplOpt[];
+     l2limp[]->l2ast[]
+  #);
+
+RestartImpCase: beta2abetaPrefix
+  (# name::(# do 'RestartImp'->value[] #);
+     node: ^RestartImp;
+     l2rimp: ^interpreterbase.l2RestartImp
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2RestartImp[]).init->l2rimp[];
+     node.getNameApl
+       ->asl2_NameApl
+       ->l2rimp.NameAplOpt[];
+     l2rimp[]->l2ast[]
+  #);
+
+InnerImpCase: beta2abetaPrefix
+  (# name::(# do 'InnerImp'->value[] #);
+     node: ^InnerImp;
+     maybeNameApl: ^ast;
+     l2iimp: ^interpreterbase.l2InnerImp
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2InnerImp[]).init->l2iimp[];
+     node.getNameAplOpt->maybeNameApl[];
+     (if maybeNameApl.symbol=NameApl then
+         maybeNameApl[]
+           ->asl2_NameApl
+           ->l2iimp.NameAplOpt[]
+     if);
+     l2iimp[]->l2ast[]
+  #);
+
+SuspendImpCase: beta2abetaPrefix
+  (# name::(# do 'SuspendImp'->value[] #)
+  do (&ib.l2SuspendImp[]).init->l2ast[]
+  #);
+
+CodeImpCase: beta2abetaPrefix
+  (# name::(# do 'CodeImp'->value[] #)
+  do 'CodeImp'->unsupported
+  #);
+
+AlternativesCase: beta2abetaPrefix
+  (# name::(# do 'Alternatives'->value[] #)
+  do 'Alternatives'->unexpected
+     (* done in GeneralIfImp *)
+  #);
+
+AlternativeCase: beta2abetaPrefix
+  (# name::(# do 'Alternative'->value[] #);
+     node: ^Alternative;
+     l2alt: ^interpreterbase.l2Alternative
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2Alternative[]).init->l2alt[];
+     (focus[],node.getSelections,l2alt.Selections[],Selections##,Selection##)
+       ->astListOrSlotToLevelTwo;
+     (focus[],node.getImperatives,l2alt.Imperatives[],Imperatives##,Imp##)
+       ->astListOrSlotToLevelTwo;
+     l2alt[]->l2ast[]
+  #);
+
+SelectionsCase: beta2abetaPrefix
+  (# name::(# do 'Selections'->value[] #)
+  do 'Selections'->unexpected
+     (* done in Alternative *)
+  #);
+
+CaseSelectionCase: beta2abetaPrefix
+  (# name::(# do 'CaseSelection'->value[] #);
+     node: ^CaseSelection
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (focus[],node.getEvaluation,Evaluation##)
+       ->astOrSlotToLevelTwo
+       ->l2ast[]
+  #);
+
+ElsePartCase: beta2abetaPrefix
+  (# name::(# do 'ElsePart'->value[] #)
+  do 'ElsePart'->unexpected
+     (* done in GeneralIfImp,SimpleIfImp *)
+  #);
+
+EvaluationsCase: beta2abetaPrefix
+   (# name::(# do 'Evaluations'->value[] #)
+   do 'Evaluations'->unexpected
+      (* done in EvalList,ComputedRemote *)
+   #);
+
+AssignmentEvaluationCase: beta2abetaPrefix
+  (# name::(# do 'AssignmentEvaluation'->value[] #);
+     node: ^AssignmentEvaluation;
+     l2asev: ^interpreterbase.l2AssignmentEvaluation
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2AssignmentEvaluation[]).init->l2asev[];
+     (focus[],node.getEvaluation,Evaluation##)
+       ->astOrSlotToLevelTwo
+       ->l2asev.Evaluation[];
+     (focus[],node.getTransaction,Transaction##)
+       ->astOrSlotToLevelTwo
+       ->l2asev.Transaction[];
+     l2asev[]->l2ast[]
+  #);
+
+InsertedItemCase: beta2abetaPrefix
+  (# name::(# do 'InsertedItem'->value[] #);
+     node: ^InsertedItem;
+     theObjectDescriptor: ^ObjectDescriptor;
+     l2oden: ^interpreterbase.l2ObjectDenotation
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2ObjectDenotation[]).init->l2oden[];
+     node.getObjectDescriptor->theObjectDescriptor[];
+     (focus[],theObjectDescriptor[])
+       ->descriptorOrSlotToLevelTwo
+       ->l2oden.ObjectSpecifications.append;
+     theObjectDescriptor[]->l2oden.ObjectSpecifications.Identity.mpsAst[];
+     nameGen->l2oden.name[];
+     l2oden[]->l2ast[]
+  #);
+
+ObjectDenotationCase: beta2abetaPrefix
+  (# name::(# do 'ObjectDenotation'->value[] #);
+     node: ^ObjectDenotation;
+     theAttributeDenotation: ^AttributeDenotation;
+     l2oden: ^interpreterbase.l2ObjectDenotation
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2ObjectDenotation[]).init->l2oden[];
+     node.getAttributeDenotation->theAttributeDenotation[];
+     (focus[],theAttributeDenotation[],AttributeDenotation##)
+       ->astOrSlotToLevelTwo
+       ->l2oden.ObjectSpecifications.append;
+     theAttributeDenotation[]->l2oden.ObjectSpecifications.Identity.mpsAst[];
+     nameGen->l2oden.name[];
+     l2oden[]->l2ast[]
+  #);
+
+ComputedObjectEvaluationCase: beta2abetaPrefix
+  (# name::(# do 'ComputedObjectEvaluation'->value[] #);
+     node: ^ComputedObjectEvaluation;
+     l2coev: ^interpreterbase.l2ComputedObjectEvaluation
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2ComputedObjectEvaluation[]).init->l2coev[];
+     (focus[],node.getObjectEvaluation,ObjectEvaluation##)
+       ->astOrSlotToLevelTwo
+       ->l2coev.Reference[];
+     l2coev[]->l2ast[]
+  #);
+
+ObjectReferenceCase: beta2abetaPrefix
+  (# name::(# do 'ObjectReference'->value[] #);
+     node: ^ObjectReference;
+     l2oref: ^interpreterbase.l2ObjectReference
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2ObjectReference[]).init->l2oref[];
+     (focus[],node.getReference,Reference##)
+       ->astOrSlotToLevelTwo
+       ->l2oref.Reference[];
+     l2oref[]->l2ast[]
+  #);
+
+StructureReferenceCase: beta2abetaPrefix
+  (# name::(# do 'StructureReference'->value[] #);
+     node: ^StructureReference;
+     theAttributeDenotation: ^AttributeDenotation;
+     l2sref: ^interpreterbase.l2StructureReference
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2StructureReference[]).init->l2sref[];
+     node.getAttributeDenotation->theAttributeDenotation[];
+     (focus[],theAttributeDenotation[],AttributeDenotation##)
+       ->astOrSlotToLevelTwo
+       ->l2sref.ObjectSpecifications.append;
+     theAttributeDenotation[]->l2sref.ObjectSpecifications.Identity.mpsAst[];
+     l2sref[]->l2ast[]
+  #);
+
+EvalListCase: beta2abetaPrefix
+  (# name::(# do 'EvalList'->value[] #);
+     node: ^EvalList;
+     theEvaluations: ^Evaluations;
+     l2evll: ^interpreterbase.l2EvalList
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2EvalList[]).init->l2evll[];
+     node.getEvaluations->theEvaluations[];
+     (focus[],theEvaluations[],l2evll.Evaluations[],
+     Evaluations##,Evaluation##)
+       ->astListOrSlotToLevelTwo;
+     theEvaluations[]->l2evll.Evaluations.Identity.mpsAst[];
+     l2evll[]->l2ast[]
+  #);
+
+DynamicItemGenerationCase: beta2abetaPrefix
+  (# name::(# do 'DynamicItemGeneration'->value[] #);
+     node: ^DynamicItemGeneration;
+     theObjectSpecification: ^ObjectSpecification;
+     l2dig: ^interpreterbase.l2DynamicItemGeneration
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2DynamicItemGeneration[]).init->l2dig[];
+     node.getObjectSpecification->theObjectSpecification[];
+     (focus[],theObjectSpecification[],ObjectSpecification##)
+       ->astOrSlotToLevelTwo
+       ->l2dig.ObjectSpecifications.append;
+     theObjectSpecification[]->l2dig.ObjectSpecifications.Identity.mpsAst[];
+     nameGen->l2dig.name[];
+     l2dig[]->l2ast[]
+  #);
+
+DynamicComponentGenerationCase: beta2abetaPrefix
+  (# name::(# do 'DynamicComponentGeneration'->value[] #);
+     node: ^DynamicComponentGeneration;
+     theObjectSpecification: ^ObjectSpecification;
+     l2dcg: ^interpreterbase.l2DynamicComponentGeneration
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2DynamicComponentGeneration[]).init->l2dcg[];
+     node.getObjectSpecification->theObjectSpecification[];
+     (focus[],theObjectSpecification[],ObjectSpecification##)
+       ->astOrSlotToLevelTwo
+       ->l2dcg.ObjectSpecifications.append;
+     theObjectSpecification[]->l2dcg.ObjectSpecifications.Identity.mpsAst[];
+     nameGen->l2dcg.name[];
+     l2dcg[]->l2ast[]
+  #);
+
+PrimitiveCase: beta2abetaPrefix
+  (# name::(# do 'Primitive'->value[] #)
+  do (* dummy-supported: type OK, semantics NoOp *)
+     (&ib.l2Primitive[]).init->l2ast[]
+  #);
+
+AddressCase: beta2abetaPrefix
+  (# name::(# do 'Address'->value[] #)
+  do (* dummy-supported: type OK, semantics NoOp *)
+     (&ib.l2Address[]).init->l2ast[]
+  #);
+
+RemoteCase: beta2abetaPrefix
+  (# name::(# do 'Remote'->value[] #);
+     node: ^Remote;
+     l2rem: ^interpreterbase.l2Remote
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2Remote[]).init->l2rem[];
+     (focus[],node.getAttributeDenotation,AttributeDenotation##)
+       ->astOrSlotToLevelTwo
+       ->l2rem.AttributeDenotation[];
+     node.getNameApl
+       ->asl2_NameApl
+       ->l2rem.NameApl[];
+     l2rem[]->l2ast[]
+  #);
+
+ComputedRemoteCase: beta2abetaPrefix
+  (# name::(# do 'ComputedRemote'->value[] #);
+     node: ^ComputedRemote;
+     theEvaluations: ^Evaluations;
+     l2crem: ^interpreterbase.l2ComputedRemote
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2ComputedRemote[]->l2crem[]).init;
+     node.getEvaluations->theEvaluations[];
+     (focus[],theEvaluations[],l2crem.Evaluations[],
+     Evaluations##,Evaluation##)
+       ->astListOrSlotToLevelTwo;
+     theEvaluations[]->l2crem.Evaluations.Identity.mpsAst[];
+     node.getNameApl
+       ->asl2_NameApl
+       ->l2crem.NameApl[];
+     l2crem[]->l2ast[]
+  #);
+
+IndexedCase: beta2abetaPrefix
+  (# name::(# do 'Indexed'->value[] #);
+     node: ^Indexed;
+     l2inxd: ^interpreterbase.l2Indexed
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2Indexed[]).init->l2inxd[];
+     (focus[],node.getAttributeDenotation,AttributeDenotation##)
+       ->astOrSlotToLevelTwo
+       ->l2inxd.AttributeDenotation[];
+     (focus[],node.getEvaluation,Evaluation##)
+       ->astOrSlotToLevelTwo
+       ->l2inxd.Evaluation[];
+     l2inxd[]->l2ast[]
+  #);
+
+ThisObjectCase: beta2abetaPrefix
+  (# name::(# do 'ThisObject'->value[] #);
+     node: ^ThisObject;
+     l2this: ^interpreterbase.l2ThisObject
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2ThisObject[]).init->l2this[];
+     (* in BETA we _always_ use the nameapl, the grammar forces us *)
+     node.getNameApl
+       ->asl2_NameApl
+       ->l2this.NameAplOpt[];
+     l2this[]->l2ast[]
+  #);
+
+RemotePrimitiveCase: beta2abetaPrefix
+  (# name::(# do 'RemotePrimitive'->value[] #)
+  do 'RemotePrimitive'->unsupported
+  #);
+
+EqExpCase: beta2abetaPrefix
+  (# name::(# do 'EqExp'->value[] #);
+     node: ^EqExp;
+     l2exp: ^interpreterbase.l2EqExp
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2EqExp[]).init->l2exp[];
+     (focus[],node.getOperand1,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getOperand2,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+LtExpCase: beta2abetaPrefix
+  (# name::(# do 'LtExp'->value[] #);
+     node: ^LtExp;
+     l2exp: ^interpreterbase.l2LtExp
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2LtExp[]).init->l2exp[];
+     (focus[],node.getOperand1,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getOperand2,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+LeExpCase: beta2abetaPrefix
+  (# name::(# do 'LeExp'->value[] #);
+     node: ^LeExp;
+     l2exp: ^interpreterbase.l2LeExp
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2LeExp[]).init->l2exp[];
+     (focus[],node.getOperand1,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getOperand2,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+GtExpCase: beta2abetaPrefix
+  (# name::(# do 'GtExp'->value[] #);
+     node: ^GtExp;
+     l2exp: ^interpreterbase.l2GtExp
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2GtExp[]).init->l2exp[];
+     (focus[],node.getOperand1,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getOperand2,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+GeExpCase: beta2abetaPrefix
+  (# name::(# do 'GeExp'->value[] #);
+     node: ^GeExp;
+     l2exp: ^interpreterbase.l2GeExp
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2GeExp[]).init->l2exp[];
+     (focus[],node.getOperand1,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getOperand2,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+NeExpCase: beta2abetaPrefix
+  (# name::(# do 'NeExp'->value[] #);
+     node: ^NeExp;
+     l2exp: ^interpreterbase.l2NeExp
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2NeExp[]).init->l2exp[];
+     (focus[],node.getOperand1,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getOperand2,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+PlusExpCase: beta2abetaPrefix
+  (# name::(# do 'PlusExp'->value[] #);
+     node: ^PlusExp;
+     l2exp: ^interpreterbase.l2PlusExp
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2PlusExp[]).init->l2exp[];
+     (focus[],node.getSimpleExp,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getTerm,Term##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+MinusExpCase: beta2abetaPrefix
+  (# name::(# do 'MinusExp'->value[] #);
+     node: ^MinusExp;
+     l2exp: ^interpreterbase.l2MinusExp
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2MinusExp[]).init->l2exp[];
+     (focus[],node.getSimpleExp,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getTerm,Term##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+OrExpCase: beta2abetaPrefix
+  (# name::(# do 'OrExp'->value[] #);
+     node: ^OrExp;
+     l2exp: ^interpreterbase.l2OrExp
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2OrExp[]).init->l2exp[];
+     (focus[],node.getSimpleExp,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getTerm,Term##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+XorExpCase: beta2abetaPrefix
+  (# name::(# do 'XorExp'->value[] #);
+     node: ^XorExp;
+     l2exp: ^interpreterbase.l2XorExp
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2XorExp[]).init->l2exp[];
+     (focus[],node.getSimpleExp,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getTerm,Term##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+unaryPlusExpCase: beta2abetaPrefix
+  (# name::(# do 'unaryPlusExp'->value[] #);
+     node: ^unaryPlusExp;
+     l2exp: ^interpreterbase.l2UnaryPlusExp
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2UnaryPlusExp[]).init->l2exp[];
+     (focus[],node.getTerm,Term##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand[];
+     l2exp[]->l2ast[]
+  #);
+
+unaryMinusExpCase: beta2abetaPrefix
+  (# name::(# do 'unaryMinusExp'->value[] #);
+     node: ^unaryMinusExp;
+     l2exp: ^interpreterbase.l2UnaryMinusExp
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2UnaryMinusExp[]).init->l2exp[];
+     (focus[],node.getTerm,Term##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand[];
+     l2exp[]->l2ast[]
+  #);
+
+TimesExpCase: beta2abetaPrefix
+  (# name::(# do 'TimesExp'->value[] #);
+     node: ^TimesExp;
+     l2exp: ^interpreterbase.l2TimesExp
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2TimesExp[]).init->l2exp[];
+     (focus[],node.getTerm,Term##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getFactor,Factor##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+RealDivExpCase: beta2abetaPrefix
+  (# name::(# do 'RealDivExp'->value[] #);
+     node: ^RealDivExp;
+     l2exp: ^interpreterbase.l2RealDivExp
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2RealDivExp[]).init->l2exp[];
+     (focus[],node.getTerm,Term##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getFactor,Factor##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+IntDivExpCase: beta2abetaPrefix
+  (# name::(# do 'IntDivExp'->value[] #);
+     node: ^IntDivExp;
+     l2exp: ^interpreterbase.l2IntDivExp
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2IntDivExp[]).init->l2exp[];
+     (focus[],node.getTerm,Term##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getFactor,Factor##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+ModExpCase: beta2abetaPrefix
+  (# name::(# do 'ModExp'->value[] #);
+     node: ^ModExp;
+     l2exp: ^interpreterbase.l2ModExp
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2ModExp[]).init->l2exp[];
+     (focus[],node.getTerm,Term##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getFactor,Factor##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+AndExpCase: beta2abetaPrefix
+  (# name::(# do 'AndExp'->value[] #);
+     node: ^AndExp;
+     l2exp: ^interpreterbase.l2AndExp
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2AndExp[]).init->l2exp[];
+     (focus[],node.getTerm,Term##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getFactor,Factor##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+PrimitiveExpCase: beta2abetaPrefix
+  (# name::(# do 'PrimitiveExp'->value[] #)
+  do 'PrimitiveExp'->unsupported
+  #);
+
+RepetitionSliceCase: beta2abetaPrefix
+  (# name::(# do 'RepetitionSlice'->value[] #);
+     node: ^RepetitionSlice;
+     l2rsli: ^interpreterbase.l2RepetitionSlice
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2RepetitionSlice[]).init->l2rsli[];
+     (focus[],node.getAttributeDenotation,AttributeDenotation##)
+       ->astOrSlotToLevelTwo
+       ->l2rsli.AttributeDenotation[];
+     (focus[],node.getLow,Evaluation##)
+       ->astOrSlotToLevelTwo
+       ->l2rsli.Low[];
+     (focus[],node.getHigh,Evaluation##)
+       ->astOrSlotToLevelTwo
+       ->l2rsli.High[];
+     l2rsli[]->l2ast[]
+  #);
+
+notExpCase: beta2abetaPrefix
+  (# name::(# do 'notExp'->value[] #);
+     node: ^notExp;
+     l2not: ^interpreterbase.l2NotExp
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2NotExp[]).init->l2not[];
+     (focus[],node.getfactor,Factor##)
+       ->astOrSlotToLevelTwo
+       ->l2not.operand[];
+     l2not[]->l2ast[]
+  #);
+
+noneExpCase: beta2abetaPrefix
+  (# name::(# do 'noneExp'->value[] #)
+  do (&ib.l2NoneExp[]).init->l2ast[]
+  #);
+
+UnaryPrimitiveExpCase: beta2abetaPrefix
+  (# name::(# do 'UnaryPrimitiveExp'->value[] #)
+  do 'UnaryPrimitiveExp'->unsupported
+  #);
+
+NamesCase:   beta2abetaPrefix
+  (# name::(# do 'Names'->value[] #)
+  do 'Names'->unexpected
+     (* done in PatternDecl,SimpleDecl,RepetitionDecl,
+      * VirtualDecl,BindingDecl,FinalDecl *)
+  #);
+
+NameDclCase: beta2abetaPrefix
+  (# name::(# do 'NameDcl'->value[] #)
+  do 'NameDcl'->unexpected
+     (* done in NamedIndex,LabelledImp,Names *)
+  #);
+
+NameAplCase: beta2abetaPrefix
+  (# name::(# do 'NameApl'->value[] #);
+     msg::(# do l2napl.value[]->quote->value[] #);
+     node: ^NameApl;
+     theNameAppl: ^NameAppl;
+     t: ^text;
+     l2napl: ^interpreterbase.l2NameApl
+  do mpsAst[]->node[];
+     (&ib.l2NameApl[]).init->l2napl[];
+     (node.getNameAppl->theNameAppl[]).getText->t[];
+     t->l2napl.value;
+     l2napl[]->l2ast[]
+  #);
+
+TextConstCase: beta2abetaPrefix
+  (# name::(# do 'TextConst'->value[] #);
+     msg::(# do l2tcst->quote->value[] #);
+     node: ^TextConst;
+     theString: ^String;
+     t: ^text;
+     l2tcst: ^interpreterbase.l2TextConst
+  do mpsAst[]->node[];
+     (&ib.l2TextConst[]).init->l2tcst[];
+     node.getString->theString[];
+     theString.getText->t[];
+     t.interpretEscapes; t->l2tcst.value;
+     l2tcst[]->l2ast[]
+  #);
+
+IntegerConstCase: beta2abetaPrefix
+  (# name::(# do 'IntegerConst'->value[] #);
+     msg::(# do l2icst->(&text[]->value[]).putint #);
+     node: ^IntegerConst;
+     theConst: ^Const;
+     l2icst: ^interpreterbase.l2IntegerConst;
+     l2rcst: ^interpreterbase.l2RealConst;
+     t: ^text
+  do mpsAst[]->node[];
+     node.getConst->theConst[];
+
+     theConst.getText->t[]; 
+     ' '->t.put; 0->t.pos; 
+     L: t.getNumber
+       (# softfail: 
+            (* we cannot make this a fatal error in the 
+             * parser by now, the normal error handling for 
+             * that in not in place; so we just make some
+             * noise and choose a default value *)
+            (# 
+            do t.lgth-1->t.lgth; (* delete the magic space again *)
+               'Could not parse the number "'->screen.puttext;
+               t[]->screen.puttext;
+               '"; defaulting to the integer value 0.'->screen.putline;
+               (&ib.l2IntegerConst[]).init->l2icst[];
+               l2icst[]->l2ast[];
+               leave L
+            #);
+          valueError::(# do softfail #);
+          syntaxError::(# do softfail #);
+          baseError::(# do softfail #);
+          integerValue::
+            (# 
+            do (&ib.l2IntegerConst[]).init->l2icst[];
+               value->l2icst.value;
+               l2icst[]->l2ast[]
+            #);
+          basedValue::<
+            (#
+            do (&ib.l2IntegerConst[]).init->l2icst[];
+               value->l2icst.value;
+               l2icst[]->l2ast[]
+            #);
+          realValue::<
+            (# 
+            do (&ib.l2RealConst[]).init->l2rcst[];
+               value->l2rcst.value;
+               l2rcst[]->l2ast[]
+            #)
+       #)
+  #);
+
+SimpleIndexCase: beta2abetaPrefix
+  (# name::(# do 'SimpleIndex'->value[] #);
+     node: ^SimpleIndex;
+     l2sinx: ^interpreterbase.l2SimpleIndex
+  do (*test-focus*) (focus[],mpsAst[])->checkFocus;
+     mpsAst[]->node[];
+     (&ib.l2SimpleIndex[]).init->l2sinx[];
+     (focus[],node.getEvaluation,Evaluation##)
+       ->astOrSlotToLevelTwo
+       ->l2sinx.Evaluation[];
+     l2sinx[]->l2ast[]
+  #);
+
+CodeItemsCase: beta2abetaPrefix
+  (# name::(# do 'CodeItems'->value[] #)
+  do 'CodeItems'->unsupported
+  #);
+
+CodeStringCase: beta2abetaPrefix
+  (# name::(# do 'CodeString'->value[] #)
+  do 'CodeString'->unsupported
+  #);
+
+CodeConstCase: beta2abetaPrefix
+  (# name::(# do 'CodeConst'->value[] #)
+  do 'CodeConst'->unsupported
+  #);
+
+ErrorDeclCase: beta2abetaPrefix
+  (# name::(# do 'ErrorDecl'->value[] #)
+  do 'ErrorDecl'->unsupported
+  #);
+
+ErrorImpCase: beta2abetaPrefix
+  (# name::(# do 'ErrorImp'->value[] #)
+  do 'ErrorImp'->unsupported
+  #)
+
+-- Beta2abetaPrivateInit:dopart --
+do 
+   DescriptorFormCase##->actions[DescriptorForm]##;
+   AttributesFormCase##->actions[AttributesForm]##;
+   ObjectDescriptorCase##->actions[ObjectDescriptor]##;
+   MainPartCase##->actions[MainPart]##;
+   AttributesCase##->actions[Attributes]##;
+   PrefixCase##->actions[Prefix]##;
+   PatternDeclCase##->actions[PatternDecl]##;
+   SimpleDeclCase##->actions[SimpleDecl]##;
+   RepetitionDeclCase##->actions[RepetitionDecl]##;
+   VirtualDeclCase##->actions[VirtualDecl]##;
+   BindingDeclCase##->actions[BindingDecl]##;
+   FinalDeclCase##->actions[FinalDecl]##;
+   VariablePatternCase##->actions[VariablePattern]##;
+   StaticItemCase##->actions[StaticItem]##;
+   DynamicItemCase##->actions[DynamicItem]##;
+   StaticComponentCase##->actions[StaticComponent]##;
+   DynamicComponentCase##->actions[DynamicComponent]##;
+   NamedIndexCase##->actions[NamedIndex]##;
+   ActionPartCase##->actions[ActionPart]##;
+   EnterPartCase##->actions[EnterPart]##;
+   DoPartCase##->actions[DoPart]##;
+   ExitPartCase##->actions[ExitPart]##;
+   ImperativesCase##->actions[Imperatives]##;
+   LabelledImpCase##->actions[LabelledImp]##;
+   ForImpCase##->actions[ForImp]##;
+   GeneralIfImpCase##->actions[GeneralIfImp]##;
+   SimpleIfImpCase##->actions[SimpleIfImp]##;
+   LeaveImpCase##->actions[LeaveImp]##;
+   RestartImpCase##->actions[RestartImp]##;
+   InnerImpCase##->actions[InnerImp]##;
+   SuspendImpCase##->actions[SuspendImp]##;
+   CodeImpCase##->actions[CodeImp]##;
+   AlternativesCase##->actions[Alternatives]##;
+   AlternativeCase##->actions[Alternative]##;
+   SelectionsCase##->actions[Selections]##;
+   CaseSelectionCase##->actions[CaseSelection]##;
+   ElsePartCase##->actions[ElsePart]##;
+   EvaluationsCase##->actions[Evaluations]##;
+   AssignmentEvaluationCase##->actions[AssignmentEvaluation]##;
+   InsertedItemCase##->actions[InsertedItem]##;
+   ObjectDenotationCase##->actions[ObjectDenotation]##;
+   ComputedObjectEvaluationCase##->actions[ComputedObjectEvaluation]##;
+   ObjectReferenceCase##->actions[ObjectReference]##;
+   StructureReferenceCase##->actions[StructureReference]##;
+   EvalListCase##->actions[EvalList]##;
+   DynamicItemGenerationCase##->actions[DynamicItemGeneration]##;
+   DynamicComponentGenerationCase##->actions[DynamicComponentGeneration]##;
+   PrimitiveCase##->actions[Primitive]##;
+   AddressCase##->actions[Address]##;
+   RemoteCase##->actions[Remote]##;
+   ComputedRemoteCase##->actions[ComputedRemote]##;
+   IndexedCase##->actions[Indexed]##;
+   ThisObjectCase##->actions[ThisObject]##;
+   RemotePrimitiveCase##->actions[RemotePrimitive]##;
+   EqExpCase##->actions[EqExp]##;
+   LtExpCase##->actions[LtExp]##;
+   LeExpCase##->actions[LeExp]##;
+   GtExpCase##->actions[GtExp]##;
+   GeExpCase##->actions[GeExp]##;
+   NeExpCase##->actions[NeExp]##;
+   PlusExpCase##->actions[PlusExp]##;
+   MinusExpCase##->actions[MinusExp]##;
+   OrExpCase##->actions[OrExp]##;
+   XorExpCase##->actions[XorExp]##;
+   unaryPlusExpCase##->actions[unaryPlusExp]##;
+   unaryMinusExpCase##->actions[unaryMinusExp]##;
+   TimesExpCase##->actions[TimesExp]##;
+   RealDivExpCase##->actions[RealDivExp]##;
+   IntDivExpCase##->actions[IntDivExp]##;
+   ModExpCase##->actions[ModExp]##;
+   AndExpCase##->actions[AndExp]##;
+   PrimitiveExpCase##->actions[PrimitiveExp]##;
+   RepetitionSliceCase##->actions[RepetitionSlice]##;
+   notExpCase##->actions[notExp]##;
+   noneExpCase##->actions[noneExp]##;
+   UnaryPrimitiveExpCase##->actions[UnaryPrimitiveExp]##;
+   NamesCase##->actions[Names]##;
+   NameDclCase##->actions[NameDcl]##;
+   NameAplCase##->actions[NameApl]##;
+   TextConstCase##->actions[TextConst]##;
+   IntegerConstCase##->actions[IntegerConst]##;
+   SimpleIndexCase##->actions[SimpleIndex]##;
+   CodeItemsCase##->actions[CodeItems]##;
+   CodeStringCase##->actions[CodeString]##;
+   CodeConstCase##->actions[CodeConst]##;
+   ErrorDeclCase##->actions[ErrorDecl]##;
+   ErrorImpCase##->actions[ErrorImp]##
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

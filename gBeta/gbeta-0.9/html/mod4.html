@@ -1,0 +1,181 @@
+
+
+
+
+
+
+
+<HTML>
+<HEAD><TITLE>gbeta Modularization:: A Concrete Example (continued)</TITLE></HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF"
+  LINK="#0000FF" VLINK="#800080" ALINK="#FF00FF">
+<TABLE WIDTH="100%">
+<TR><TD ALIGN="right">
+<TABLE><TR ALIGN="center">
+  <TD><A HREF="modularization_index3.html" TARGET="display"><IMG SRC="left.gif"></A></TD>
+  <TD><A HREF="modularization_index5.html" TARGET="display"><IMG SRC="right.gif"></A></TD>
+</TR></TABLE></TD></TR>
+<TR><TD ALIGN="left"><H1>Modularization: A Concrete Example (continued)</H1></TD></TR>
+</TABLE>
+<P><HR></P>
+<TABLE><TR><TD WIDTH="25%">&nbsp;</TD><TD WIDTH="50%">
+
+<P>
+In the example which started on the previous section there were
+references to three fragments (by means of <TT>INCLUDE</TT>
+properties) that we have not yet shown.  They provide a hierarchy of
+patterns for <TT>ordered</TT> entities.  The basic <TT>ordered</TT>
+pattern is defined in the file <TT>ordered.gb</TT>, and it looks like
+this:
+</P>
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE>(* FILE ordered *)
+ORIGIN 'betaenv';
+BODY 'orderedImpl'
+
+-- lib:attributes --
+
+ordered:
+  (# &lt;&lt;SLOT OrderedLib:attributes&gt;&gt;;
+     cmpType:&lt; ordered :&gt; this(ordered);
+     init:&lt; (# do INNER exit this(ordered)[] #);
+     lessEqual:&lt; 
+       (# other: ^cmpType; b: @boolean
+       enter other[] 
+       do INNER 
+       exit b
+       #);
+     greaterEqual: 
+       (# b: @boolean enter lessEqual->b exit not b #);
+     max:
+       (# other,maxi: ^cmpType
+       enter other[]
+       &lt;&lt;SLOT OrderedMax:dopart&gt;&gt;
+       exit maxi[]
+       #)
+  exit this(ordered)[]
+  #)</PRE></TD></TR>
+  </TABLE>
+</P>
+
+<P>
+The slot <TT>OrderedMax</TT> appears where the implementation of the
+<TT>max</TT> method would be; this implementation has been taken out
+and placed in another file, in order to illustrate how the interface
+and the implementation of an entity can be separated from each other.
+The implementation fragment looks like this:
+</P>
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE>(* FILE orderedImpl *)
+ORIGIN 'ordered'
+
+-- OrderedMax:dopart --
+do  
+   (if other[]->greaterEqual then 
+       other[]->maxi[]
+    else 
+       this(ordered)[]->maxi[]
+   if)</PRE></TD></TR>
+  </TABLE>
+</P>
+
+<P>
+The <TT>ordered</TT> pattern is specialized in two directions,
+to <TT>text</TT> and to <TT>number</TT> which is itself specialized to
+<TT>int</TT> and to <TT>float</TT>:
+</P>
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE>(* FILE orderedText *)
+ORIGIN 'betaenv';
+INCLUDE 'ordered'
+
+-- lib:attributes --
+
+text: ordered
+  (# &lt;&lt;SLOT TextLib:attributes&gt;&gt;;
+     cmpType::text;
+     init::(# enter value #);
+     lessEqual::(# do (other.value&lt;=value) -> b #);
+     value: @string
+  #)</PRE></TD></TR>
+  </TABLE>
+</P>
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE>(* FILE orderedNumber *)
+ORIGIN 'betaenv';
+INCLUDE 'ordered'
+
+-- lib:attributes --
+
+number: ordered
+  (# &lt;&lt;SLOT NumberLib:attributes&gt;&gt;;
+     cmpType::number;
+     lessEqual::(# do (other.asReal&lt;=asReal)->b #);
+     asReal:&lt; (# r: @real do INNER exit r #);
+     asInteger:&lt; (# i: @integer do INNER exit i #);
+  #);
+
+int: number
+  (# &lt;&lt;SLOT IntLib:attributes&gt;&gt;;
+     init::(# enter value #);
+     asReal::(# do value->r #);
+     asInteger::(# do value->i #);
+     value: @integer
+  #);
+
+float: number
+  (# &lt;&lt;SLOT FloatLib:attributes&gt;&gt;;
+     init::(# enter value #);
+     asReal::(# do value->r #);
+     asInteger::(# do value->i #);
+     value: @real
+  #)</PRE></TD></TR>
+  </TABLE>
+</P>
+
+<P>
+All these patterns are made available in our program (in the file
+<TT>orderedUser.gb</TT>) by means of the <TT>INCLUDE</TT> properties,
+and the implementation in the file <TT>orderedImpl.gb</TT> was brought
+along because of the <TT>BODY</TT> property in <TT>ordered.gb</TT>.
+Note that no files include <TT>orderedImpl.gb</TT>, so the static
+analysis of the other files cannot depend on the contents of
+<TT>orderedImpl.gb</TT>; in other words, nobody depends on the
+implementation of the <TT>max</TT> method.  
+</P>
+
+<P>
+With these patterns the system is almost complete.  The only missing
+part is that the main program calls an <TT>asString</TT> method on an
+<TT>ordered</TT> object, and we have no such method available in the
+declarations so far.  The <A HREF="modularization_index5.html" TARGET="display">next</A> section explains how we can
+provide such a method unintrusively.
+</P>
+
+</TD><TD WIDTH="20%">&nbsp;</TD></TR></TABLE>
+<P><HR></P>
+<SMALL>
+  <I>
+    <CENTER>
+      <STRONG>Signed by: </STRONG>
+      <A HREF="mailto:eernst@cs.auc.dk">eernst@cs.auc.dk</A>.
+      Last Modified:  3-Jul-01
+<BR>
+    </CENTER>
+  </I>
+</SMALL>
+</BODY>
+</HTML>
+

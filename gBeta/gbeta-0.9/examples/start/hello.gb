@@ -1,0 +1,6 @@
+(* FILE hello.gb *)
+-- betaenv:descriptor --
+(#
+do 'Hello, world!\n'->stdio
+#)
+

@@ -1,0 +1,23 @@
+ORIGIN '../attden';
+INCLUDE '../attribute';
+BODY 'theenclbody';
+--- CompilerLib: Attributes ---
+(* Denote the enclosing object of the object or pattern denoted by
+ * prec[].  In case of objects, this is done at run time by indirect
+ * lookup of the object's enclosing object.  In case of patterns,
+ * this is performed at compile time by applying a backlevel to that
+ * pattern.  In case of virtual patterns, this does not work yet.
+ * And in case of pattern variables, it is trivial  :)
+ *)
+theEncl: AttributeDenotation
+  (#
+     <<SLOT TheEnclLib: Attributes>>;
+     sd: @SimpleDecl;
+     type:: theEncl;
+     copy:: (# do toadd[]->prec.copy->cpy->ad[] #);
+     getcexpr:: (# r: ^text <<SLOT theEnclGetCexpr: DoPart>> #);
+     finalAd: ^AttributeDenotation
+  enter prec[]
+  <<SLOT theEnclDoPart: DoPart>>
+  exit finalAd[]
+  #);

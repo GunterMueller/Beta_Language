@@ -1,0 +1,586 @@
+(* FILE "./private/basicinterplib3body.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: basicinterplib3body.bet,v 1.11 2001/07/01 21:44:10 eernst Exp $
+ *)
+
+ORIGIN 'basicinterplib';
+INCLUDE '~beta/basiclib/file';
+INCLUDE '~beta/basiclib/random';
+INCLUDE '~beta/containers/sets';
+INCLUDE '~beta/containers/arrayContainer';
+INCLUDE '../gbeta2abeta/gbeta2abeta';
+INCLUDE '../beta2abeta/beta2abeta';
+INCLUDE '../beta2abeta/astutil';
+INCLUDE '../beta2abeta/fragmentGraph';
+INCLUDE '../ibetaIter';
+INCLUDE 'ibetaStaticlib';
+INCLUDE 'ibetaSlicelib';
+INCLUDE 'ibetaOnelib';
+INCLUDE 'interplib';
+MDBODY default 'basicinterplib3body_unix' nti 'basicinterplib3body_nt'
+
+-- PredefinedPrivateInit:dopart --
+do 
+   (* initialize the ultimately outermost static level *)
+   0->staticLevel;
+   NONE->enclosing[];
+   
+   objectDcl.init;    objectDcl[]   ->nameSpaceInsert->objectDcl.offset;
+   booleanDcl.init;   booleanDcl[]  ->nameSpaceInsert->booleanDcl.offset;
+   charDcl.init;      charDcl[]     ->nameSpaceInsert->charDcl.offset;
+   integerDcl.init;   integerDcl[]  ->nameSpaceInsert->integerDcl.offset;
+   realDcl.init;      realDcl[]     ->nameSpaceInsert->realDcl.offset;
+   stringDcl.init;    stringDcl[]   ->nameSpaceInsert->stringDcl.offset;
+   componentDcl.init; componentDcl[]->nameSpaceInsert->componentDcl.offset;
+   semaphoreDcl.init; semaphoreDcl[]->nameSpaceInsert->semaphoreDcl.offset;
+
+   boolValueDcl.init;   (* 1->boolValueDcl.offset; ->compat. w. part.obj? *)
+   charValueDcl.init;   (* 1->charValueDcl.offset; ->compat. w. part.obj? *)
+   intValueDcl.init;    (* 1->intValueDcl.offset; ->compat. w. part.obj? *)
+   realValueDcl.init;   (* 1->realValueDcl.offset; ->compat. w. part.obj? *)
+   stringValueDcl.init; (* 1->stringValueDcl.offset; ->compat. w. part.obj? *)
+   lengthDcl.init;
+   atDcl.init;
+   forkDcl.init;
+   killDcl.init;
+   suspendDcl.init;
+   statusDcl.init;
+   semVDcl.init;
+   semPDcl.init;
+   semTryPDcl.init;
+   semCountDcl.init;
+   
+   rangeDcl.init;
+   extendDcl.init;
+   newDcl.init;
+   
+   falseDcl.init;         falseDcl[]     ->nameSpaceInsert;
+   trueDcl.init;          trueDcl[]      ->nameSpaceInsert;
+   
+   stdioDcl.init;         stdioDcl[]     ->nameSpaceInsert;
+   osSystemDcl.init;      osSystemDcl[]  ->nameSpaceInsert;
+   evalDcl.init;          evalDcl[]      ->nameSpaceInsert;
+      
+   (* ----- Basic Patterns ----- *)
+   
+   (* provide name-decls with names *)
+   'object'->objectDcl.value;
+   'boolean'->booleanDcl.value;
+   'char'->charDcl.value;
+   'integer'->integerDcl.value;
+   'real'->realDcl.value;
+   'string'->stringDcl.value;
+   'component'->componentDcl.value;
+   'semaphore'->semaphoreDcl.value;
+   
+   (* .. and "declarations" *)
+   objectDNode[]    ->    objectDcl.decl[];
+   booleanDNode[]   ->   booleanDcl.decl[];
+   charDNode[]      ->      charDcl.decl[];
+   integerDNode[]   ->   integerDcl.decl[];
+   realDNode[]      ->      realDcl.decl[];
+   stringDNode[]    ->    stringDcl.decl[];
+   componentDNode[] -> componentDcl.decl[];
+   semaphoreDNode[] -> semaphoreDcl.decl[];
+   
+   (* .. and "scope" *)
+   predefinedNames[]                     
+     ->    objectDcl.scope[]
+     ->   booleanDcl.scope[]
+     ->      charDcl.scope[]
+     ->   integerDcl.scope[]
+     ->      realDcl.scope[]
+     ->    stringDcl.scope[]
+     -> componentDcl.scope[]
+     -> semaphoreDcl.scope[];
+
+   (* .. and set up their static types *)
+   (predefinedSyntax[],patternTypeKind)
+     ->objectSType.init;
+   objectSType.makeKnownStatically;
+
+   (predefinedSyntax[],patternTypeKind)
+     ->booleanSType.init;
+   predefinedSyntax[]
+     ->(&booleanStaticSlice[]).init
+     ->booleanSType.insert;
+   booleanSType.makeKnownStatically;
+
+   (predefinedSyntax[],patternTypeKind)
+     ->charSType.init;
+   predefinedSyntax[]
+     ->(&charStaticSlice[]).init
+     ->charSType.insert;
+   charSType.makeKnownStatically;
+
+   (predefinedSyntax[],patternTypeKind)
+     ->integerSType.init;
+   predefinedSyntax[]
+     ->(&integerStaticSlice[]).init
+     ->integerSType.insert;
+   integerSType.makeKnownStatically;
+
+   (predefinedSyntax[],patternTypeKind)
+     ->realSType.init;
+   predefinedSyntax[]
+     ->(&realStaticSlice[]).init
+     ->realSType.insert;
+   realSType.makeKnownStatically;
+
+   (predefinedSyntax[],patternTypeKind)
+     ->stringSType.init;
+   predefinedSyntax[]
+     ->(&stringStaticSlice[]).init
+     ->stringSType.insert;
+   stringSType.makeKnownStatically;
+
+   (predefinedSyntax[],patternTypeKind)
+     ->componentSType.init;
+   predefinedSyntax[]
+     ->(&componentStaticSlice[]).init
+     ->componentSType.insert;
+   componentSType.makeKnownStatically;
+
+   (predefinedSyntax[],patternTypeKind)
+     ->semaphoreSType.init;
+   predefinedSyntax[]
+     ->(&semaphoreStaticSlice[]).init
+     ->semaphoreSType.insert;
+   semaphoreSType.makeKnownStatically;
+
+   (* ----- Names in basic slices ----- *)
+   
+   (* provide the name-decls with names *)
+   'value'   ->   boolValueDcl.value;
+   'value'   ->   charValueDcl.value;
+   'value'   ->    intValueDcl.value;
+   'value'   ->   realValueDcl.value;
+   'value'   -> stringValueDcl.value;
+   'length'  ->      lengthDcl.value;
+   'at'      ->          atDcl.value;
+   'fork'    ->        forkDcl.value;
+   'kill'    ->        killDcl.value;
+   '_suspend'->     suspendDcl.value; (* !!! 'suspend' is a reserved word *)
+   'status'  ->      statusDcl.value;
+   'v'       ->        semVDcl.value;
+   'p'       ->        semPDcl.value;
+   'tryp'    ->     semTryPDcl.value;
+   'count'   ->    semCountDcl.value;
+   
+   (* .. and "declarations" *)
+   boolValueDNode[]    ->    boolValueDcl.decl[];
+   charValueDNode[]    ->    charValueDcl.decl[];
+   intValueDNode[]     ->     intValueDcl.decl[];
+   realValueDNode[]    ->    realValueDcl.decl[];
+   stringValueDNode[]  ->  stringValueDcl.decl[];
+   lengthDNode[]       ->       lengthDcl.decl[];
+   atDNode[]           ->           atDcl.decl[];
+   forkDNode[]         ->         forkDcl.decl[];
+   killDNode[]         ->         killDcl.decl[];
+   suspendDNode[]      ->      suspendDcl.decl[];
+   statusDNode[]       ->       statusDcl.decl[];
+   semVDNode[]         ->         semVDcl.decl[];
+   semPDNode[]         ->         semPDcl.decl[];
+   semTryPDNode[]      ->      semTryPDcl.decl[];
+   semCountDNode[]     ->     semCountDcl.decl[];
+   
+   (* .. and "scope" *)
+   booleanSNode.init;
+   booleanSNode[]      ->   boolValueDcl.scope[];
+   
+   charSNode.init;   
+   charSNode[]         ->   charValueDcl.scope[];
+   
+   integerSNode.init;
+   integerSNode[]      ->    intValueDcl.scope[];
+   
+   realSNode.init;   
+   realSNode[]         ->   realValueDcl.scope[];
+   
+   stringSNode.init; 
+   stringSNode[]       -> stringValueDcl.scope[]
+                       ->      lengthDcl.scope[]
+                       ->          atDcl.scope[];
+   
+   componentSNode.init;
+   componentSNode[]    ->        forkDcl.scope[]
+                       ->        killDcl.scope[]
+                       ->     suspendDcl.scope[]
+                       ->      statusDcl.scope[];
+   
+   semaphoreSNode.init;
+   semaphoreSNode[]    ->        semVDcl.scope[]
+                       ->        semPDcl.scope[]
+                       ->     semTryPDcl.scope[]
+                       ->    semCountDcl.scope[];
+   
+   (* .. and set up their types *)
+   (predefinedSyntax[],  boolValueDcl[]) ->   boolValueSType.init;
+   (predefinedSyntax[],  charValueDcl[]) ->   charValueSType.init;
+   (predefinedSyntax[],   intValueDcl[]) ->    intValueSType.init;
+   (predefinedSyntax[],  realValueDcl[]) ->   realValueSType.init;
+   (predefinedSyntax[],stringValueDcl[]) -> stringValueSType.init;
+   (predefinedSyntax[],     lengthDcl[]) ->      lengthSType.init;
+   (predefinedSyntax[],         atDcl[]) ->          atSType.init;
+   (predefinedSyntax[],       forkDcl[]) ->        forkSType.init;
+   (predefinedSyntax[],       killDcl[]) ->        killSType.init;
+   (predefinedSyntax[],    suspendDcl[]) ->     suspendSType.init;
+   (predefinedSyntax[],     statusDcl[]) ->      statusSType.init;
+   (predefinedSyntax[],       semVDcl[]) ->        semVSType.init;
+   (predefinedSyntax[],       semPDcl[]) ->        semPSType.init;
+   (predefinedSyntax[],    semTryPDcl[]) ->     semTryPSType.init;
+   (predefinedSyntax[],   semCountDcl[]) ->    semCountSType.init;
+   
+   (* ----- Repetitions ----- *)
+     
+   (* provide special repetition name-decls with names *)
+   'range'  ->   rangeDcl.value;
+   'extend' ->  extendDcl.value;
+   'new'    ->     newDcl.value;
+   
+   (* .. and "declarations" *)
+   rangeDNode[]  ->  rangeDcl.decl[];
+   extendDNode[] -> extendDcl.decl[];
+   newDNode[]    ->    newDcl.decl[];
+   
+   (* .. and "scope" *)
+   predefinedNames[]
+     ->extendDcl.scope[]
+     ->rangeDcl.scope[]
+     ->newDcl.scope[];
+   
+   (* ----- Boolean Literals ----- *)
+   
+   (* provide names *)
+   'false' -> falseDcl.value;
+   'true'  ->  trueDcl.value;
+   
+   (* .. and "declarations" *)
+   falseDNode[] -> falseDcl.decl[];
+   trueDNode[]  ->  trueDcl.decl[];
+   
+   (* .. and "scope" *)
+   predefinedNames[]
+     ->falseDcl.scope[]
+     ->trueDcl.scope[];
+   
+   (* .. and set up their types *)
+   (predefinedSyntax[], falseDcl[]) -> falseSType.init;
+   (predefinedSyntax[],  trueDcl[]) ->  trueSType.init;
+   
+   (* ----- Pragmatic Entities ----- *)
+   
+   'stdio'->stdioDcl.value;
+   stdioDNode[]->stdioDcl.decl[];
+   predefinedNames[]->stdioDcl.scope[];
+   
+   'ossystem'->osSystemDcl.value;
+   osSystemDNode[]->osSystemDcl.decl[];
+   predefinedNames[]->osSystemDcl.scope[];
+   
+   'eval'->evalDcl.value;
+   evalDNode[]->evalDcl.decl[];
+   predefinedNames[]->evalDcl.scope[]
+
+-- PredefinedPrivateRepNameLookup:dopart --
+do
+   (if true
+    // (name[],rangeDcl[])->this(interpreterBase).private.theNameEqual then 
+       rangeDcl[]->l2ndcl[]
+    // (name[],extendDcl[])->this(interpreterBase).private.theNameEqual then 
+       extendDcl[]->l2ndcl[]
+    // (name[],newDcl[])->this(interpreterBase).private.theNameEqual then 
+       newDcl[]->l2ndcl[]
+   if)
+
+-- StdioEntityGetEnterIter:dopart --
+do
+   &enterOnce
+   (# l0trs: ^l0TransientString
+   do (thrd[],unwind##,l0tr[])->transient_many2string->l0trs[];
+      l0trs->screen.puttext
+   #)[]->ni[]
+
+-- StdioEntityGetExitIter:dopart --
+do
+   &exitOnce
+   (# l0trs: ^l0TransientString
+   do &l0TransientString[]->l0trs[]->l0tr[];
+      NONE->l0tr.usageAst[];
+      keyboard.getline->l0trs
+   #)[]->xi[]
+
+-- OSSystemEntityExecute:dopart --
+do
+   ('Attempt to invoke osSystem without an input'
+   ,'Use "..->osSystem" or "..->osSystem->.."'
+   ,predefinedSyntax.predefinedNames.private.osSystemDcl[])->staticError
+
+-- OSSystemEntityGetExitIter:dopart --
+do
+   ('Attempt to invoke osSystem without an input'
+   ,'Use "..->osSystem" or "..->osSystem->.."'
+   ,predefinedSyntax.predefinedNames.private.osSystemDcl[])->staticError
+
+-- EvalEntityExecute:dopart --
+do
+   ('Attempt to invoke \'eval\' without an input'
+   ,'Use "..->eval" or "..->eval->.."'
+   ,predefinedSyntax.predefinedNames.private.evalDcl[])->staticError
+
+-- EvalEntityGetEnterIter:dopart --
+do
+   (* !!! Consider the error handling here *)
+   &enterOnce
+   (# l0trs: ^l0TransientString;
+   do (thrd[],unwind##,l0tr[])->transient_many2string->l0trs[];
+      (l0trs).reset;
+      L: (thrd[],l0trs,thrd.private.currentImp[])->parseAndInterpret
+      (# parseError::
+           (# do 'Parse error! Command not executed.'->putline; leave L #);
+         noContextWarning::
+           (# do 'Could not find the dynamic context!'->internalError #);
+         leavingWarning::
+           (* !!! wouldn`t it be natural to allow this? *)
+           (# do 'attempt to leave/restart out of the "eval"'->putline #);
+         errorWarning::
+           (# do 'A run-time error occurred within the "eval"'->putline #);
+         killWarning::
+           (# do 'The thread was killed during the "eval"'->putline #)
+      #)
+   #)[]->ni[]
+
+-- EvalEntityGetExitIter:dopart --
+do
+   ('Attempt to invoke \'eval\' without an input'
+   ,'Use "..->eval" or "..->eval->.."'
+   ,predefinedSyntax.predefinedNames.private.evalDcl[])->staticError
+   
+-- EvalEntityGetEnterExitIter:dopart --
+do
+   (* !!! consider the error handling here *)
+   (# saveErrorStream: ^stream;
+      output: ^text
+   do 
+      (* set up 'output' to receive the output from the evaluation *)
+      &text[]->output[];
+      
+      (* create an enterIter which parses and runs the statement *)
+      &enterOnce
+      (# l0trs: ^l0TransientString
+      do (thrd[],unwind##,l0tr[])->transient_many2string->l0trs[];
+         (l0trs).reset;
+         'basicinterplib3body.bet: save/restore errorStream'->notyet; (* !!! *)
+         L: (thrd[],l0trs,thrd.private.currentImp[])->parseAndInterpret
+         (# parseError::
+              (# do 'Parse error! Command not executed.'->output.putline; 
+                 leave L 
+              #);
+            noContextWarning::
+              (# do 'Could not find the dynamic context!'->internalError #);
+            leavingWarning::
+              (* !!! wouldn`t it be natural to allow this? *)
+              (# do 'attempt to leave/restart out of the "eval"'
+                   ->output.putline 
+              #);
+            errorWarning::
+              (# do 'A run-time error occurred within the "eval"'
+                   ->output.putline
+              #);
+            killWarning::
+              (# do 'The thread was killed during the "eval"'
+                   ->output.putline 
+              #)
+         #)
+      #)[]->ni[];
+      evalEntity[]->ni.usageEntity[];
+      
+      (* create an exitIter which delivers the resulting output *)
+      &exitOnce
+      (# l0trs: ^l0TransientString
+      do &l0TransientString[]->l0trs[]->l0tr[];
+         NONE->l0tr.usageAst[];
+         output[]->l0trs.value[];
+         false->l0trs.singleton
+      #)[]->xi[];
+      osSystemEntity[]->xi.usageEntity[]
+   #)
+
+-- PredefinedSubstancePrivateInit:dopart --
+do
+   (* ----- initialize the outermost level of the run-time universe ----- *)
+   
+   (* basic patterns *)
+   (predefinedSyntax.predefinedNames.private.objectDcl[],objectPattern.init)
+     ->predefinedMapInsert;
+   
+   (predefinedSyntax.predefinedNames.private.booleanDcl[],booleanPattern.init)
+     ->predefinedMapInsert;
+   (&booleanPatternSlice[]).init
+     ->booleanPattern.private.slices.append;
+   
+   (predefinedSyntax.predefinedNames.private.charDcl[],charPattern.init)
+     ->predefinedMapInsert;
+   (&charPatternSlice[]).init
+     ->charPattern.private.slices.append;
+   
+   (predefinedSyntax.predefinedNames.private.integerDcl[],integerPattern.init)
+     ->predefinedMapInsert;
+   (&integerPatternSlice[]).init
+     ->integerPattern.private.slices.append;
+   
+   (predefinedSyntax.predefinedNames.private.realDcl[],realPattern.init)
+     ->predefinedMapInsert;
+   (&realPatternSlice[]).init
+     ->realPattern.private.slices.append;
+   
+   (predefinedSyntax.predefinedNames.private.stringDcl[]
+   ,stringPattern.init)
+     ->predefinedMapInsert;
+   (&stringPatternSlice[]).init
+     ->stringPattern.private.slices.append;
+   
+   (predefinedSyntax.predefinedNames.private.componentDcl[]
+   ,componentPattern.init)
+     ->predefinedMapInsert;
+   (&componentPatternSlice[]).init
+     ->componentPattern.private.slices.append;
+   
+   (predefinedSyntax.predefinedNames.private.semaphoreDcl[]
+   ,semaphorePattern.init)
+     ->predefinedMapInsert;
+   (&semaphorePatternSlice[]).init
+     ->semaphorePattern.private.slices.append;
+   
+   (* boolean literals *)
+   (predefinedSyntax.predefinedNames.private.falseDcl[]
+   ,false->falseEntity.init)
+     ->predefinedMapInsert;
+   (predefinedSyntax.predefinedNames.private.trueDcl[]
+   ,true->trueEntity.init)
+     ->predefinedMapInsert;
+   
+   (* pragmatics *)
+   (predefinedSyntax.predefinedNames.private.stdioDcl[]
+   ,stdioEntity.init)
+     ->predefinedMapInsert;
+   
+   (predefinedSyntax.predefinedNames.private.osSystemDcl[]
+   ,osSystemEntity.init)
+     ->predefinedMapInsert;
+   
+   (predefinedSyntax.predefinedNames.private.evalDcl[]
+   ,evalEntity.init)
+     ->predefinedMapInsert
+
+-- InterpreterBasePrivateInit:dopart --
+do
+   <<SLOT InterpreterBasePrivateInitSetAll:descriptor>>;
+   (* by default, static errors are fatal *)
+   failure->staticErrorTermCode;
+   (* the SPACE character is used for always-active observation *)
+   true->observeSelector[' '+1];
+   (* initialize the special attributes used for circularity checks *)
+   freshAttribute.init;
+   underConstructionAttribute.init;
+   (* set up support for a somewhat random thread switch method *)
+   (5,15)->ignuin->chooseStepCount.init
+
+-- ChooseStepCountInit:dopart --
+do
+   (* set up a repetition of 'size' uniformly distributed random
+    * integers between 2 and 'maxPause'; they will be used in a 
+    * cyclic order to decide how many steps to take before switching
+    * to the next thread of execution *)
+   (for i:size repeat (2,maxPause)->ignuin->pauseCounts[i] for)
+   
+-- IsTheTextType:dopart --
+do
+   (if theTextDecl[]=NONE then 
+       (* no 'text' decl found, so no magic coercion available *)
+       false->value
+    else
+       (* since this is already an ugly hack we make an ugly test, too;
+        * the problem is that the types have all different points 
+        * of view on the 'text' pattern so we cannot just use 'equal' 
+        * on the 'sptype', that would violate the "always from the 
+        * same world" invariant and hence give wrong results; the only
+        * thing we can do is to look at the concrete syntax in 'sptype'
+        * and check that there are two slices and the most specific one
+        * is the right hand side of 'theTextDecl' *)
+       (if sptype.slices.empty then 
+           (* the Mjolner 'text' pattern contains two slices, so.. *)
+           false->value
+        else
+           (* the most specific slice must be 'theTextDecl'; if it is 
+            * then the fact that 'text' is a simple pattern ensures 
+            * the the superpattern is a constant (namely 'stream');
+            * NB: this breaks if somebody edits betaenv.bet "enough",
+            * just like it would break the compiler(!) *)
+           (# csSlice: ^compositeStaticSlice;
+              l2mpar: ^l2MainPart
+           do (if sptype.slices.firstLink##<=compositeStaticSlice## then
+                  sptype.slices.firstLink[]->csSlice[];
+                  csSlice.l2mpar[]->l2mpar[];
+                  (if (l2mpar.father[]<>NONE) and 
+                      (l2mpar.father.father[]<>NONE) then 
+                      (if l2mpar.father.father##<=l2AttributeDecl## then 
+                          (* yes, 'l2mpar' is the RHS of a declaration *)
+                          (l2mpar.father.father[]=theTextDecl.decl.location)
+                            ->value
+                       else
+                          (* 'l2mpar' not RHS of decl., e.g. inserted item *)
+                          false->value (* or internalerror, rather? *)
+                      if)
+                   else
+                      (* a main part should be part of an object.desc., 
+                       * then at least the predef. scope should be available
+                       * as the second father, so.. *)
+                      'Bad syntax tree around a main part'
+                        ->internalError
+                  if)    
+               else
+                  (* the 'text' type does have a composite static slice first *)
+                  false->value;
+              if)
+           #)
+       if)
+   if)
+   
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

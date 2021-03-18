@@ -1,0 +1,182 @@
+ORIGIN '../evaluationlib';
+INCLUDE 'basic';
+INCLUDE 'qua';
+INCLUDE 'reduceexit';
+INCLUDE '../attden';
+INCLUDE '../eelib';
+INCLUDE '../getcexprlib';
+INCLUDE '../namebitch';
+INCLUDE '../ad/special';
+INCLUDE '../ad/tempden';
+INCLUDE '../ad/theencl';
+INCLUDE '../att/stringdecl';
+BODY 'assrepetition';
+--- AssignmentEvaluationReduce: ObjectDescriptor ---
+(#
+   checkrep: <<SLOT AssignmentEvaluationCheckrep: ObjectDescriptor>>;
+   lred: @reduceexit;
+   rred: @rs.reduce;
+   red: ^reducefn;
+   ltype,rtype: @integer;
+   lfac,rfac: ^Factor;
+   thisenter,thisexit,newev: ^Evaluation;
+   ad: ^AttributeDenotation;
+   extcall: ^CallExternal;
+   extcalln: @Integer;
+   sc: ^StringConst;
+   typeerror:
+     (# t: ^text
+     do
+	'Trying to assign a '->t[];
+	ltype->evtype_name->(t.copy).append->t[];
+	' to a '->t.append;
+	rtype->evtype_name->t.append;
+	'!'->t.append;
+	t[]->error
+     #);
+   unassignable:
+     (#
+     do 'Attempt to assign a value to a constant object or expression!'->
+	error;
+     #);
+do
+   (ls[],toadd[])->lred.init;
+   toadd[]->rred;
+   0->extcalln;
+
+   loop: (#
+   do
+      (* get an object from the exit list of the left side of the assignment *)
+      lred->(thisexit[],ltype);
+
+      (* get an object from the enter list of the right side of the assignm. *)
+      loopenter: (if true
+      // (rred.enteropt[]->thisenter[])=NONE then leave loop
+      // (thisenter.type->rtype)=evtype_unreduced then
+	 &thisenter.reduce[]->red[];
+	 red;
+	 (rred.before[],red.before[])->EvaluationJoin->rred.before[];
+	 (red.main[],rred.main[])->EvaluationJoin->rred.main[];
+	 (if thisenter##>=CallExternal## then
+	    thisenter[]->extcall[];
+	    0->extcalln; (* !!! really necessary? *)
+	    red.enteropt[]->newev[];
+	    loop: (if newev[]<>NONE then
+	       extcalln+1->extcalln; newev.next[]->newev[]; restart loop
+	    if);
+	 if);
+	 (thisenter.next[],red.enteropt[])->EvaluationJoin->rred.enteropt[];
+	 restart loopenter;
+      else
+	 thisenter.next[]->rred.enteropt[];
+	 NONE->thisenter.next[];
+      if);
+
+      (if thisexit[]=NONE then
+         'The right side enter list has more elements than the left side exit list!'
+	    ->error;
+         leave loop;
+      if);
+
+      string: (if ltype=evtype_string then
+	 thisexit[]->sc[];
+         (if rtype>0 then
+	    (if (sc.getInteger->newev[])<>NONE then
+	       evtype_char->ltype; newev[]->thisexit[]; leave string
+	    if);
+	 if);
+
+	 (if rtype
+	 // evtype_rep then
+	    ((NONE,NONE,sc.translate)->&StringDecl,true)
+	      ->&TemporaryDenotation->&EnterExitSimple->thisexit[];
+	    evtype_rep->ltype;
+	 // evtype_ref then
+	    (* Assign the string constant to a dynamically created
+	     * text item:
+	     *)
+	    (&TextDenotation,true)->ee.item->(ad[],newev[]);
+	    (main[],newev[])->EvaluationJoin->main[];
+	    (thisexit[],(ad[],0)->&ObjectEvaluation)->&AssignmentEvaluation
+	      ->newev[];
+	    &newev.reduce[]->red[];
+	    red;
+	    (main[],(red.before[],red.main[])->EvaluationJoin)
+	      ->EvaluationJoin->main[];
+
+	    (* Create a reference to the text item: *)
+	    (ad[],0)->&ObjectEvaluation->&ObjectReference->thisexit[];
+	    evtype_ref->ltype;
+	 if);
+      if);
+
+      (if ltype<0 then
+	 (if ltype<>rtype then &typeerror; leave loop if);
+	 thisexit[]->lfac[];
+	 thisenter[]->rfac[];
+	 (if ltype=evtype_rep then
+	    checkrep;
+	 else
+	    (main[],
+	     (lfac.getad,rfac.getad,this(AssignmentEvaluation)[])->QuaCheck
+	    )->EvaluationJoin->main[];
+	 if);
+      else
+	 (if (ltype=evtype_boolean) <> (rtype=evtype_boolean) then
+	    &typeerror; leave loop
+	 if)
+      if);
+      (if extcalln>0 then
+         extcall.args->thisexit.next[];
+	 thisexit[]->extcall.args;
+	 extcalln-1->extcalln;
+      else
+         (if not thisenter.assignable then &unassignable; leave loop if);
+	 (if ltype<>evtype_rep then
+	    (thisexit[],thisenter[])->&AssignmentEvaluation->newev[];
+	    main[]->newev.next[];
+	    newev[]->main[];
+	 if);
+	 (* Transfer the enclosing object in case of structure references: *)
+	 (if ltype=evtype_strucref then
+	    ((lfac.getad->&theEncl,0)->&ObjectEvaluation->&ObjectReference,
+	     (rfac.getad->&theEncl,0)->&ObjectEvaluation->&ObjectReference
+	    )->&AssignmentEvaluation->newev[];
+	    main[]->newev.next[];
+	    newev[]->main[];
+	 if);
+      if);
+      restart loop;
+   #);
+   (if thisexit[]<>NONE then
+      'The right side enter list has less elements than the left side exit list!'
+	 ->error;
+   if);
+
+   lred.mainred.before[]->before[];
+   lred.mainred.enteropt[]->enteropt[];
+   (((lred.mainred.main[],rred.before[])
+     ->EvaluationJoin,main[])
+    ->EvaluationJoin,rred.main[])
+   ->EvaluationJoin->main[];
+   rred.exitopt[]->exitopt[];
+#)
+
+
+--- AssignmentEvaluationDoDo: DoPart ---
+do
+   '    '->c_file.cstream.puttext;
+   rs.DoCexpr;
+   ' = '->c_file.cstream.puttext;
+   (if rs## <= ObjectReference## then
+      rs[]->oref[];
+      oref.oe.getod->od[];
+      (if od[]<>NONE then
+	 '(struct O'->c_file.cstream.puttext;
+	 od.private.mapname[]->c_file.cstream.puttext;
+	 ' *)'->c_file.cstream.puttext;
+      if);
+   if);
+   ls.DoCexpr;
+   ';\n'->c_file.cstream.puttext;
+   (* !!! test, if evr could have been changed *)

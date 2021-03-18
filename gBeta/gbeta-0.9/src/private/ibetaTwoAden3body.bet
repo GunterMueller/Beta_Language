@@ -1,0 +1,862 @@
+(* FILE "./private/ibetaTwoAden3body.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaTwoAden3body.bet,v 1.9 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN 'ibetaTwoAdenbody'
+
+(************************************************************* 
+ *                                                           * 
+ *                         l2Indexed                         * 
+ *                                                           * 
+ *************************************************************)
+
+-- IndexedPrint:dopart --
+do
+   (dest[],indentation,false)->AttributeDenotation.print;
+   '['->output;
+   (dest[],indentation,false)->Evaluation.print;
+   ']'->output
+
+-- IndexedScanImpl:dopart --
+do
+   (preCB[],postCB[])->AttributeDenotation.scanImpl;
+   (preCB[],postCB[])->Evaluation.scanImpl
+
+-- IndexedCheck:dopart --
+do
+   (# fail:
+        (# stran: ^staticTransient;
+           t:^text
+        enter stran[]
+        do 'Attempt to select a repetition entry with a '->t[];
+           (t[],0,false)->stran.printShort;
+           ' transient'->t.puttext;
+           (t[]
+           ,'Use an integer valued expression in "[..]"'
+           ,this(l2Indexed)[])->staticError
+        #);
+      stype: ^staticType;
+      stran: ^staticTransient
+   do 
+      (context[],world[],usageAst[])
+        ->AttributeDenotation.getStaticType
+        ->stype[];
+      
+      (if stype##<=staticRepetitionType## then
+          (* the evaluation must deliver an integer *)
+          Evaluation.localStaticTransientOut->stran[];
+          (if true 
+           // stran##<=staticBooleanTransient## then
+              (* warning *)
+              boolToIntWarning
+          
+           // stran##<=staticCharTransient## 
+           // stran##<=staticIntegerTransient## 
+           // stran##<=staticRealTransient## then
+              (* OK *) 
+              (* !!! but register the coercion *)
+              
+           // stran##<=staticStringTransient## then
+              (# sstran: ^staticStringTransient
+              do stran[]->sstran[];
+                 (if sstran.singleton then (* OK *) else stran[]->fail if)
+              #)
+              
+           else
+              stran[]->fail
+          if)
+       else
+          (# t: ^text
+          do 'Attempt to select a repetition entry from '->t[];
+             (stype.typeName).withIndefArticle->t.puttext;
+             (t[]
+             ,'Use an integer valued expression in "[..]"'
+             ,AttributeDenotation[])->staticError
+          #)
+      if)
+   #)
+
+-- IndexedBindNames:dopart --
+do
+   (# fail: 
+        (# name: ^text;
+           line: ^text
+        enter name[]
+        do 'Attempt to use '->line[];
+           name.withIndefArticle->line.puttext;
+           ' as a repetition'->line.puttext;
+           (line[]
+           ,'Use a repetition or don\'t use "[..]"'
+           ,this(l2Indexed)[])->staticError
+        #);
+      context: ^staticContext;
+      adenSubstance: ^staticSubstance;
+      stran: ^staticTransient
+   do
+      (* do all except the entry selection *)
+      AttributeDenotation.localCheck;
+      
+      (* first find the substance it lives in *)
+      (position[],scope.world[],this(l2Indexed)[])
+        ->scope.getInitialContext
+        ->context[];
+      (context[],scope.world[],this(l2Indexed)[])
+        ->AttributeDenotation.getStaticSubstance
+        ->adenSubstance[];
+      
+      (* .. check that it is a static repetition, or report error *)
+      (if  not ( adenSubstance##<=staticRepetition## ) then
+          adenSubstance.typename->fail
+      if);
+      
+      (* check that the evaluation delivers an integer/real/.. *)
+      (context[],scope.world[])
+        ->Evaluation.getStaticTransientOut
+        ->stran[];
+      (if true 
+       // stran##<=staticBooleanTransient## then
+          (* warning *)
+          boolToIntWarning
+          
+       // stran##<=staticCharTransient## 
+       // stran##<=staticIntegerTransient## 
+       // stran##<=staticRealTransient## then
+          (* OK *) 
+          (* !!! but register the coercion *)
+          
+       else
+          (# t:^text
+          do 'Attempt to select a repetition entry with a '->t[];
+             (t[],0,false)->stran.printShort;
+             ' transient'->t.puttext;
+             (t[]
+             ,'Use an integer valued expression in "[..]"'
+             ,this(l2Indexed)[])->staticError
+          #)
+      if)
+   #)
+
+-- IndexedGetType:dopart --
+do
+   (# adentype: ^staticType;
+      srtype: ^staticRepetitionType
+   do (context[],world[],usageAst[])
+        ->AttributeDenotation.getStaticType
+        ->adentype[];
+      (if adentype##<=staticRepetitionType## then
+          adenType[]->srtype[]
+       else
+          (# t:^text
+          do 'Attempt to select a repetition entry from a '->t[];
+             (adentype.typename).withIndefArticle->t.puttext; 
+             (t[],'Use a repetition',this(l2Indexed)[])->staticError
+          #)
+      if);
+      srtype.entryType[]->stype[]
+   #)
+
+-- IndexedGetQuaType:dopart --
+do
+   (# adentype: ^staticType;
+      srtype: ^staticRepetitionType
+   do (context[],world[],usageAst[])
+        ->AttributeDenotation.getStaticType
+        ->adentype[];
+      (if adentype##<=staticRepetitionType## then
+          adenType[]->srtype[]
+       else
+          (# t:^text
+          do 'Attempt to select a repetition entry from a '->t[];
+             (adentype.typename).withIndefArticle->t.puttext; 
+             (t[],'Use a repetition',this(l2Indexed)[])->staticError
+          #)
+      if);
+      srtype.qual[]->qual[];
+      srtype.qualExact->qualExact
+   #)
+
+-- IndexedGetSub:dopart --
+do
+   (# fail:
+        (# name,t: ^text
+        enter name[]
+        do 'Attempt to use '->t[];
+           name.withIndefArticle->t.puttext; 
+           ' as a repetition'->t.puttext;
+           (t[]
+           ,'Use a repetition or don\'t use "[..]"'
+           ,this(l2Indexed)[])->staticError
+        #);
+      stRep: ^staticRepetition;
+      stran: ^staticTransient
+   do (context[],world[],usageAst[])
+        ->AttributeDenotation.getStaticSubstance
+        ->stsub[];
+      (if stsub##<=staticRepetition## then 
+          stsub[]
+            ->stRep[];
+          (* this simply "consumes" the repeatedness *)
+          stRep.stocp[]->stsub[];
+          
+          (* see that the evaluation delivers one integer/real/.. *)
+          (context[],world[])
+            ->Evaluation.getStaticTransientOut
+            ->stran[];
+          (if true 
+           // stran##<=staticBooleanTransient## then
+              (* warning *)
+              boolToIntWarning
+          
+           // stran##<=staticCharTransient## 
+           // stran##<=staticIntegerTransient## 
+           // stran##<=staticRealTransient## then
+              (* OK *) 
+              (* !!! but register the coercion *)
+              
+           else
+              (# t:^text
+              do 'Attempt to select a repetition entry with a '->t[];
+                 (t[],0,false)->stran.printShort;
+                 ' transient'->t.puttext;
+                 (t[]
+                 ,'Use an integer valued expression in "[..]"'
+                 ,this(l2Indexed)[])->staticError
+              #)
+          if)
+          
+       else
+          stsub.typename->fail
+      if)
+   #)
+
+-- IndexedStaticWalkToDecl:dopart --
+do 
+   (from[],world[],usageAst[])
+     ->AttributeDenotation.staticWalkToDecl
+     ->to[]
+
+-- IndexedStaticVisitToDecl:dopart --
+do 
+   (from[],world[],visitor[],usageAst[])
+     ->AttributeDenotation.staticVisitToDecl
+     ->to[]
+
+-- IndexedGetCplr:dopart --
+do
+   &exeCompiler
+   (# generate::
+        (# stocp: ^staticOCP
+        do (context[],world[],usageAst[],program[],cInfo[],false,false)
+             ->generateGetTmpObject
+             ->stocp[];
+           (* generate code to execute the tmp object, if needed *)
+           (if not stocp.sptype.doesNothing then
+               ('ibetaTwoAden3body.bet/280',stocp.pathTo[])
+                 ->(&callDoCode[]).init
+                 ->program.append
+           if)
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- IndexedGetEnterCplr:dopart --
+do
+   &enterCompiler
+   (# subEnterCplr: ^enterCompiler;
+      prepare::
+        (# stocp: ^staticOCP
+        do (* ensure that the object is available on the stack *)
+           (context[],world[],usageAst[],program[],cInfo[],false,false)
+             ->generateGetTmpObject
+             ->stocp[];
+           (* obtain the compiler *)
+           (world[],usageAst[],this(l2Indexed)[]
+           ,this(getEnterCompiler).execute)
+             ->stocp.getEnterCompiler
+             ->subEnterCplr[];
+           (program[],cInfo[])->subEnterCplr.prepare
+        #);
+      more::(# do subEnterCplr.more->value #);
+      generate::
+        (# do (program[],cInfo[])
+             ->subEnterCplr.generate
+             ->stran[]
+        #);
+      cleanup::(# do (program[],cInfo[])->subEnterCplr.cleanup #)
+   #)[]->nc[];
+   usageAst[]->nc.usageAst[];
+   (&staticIntegerTransient[]).init->Evaluation.exitSTran[]
+
+-- IndexedGetExitCplr:dopart --
+do
+   &exitCompiler
+   (# subExitCplr: ^exitCompiler;
+      prepare::
+        (# stocp: ^staticOCP
+        do (* ensure that the object is available on the stack *)
+           (context[],world[],usageAst[],program[],cInfo[],false,false)
+             ->generateGetTmpObject
+             ->stocp[];
+           (* obtain the compiler *)
+           (world[],this(l2Indexed)[],usageAst[])
+             ->stocp.getExitCompiler
+             ->subExitCplr[];
+           (program[],cInfo[])->subExitCplr.prepare
+        #);
+      more::(# do subExitCplr.more->value #);
+      generate::
+        (# do (program[],cInfo[])
+             ->subExitCplr.generate
+             ->stran[]
+        #);
+      cleanup::(# do (program[],cInfo[])->subExitCplr.cleanup #)
+   #)[]->xc[];
+   usageAst[]->xc.usageAst[];
+   (&staticIntegerTransient[]).init->Evaluation.exitSTran[]
+
+-- IndexedGetEnterExitCplr:dopart --
+do
+   (# subExitCplr: ^exitCompiler
+   do 
+      &enterCompiler
+      (# subEnterCplr: ^enterCompiler;
+         prepare::
+           (# stocp: ^staticOCP
+           do (* ensure that the object is available on the stack *)
+              (context[],world[],usageAst[],program[],cInfo[],false,false)
+                ->generateGetTmpObject
+                ->stocp[];
+              (* obtain the compiler *)
+              (world[],this(l2Indexed)[],usageAst[])
+                ->stocp.getEnterExitCompiler
+                ->(subEnterCplr[],subExitCplr[]);
+              (program[],cInfo[])->subEnterCplr.prepare
+           #);
+         more::(# do subEnterCplr.more->value #);
+         generate::
+           (# do (program[],cInfo[])
+                ->subEnterCplr.generate
+                ->stran[]
+           #);
+         cleanup::(# do (program[],cInfo[])->subEnterCplr.cleanup #)
+      #)[]->nc[];
+      usageAst[]->nc.usageAst[];
+      
+      &exitCompiler
+      (# prepare::(# do (program[],cInfo[])->subExitCplr.prepare #);
+         more::(# do subExitCplr.more->value #);
+         generate::
+           (# do (program[],cInfo[])
+                ->subExitCplr.generate
+                ->stran[]
+           #);
+         cleanup::(# do (program[],cInfo[])->subExitCplr.cleanup #)
+      #)[]->xc[];
+      usageAst[]->xc.usageAst[];
+      (&staticIntegerTransient[]).init->Evaluation.exitSTran[]
+   #)
+
+-- IndexedGenGetPattern:dopart --
+do
+   (*lazy*) (if not namesBound then bindnames if);
+   (# aden_stsub: ^staticSubstance;
+      aden_strep: ^staticRepetition
+   do (* describe the enclosing repetition *)
+      (context[],world[],usageAst[])
+        ->AttributeDenotation.getStaticSubstance
+        ->aden_stsub[];
+      (if aden_stsub##<=staticRepetition## then
+          aden_stsub[]->aden_strep[]
+       else
+          (# msg: ^text
+          do 'Attempt to select an entry from '->msg[];
+             (aden_stsub.typename).withIndefArticle->msg.puttext;
+             (msg[],'Use a repetition for indexed selection'
+             ,this(l2Indexed)[])->staticError
+          #)
+      if);
+      (* split on the kind of entries *)
+      (if aden_strep.stocp.sptype.kind
+       // patternTypeKind then
+          ('ibetaTwoAden3body.bet/386',aden_strep.pathTo[]
+          ,Evaluation[],context.pathTo[]
+          ,aden_strep.stocp.sptype[])
+            ->(&indexedGetPatternCode[]).init
+            ->program.append;
+          aden_strep.stocp.sptype[]->gensptype[]
+       // patternRefTypeKind then
+          ('ibetaTwoAden3body.bet/393',aden_strep.pathTo[]
+          ,Evaluation[],context.pathTo[]
+          ,aden_strep.stocp.sptype[])
+            ->(&indexedGetPatternRefCode[]).init
+            ->program.append;
+          (patternTypeKind,usageAst[])
+            ->aden_strep.stocp.sptype.coerce
+            ->gensptype[];
+          (* TYPE_COERCION: obtaining pattern from pattern ref - 
+           * only type kind adjusted; !! hides a possible RefNONE, 
+           * perhaps add check for this *)
+       // objectTypeKind then
+          ('ibetaTwoAden3body.bet/405',aden_strep.pathTo[]
+          ,Evaluation[],context.pathTo[]
+          ,aden_strep.stocp.sptype[])
+            ->(&indexedGetObjectCode[]).init
+            ->program.append;
+          'ibetaTwoAden3body.bet/410'
+            ->(&coerceObjectPatternCode[]).init
+            ->program.append;
+          (patternTypeKind,usageAst[])
+            ->aden_strep.stocp.sptype.coerce
+            ->gensptype[];
+          (* TYPE_COERCION: obtaining pattern from object - only type kind
+           * needs adjustment *)
+       // objectRefTypeKind then
+          ('ibetaTwoAden3body.bet/419',aden_strep.pathTo[]
+          ,Evaluation[],context.pathTo[]
+          ,aden_strep.stocp.sptype[])
+            ->(&indexedGetObjectRefCode[]).init
+            ->program.append;
+          'ibetaTwoAden3body.bet/424'
+            ->(&coerceObjectPatternCode[]).init
+            ->program.append;
+          (patternTypeKind,usageAst[])
+            ->aden_strep.stocp.sptype.coerce
+            ->gensptype[];
+          (* TYPE_COERCION: obtaining pattern from object ref - only
+           * type kind needs adjustment *)
+       else
+          'IndexedGenGetPattern: Unexpected kind of entries in repetition'
+            ->internalError
+      if)
+   #);
+   (&staticIntegerTransient[]).init->Evaluation.exitSTran[]
+
+-- IndexedGenGetQua:dopart --
+do
+   (*lazy*) (if not namesBound then bindnames if);
+   (# fail:
+        (# msg: ^text
+        do 'Trying to obtain the qualification of '->msg[];
+           (aden_stsub.typename).withIndefArticle->msg.puttext;
+           msg[]->internalError
+        #);
+      aden_stsub: ^staticSubstance;
+      aden_strep: ^staticRepetition
+   do (* describe the enclosing repetition *)
+      (context[],world[],usageAst[])
+        ->AttributeDenotation.getStaticSubstance
+        ->aden_stsub[];
+      (if aden_stsub##<=staticRepetition## then
+          aden_stsub[]->aden_strep[]
+       else
+          (# msg: ^text
+          do 'Attempt to select an entry from '->msg[];
+             (aden_stsub.typename).withIndefArticle->msg.puttext;
+             (msg[],'Use a repetition for indexed selection'
+             ,this(l2Indexed)[])->staticError
+          #)
+      if);
+      (* split on the kind of entries *)
+      (if aden_strep.stocp.sptype.kind
+       // patternTypeKind then fail
+       // patternRefTypeKind then fail
+       // objectTypeKind then fail
+       // objectRefTypeKind then
+          ('ibetaTwoAden3body.bet/470',aden_strep.stocp.pathTo[]
+          ,Evaluation[],context.pathTo[]
+          ,aden_strep.stocp.sptype[])
+            ->(&indexedGetQualificationCode[]).init
+            ->program.append;
+          aden_strep.qual[]->gensptype[];
+          (* ignore aden_strep.qualExact: we are not ref-assigning *)
+       else
+          'IndexedGenGetQua: Unexpected kind of entries in repetition'
+            ->internalError
+      if)
+   #);
+   (&staticIntegerTransient[]).init->Evaluation.exitSTran[]
+
+-- IndexedGenGetObject:dopart --
+do
+   (*lazy*) (if not namesBound then bindnames if);
+   (# rejectRenew:
+        (# do (if renew then 'Unexpected "renew"' ->internalError if)#);
+      aden_stsub: ^staticSubstance;
+      aden_strep: ^staticRepetition
+   do (* describe the enclosing repetition *)
+      (context[],world[],usageAst[])
+        ->AttributeDenotation.getStaticSubstance
+        ->aden_stsub[];
+      (if aden_stsub##<=staticRepetition## then
+          aden_stsub[]->aden_strep[]
+       else
+          (# msg: ^text
+          do 'Attempt to select an entry from '->msg[];
+             (aden_stsub.typename).withIndefArticle->msg.puttext;
+             (msg[],'Use a repetition for indexed selection'
+             ,this(l2Indexed)[])->staticError
+          #)
+      if);
+      (* split on the kind of entries *)
+      (if aden_strep.stocp.sptype.kind
+       // patternTypeKind then
+          ('ibetaTwoAden3body.bet/509',aden_strep.pathTo[]
+          ,Evaluation[],context.pathTo[]
+          ,aden_strep.stocp.sptype[])
+            ->(&indexedGetPatternCode[]).init
+            ->program.append;
+          'ibetaTwoAden3body.bet/514'
+            ->(&createObjectCode[]).init
+            ->program.append;
+          (objectTypeKind,usageAst[])
+            ->aden_strep.stocp.sptype.coerce
+            ->gensptype[];
+          (* TYPE_COERCION: from pattern to new object - OK *)
+       // patternRefTypeKind then
+          ('ibetaTwoAden3body.bet/521',aden_strep.pathTo[]
+          ,Evaluation[],context.pathTo[]
+          ,aden_strep.stocp.sptype[])
+            ->(&indexedGetPatternRefCode[]).init
+            ->program.append;
+          'ibetaTwoAden3body.bet/526'
+            ->(&createObjectCode[]).init
+            ->program.append;
+          (objectTypeKind,usageAst[])
+            ->aden_strep.stocp.sptype.coerce
+            ->gensptype[];
+          (* TYPE_COERCION: from pattern ref to new object - OK *)
+       // objectTypeKind then
+          rejectRenew;
+          ('ibetaTwoAden3body.bet/534',aden_strep.pathTo[]
+          ,Evaluation[],context.pathTo[]
+          ,aden_strep.stocp.sptype[])
+            ->(&indexedGetObjectCode[]).init
+            ->program.append;
+          aden_strep.stocp.sptype[]->gensptype[]
+       // objectRefTypeKind then
+          (if renew then
+              ('ibetaTwoAden3body.bet/542',aden_strep.pathTo[]
+              ,Evaluation[],context.pathTo[]
+              ,aden_strep.stocp.sptype[])
+                ->(&indexedGetQualificationCode[]).init
+                ->program.append;
+              'ibetaTwoAden3body.bet/547'
+                ->(&createObjectCode[]).init
+                ->program.append;
+              ('ibetaTwoAden3body.bet/550',aden_strep.pathTo[]
+              ,Evaluation[],context.pathTo[]
+              ,aden_strep.stocp.sptype[])
+                ->(&indexedPutKeepObjectRefCode[]).init
+                ->program.append
+           else
+              ('ibetaTwoAden3body.bet/556',aden_strep.pathTo[]
+              ,Evaluation[],context.pathTo[]
+              ,aden_strep.stocp.sptype[])
+                ->(&indexedGetObjectRefCode[]).init
+                ->program.append
+          if);
+          (context[],world[],usageAst[])
+            ->getStaticType
+            ->gensptype[]
+       else
+          'IndexedGenGetObject: Unexpected kind of entries in repetition'
+            ->internalError
+      if)
+   #);
+   (&staticIntegerTransient[]).init->Evaluation.exitSTran[]
+
+-- IndexedGenGetTmp:dopart --
+do
+   (*lazy*) (if not namesBound then bindnames if);
+   (# rejectRenew:
+        (# do (if renew then 'Unexpected "renew"' ->internalError if)#);
+      aden_stsub: ^staticSubstance;
+      aden_strep: ^staticRepetition;
+      framePos: @integer
+   do (* describe the enclosing repetition *)
+      (context[],world[],usageAst[])
+        ->AttributeDenotation.getStaticSubstance
+        ->aden_stsub[];
+      (if aden_stsub##<=staticRepetition## then
+          aden_stsub[]->aden_strep[]
+       else
+          (# msg: ^text
+          do 'Attempt to select an entry from '->msg[];
+             (aden_stsub.typename).withIndefArticle->msg.puttext;
+             (msg[],'Use a repetition for indexed selection'
+             ,this(l2Indexed)[])->staticError
+          #)
+      if);
+      (* split on the kind of entries *)
+      (if aden_strep.stocp.sptype.kind
+       // patternTypeKind then
+          ('ibetaTwoAden3body.bet/597',aden_strep.pathTo[]
+          ,Evaluation[],context.pathTo[]
+          ,aden_strep.stocp.sptype[])
+            ->(&indexedGetPatternCode[]).init
+            ->program.append;
+          (this(l2Indexed)[],cInfo.allocateTmp->framePos)
+            ->aden_strep.stocp.createTmpVersion
+            ->genstocp[];
+          ('ibetaTwoAden3body.bet/605',framePos)
+            ->(&createTmpCode[]).init
+            ->program.append
+       // patternRefTypeKind then
+          ('ibetaTwoAden3body.bet/609',aden_strep.pathTo[]
+          ,Evaluation[],context.pathTo[]
+          ,aden_strep.stocp.sptype[])
+            ->(&indexedGetPatternRefCode[]).init
+            ->program.append;
+          (this(l2Indexed)[],cInfo.allocateTmp->framePos)
+            ->aden_strep.stocp.createTmpVersion
+            ->genstocp[];
+          ('ibetaTwoAden3body.bet/617',framePos)
+            ->(&createTmpCode[]).init
+            ->program.append
+       // objectTypeKind then
+          rejectRenew;
+          (this(l2Indexed)[],cInfo.allocateTmp->framePos)
+            ->aden_strep.stocp.createTmpVersion
+            ->genstocp[];
+          ('ibetaTwoAden3body.bet/625',aden_strep.pathTo[]
+          ,Evaluation[],context.pathTo[]
+          ,aden_strep.stocp.sptype[],framePos)
+            ->(&indexedGetTmpCode[]).init
+            ->program.append
+       // objectRefTypeKind then
+          (this(l2Indexed)[],cInfo.allocateTmp->framePos)
+            ->aden_strep.stocp.createTmpVersion
+            ->genstocp[];
+          (if renew then
+              ('ibetaTwoAden3body.bet/635',aden_strep.pathTo[]
+              ,Evaluation[],context.pathTo[]
+              ,aden_strep.stocp.sptype[])
+                ->(&indexedGetQualificationCode[]).init
+                ->program.append;
+              ('ibetaTwoAden3body.bet/640',framePos)
+                ->(&createTmpCode[]).init
+                ->program.append;
+              ('ibetaTwoAden3body.bet/643',aden_strep.pathTo[]
+              ,Evaluation[],context.pathTo[]
+              ,aden_strep.stocp.sptype[],framePos)
+                ->(&indexedPutKeepTmpRefCode[]).init
+                ->program.append
+           else
+              ('ibetaTwoAden3body.bet/649',aden_strep.pathTo[]
+              ,Evaluation[],context.pathTo[]
+              ,aden_strep.stocp.sptype[],framePos)
+                ->(&indexedGetTmpRefCode[]).init
+                ->program.append;
+          if);
+       else
+          'IndexedGenGetTmp: Unexpected kind of entries in repetition'
+            ->internalError
+      if)
+   #);
+   (&staticIntegerTransient[]).init->Evaluation.exitSTran[]
+
+-- IndexedGenPutPattern:dopart --
+do
+   (*lazy*) (if not namesBound then bindnames if);
+   (# fail:
+        (# msg: ^text
+        do 'Attempt to pattern-assign to '->msg[];
+           (aden_stsub.typename).withIndefArticle->msg.puttext;
+           ' in a repetition'->msg.puttext;
+           (msg[],'Use a repetition of pattern variables'
+           ,this(l2Indexed)[])->staticError
+        #);
+      aden_stsub: ^staticSubstance;
+      aden_strep: ^staticRepetition
+   do (* describe the enclosing repetition *)
+      (context[],world[],usageAst[])
+        ->AttributeDenotation.getStaticSubstance
+        ->aden_stsub[];
+      (if aden_stsub##<=staticRepetition## then
+          aden_stsub[]->aden_strep[]
+       else
+          (# msg: ^text
+          do 'Attempt to select an entry from '->msg[];
+             (aden_stsub.typename).withIndefArticle->msg.puttext;
+             (msg[],'Use a repetition for indexed selection'
+             ,this(l2Indexed)[])->staticError
+          #)
+      if);
+      (* split on the kind of entries *)
+      (if aden_strep.stocp.sptype.kind
+       // patternTypeKind then fail
+       // patternRefTypeKind then
+          ('ibetaTwoAden3body.bet/693',aden_strep.pathTo[]
+          ,Evaluation[],context.pathTo[]
+          ,aden_strep.stocp.sptype[])
+            ->(&indexedPutPatternCode[]).init
+            ->program.append;
+          (patternTypeKind,usageAst[])
+            ->aden_strep.stocp.sptype.coerce
+            ->gensptype[];
+          (* TYPE_COERCION: from pattern ref to pattern - OK *)
+       // objectTypeKind then fail
+       // objectRefTypeKind then fail
+       else
+          'IndexedGenPutPattern: Unexpected kind of entries in repetition'
+            ->internalError
+      if)
+   #);
+   (&staticIntegerTransient[]).init->Evaluation.exitSTran[]
+
+-- IndexedGenPutObject:dopart --
+do
+   (*lazy*) (if not namesBound then bindnames if);
+   (# fail:
+        (# msg: ^text
+        do 'Attempt to reference-assign to '->msg[];
+           (aden_stsub.typename).withIndefArticle->msg.puttext;
+           ' in a repetition'->msg.puttext;
+           (msg[],'Use a repetition of object references'
+           ,this(l2Indexed)[])->staticError
+        #);
+      aden_stsub: ^staticSubstance;
+      aden_strep: ^staticRepetition
+   do (* describe the enclosing repetition *)
+      (context[],world[],usageAst[])
+        ->AttributeDenotation.getStaticSubstance
+        ->aden_stsub[];
+      (if aden_stsub##<=staticRepetition## then
+          aden_stsub[]->aden_strep[]
+       else
+          (# msg: ^text
+          do 'Attempt to select an entry from '->msg[];
+             (aden_stsub.typename).withIndefArticle->msg.puttext;
+             (msg[],'Use a repetition for indexed selection'
+             ,this(l2Indexed)[])->staticError
+          #)
+      if);
+      (* split on the kind of entries *)
+      (if aden_strep.stocp.sptype.kind
+       // patternTypeKind then fail
+       // patternRefTypeKind then fail
+       // objectTypeKind then fail
+       // objectRefTypeKind then 
+          ('ibetaTwoAden3body.bet/743',aden_strep.pathTo[]
+          ,Evaluation[],context.pathTo[],aden_strep.qual[])
+            ->(&indexedPutObjectRefCode[]).init
+            ->program.append;
+          aden_strep.qual[]->gensptype[];
+          aden_strep.qualExact->qualExact
+       else
+          'IndexedGenPutObject: Unexpected kind of entries in repetition'
+            ->internalError
+      if)
+   #);
+   (&staticIntegerTransient[]).init->Evaluation.exitSTran[]
+
+-- IndexedAccessible:dopart --
+do
+   (* we cannot assume that the evaluation of an expression will
+    * deliver the same result every time - !! even though _some_
+    * expressions do, such as '3' *)
+   false->value
+
+-- IndexedExistAccess:dopart --
+do
+   (* whatever is in a repetition is as accessible
+    * as the repetition itself; so we would have:
+    * 
+    *   AttributeDenotation.existingAccessible->value
+    * 
+    * but we do not want to have runtime paths containing 
+    * repetition lookup steps (they don`t work and it 
+    * breaks invariants such as "each internal step in a 
+    * runtime path delivers a substanceSlice); as a 
+    * result, we will force code generation to access
+    * the repetition element explicitly *)
+   false->value
+
+-- IndexedLookup:dopart --
+do
+   (# aden_ent: ^l1Entity;
+      l1rep: ^l1RepetitionEntity;
+      position: @runtimePath;
+      sContext: ^staticContext;
+      l0tri: ^l0TransientInteger;
+      index: @integer
+   do 
+      (* get hold of the repetition *)
+      (thrd[],unwind##,dContext[])
+        ->AttributeDenotation.lookup
+        ->aden_ent[];
+      (if aden_ent##<=l1RepetitionEntity## then 
+          aden_ent[]->l1rep[]
+       else
+          'Trying to indexed-select an entry from a non-repetition'
+            ->internalError
+      if);
+      
+      (* find the requested index *)
+      (NONE,NONE,scope.location)
+        ->position.init;
+      (position[],scope.world[],this(l2Indexed)[])
+        ->scope.getInitialContext
+        ->sContext[];
+      (thrd[],unwind##,(thrd[],unwind##,sContext[],scope.world[]
+      ,this(l2Indexed)[],dContext[])->Evaluation.getExitIter)
+        ->exitOneValue(#context::(# do 'ibetaTwoAden3body.bet/790'->value[]#)#)
+        ->transient_many2integer
+        ->l0tri[];
+      l0tri->index;
+      
+      (* check range *)
+      (if (index<1) or (l1rep.value.range<index) then
+          ('Repetition index out of range'
+          ,thrd[],unwind##)->indexError
+      if);
+      
+      (* do the actual lookup *)
+      (thrd[],unwind##,index)->l1rep.get->l1ent[]
+   #)
+
+-- IndexedLookupAttr:dopart --
+do
+   (* !! Problem: there are no attributes for repetition entries;
+    * should there be?  Consider renewing entries like "&r[5]" *)
+   'Trying to look up the attribute of an entry in a repetition'
+     ->internalError
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

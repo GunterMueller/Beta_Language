@@ -1,0 +1,5 @@
+
+cp beta-pretty.pgram.manual beta-pretty.pgram
+morepretty beta
+cp beta-pretty.ptbl beta-pretty.pgram-pretty.ptbl
+

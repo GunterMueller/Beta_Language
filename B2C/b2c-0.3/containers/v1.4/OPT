@@ -1,0 +1,26 @@
+possible optimizations for the "container" pattern family:
+
+* Create a method like the following for "collection".  At least
+  for indexed collections (like btree and hashTable), a lot of
+  the operations required for insertion and deletion of elements
+  are similiar - (an example is the computation of the hash function):
+
+     (* This method takes an element in, then tries to locate it in the
+      * collection.  If it is found, the `there' virtual will be called,
+      * otherwise, the `notThere' virtual will be invoked.
+      *)
+     insertDelete:< insertMethod
+       (#
+	  (* Delete or insert the element.  These are further bound in
+	   * subpatterns of collection *)
+	  insert:< Object;
+	  delete:< Object;
+
+	  (* One of these is called from the INNER part, depending, on
+	   * whether the element could be found or not *)
+	  there:< Object;
+	  notThere:< Object;
+       do
+	  INNER
+       #);
+

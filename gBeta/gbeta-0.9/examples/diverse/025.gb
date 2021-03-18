@@ -1,0 +1,10 @@
+-- betaenv:descriptor --
+(# (* testing error handling: kills current thread (only) *)
+   t1: @|(# i:@integer do 1;2;3; 4/0->i #);
+   t2: @|(# s:@string do 'test'->s; 5->s.at->stdio; 7 #)
+do 
+   t1.fork;
+   t2.fork;
+   (for 20 repeat '.'->stdio for)
+#)
+

@@ -1,0 +1,127 @@
+
+
+
+
+
+
+
+<HTML>
+<HEAD><TITLE>gbeta Getting Started:: GNU Emacs Integration (cont'd) </TITLE></HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF"
+  LINK="#0000FF" VLINK="#800080" ALINK="#FF00FF">
+<TABLE WIDTH="100%">
+<TR><TD ALIGN="right">
+<TABLE><TR ALIGN="center">
+  <TD><A HREF="start_index7.html" TARGET="display"><IMG SRC="left.gif"></A></TD>
+  <TD><A HREF="start_index9.html" TARGET="display"><IMG SRC="right.gif"></A></TD>
+</TR></TABLE></TD></TR>
+<TR><TD ALIGN="left"><H1>Getting Started: GNU Emacs Integration (cont'd) </H1></TD></TR>
+</TABLE>
+<P><HR></P>
+<TABLE><TR><TD WIDTH="25%">&nbsp;</TD><TD WIDTH="50%">
+
+<H3>Overview of execution control commands</H3>
+<P>
+To execute one single step of a program execution, use the command:
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>step</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+and to execute all of the next imperative (not stopping at imperatives
+executed indirectly by method invocation etc.) use the command:
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>next</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+To execute until the end of an enclosing block is reached, use: 
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>finish <I>N</I></CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+where <CODE><I>N</I></CODE> is an integer specifying the number of
+nesting levels to go out.  This makes it possible to run the
+interpretation e.g. until a method invocation terminates, also in the
+case where the pattern declaration specifying that method invocation
+is more than one nesting level further out than the current
+imperative.  
+</P>
+
+<P>
+It is possible to let the execution continue in the running mode (not
+single-stepping), using:  
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>go</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+</P>
+
+<P>
+Finally, the commands 
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>restart</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+and 
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>run</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+are used to initiate an execution from the <CODE>"terminated>"</CODE>
+state, in the single-stepping respectively running mode.
+</P>
+
+<P>
+Finally, the <A HREF="start_index9.html" TARGET="display">next and last</A> section explains a few odds and
+ends.
+</P>
+
+</TD><TD WIDTH="20%">&nbsp;</TD></TR></TABLE>
+<P><HR></P>
+<SMALL>
+  <I>
+    <CENTER>
+      <STRONG>Signed by: </STRONG>
+      <A HREF="mailto:eernst@cs.auc.dk">eernst@cs.auc.dk</A>.
+      Last Modified:  3-Jul-01
+<BR>
+    </CENTER>
+  </I>
+</SMALL>
+</BODY>
+</HTML>
+

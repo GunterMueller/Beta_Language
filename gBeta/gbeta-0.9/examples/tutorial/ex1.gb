@@ -1,0 +1,8 @@
+(* FILE ex1.gb *)
+-- betaenv:descriptor --
+(# 
+   hello: (# exit 'Hello' #);
+   print: (# enter stdio #)
+do 
+   hello+', world!\n'->print
+#) 

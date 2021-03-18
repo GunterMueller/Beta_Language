@@ -1,0 +1,20 @@
+ORIGIN 'simpleif';
+INCLUDE 'iflib';
+INCLUDE '../eelib';
+INCLUDE '../ev/type';
+--- SimpleIfImpReduce: DoPart ---
+do
+   (* we have to do it backwards! *)
+   &ifend->ee.add;
+   (if elseprt.ptr[]<>NONE then
+      elseprt.reduce;
+      &ifelse->ee.add;
+   if);
+   thenprt.reduce;
+   (ev.ptr[],NONE)->red->(newev[],type);
+   (if type<>evtype_boolean then
+      'A Boolean value is expected here!'->error
+   else
+      newev[]->&ifstart->ee.add;
+      (red.mainred.before[],red.mainred.main[])->EvaluationJoin->ee.add;
+   if);

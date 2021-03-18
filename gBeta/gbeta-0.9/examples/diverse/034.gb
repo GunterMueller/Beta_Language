@@ -1,0 +1,12 @@
+-- betaenv:descriptor --
+(# (* used to expose a static analysis bug: the type of 'r'
+    * in the main dopart was object, should be string *)
+   p: (# t:< object;
+         v:< (# r: @t do INNER #);
+         w:< v(# u:< boolean do (if u then INNER if)#);
+      #);
+   q: p(# v::< (# do INNER #)#);
+   x: @q(# t::string #)
+do
+   x.w(# u::(# do r #) do r->stdio #)
+#)

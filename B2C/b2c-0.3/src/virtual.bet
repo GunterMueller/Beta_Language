@@ -1,0 +1,43 @@
+ORIGIN 'bfile';
+BODY 'virtualbody';
+--- CompilerLib: Attributes ---
+Virtualmap:
+  (#
+     vm: [0] ^Virtual;
+     set:
+       (# i: @integer; vi: ^Virtual
+       enter (i,vi[])
+       do (if i<=0 then 1->vm.extend; vm.range->i if); vi[]->vm[i][]
+       exit i
+       #);
+     setod:
+       (# od: ^ObjectDescriptor; i: @integer
+       enter (i,od[])
+       do (if i>0 then od[]->vm[i].setod->vm[i][] if)
+       #);
+     DoCDecl: (# do (for i:vm.range repeat i->vm[i].DoCDecl for) #);
+     DoCDef: (# do (for i:vm.range repeat vm[i].DoCDef for) #);
+  enter vm
+  exit vm
+  #);
+
+Virtual:
+  (#
+     DoCDecl:< (# n: @integer enter n do INNER #);
+     DoCDef:< (# do ', '->c_file.cstream.puttext; INNER #);
+     setod:<
+       (# od: ^ObjectDescriptor; vi: ^Virtual enter od[] do INNER exit vi[] #)
+  do INNER
+  exit this(Virtual)[]
+  #);
+
+VirtualInner: Virtual
+  (#
+     from,to: ^ObjectDescriptor;
+     setod:: (# do (from[],od[])->&VirtualInnerSet->vi[] #);
+     DoCDecl:: (# <<SLOT VirtualInnerDoCDecl: DoPart>> #);
+     DoCDef:: (# <<SLOT VirtualInnerDoCDef: DoPart>> #);
+  enter from[]
+  #);
+
+VirtualInnerSet: VirtualInner (# enter to[] #);

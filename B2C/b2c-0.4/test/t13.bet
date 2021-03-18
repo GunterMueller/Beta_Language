@@ -1,0 +1,13 @@
+ORIGIN '../basiclib/v1.4/betaenv.bet';
+--- program: ObjectDescriptor ---
+(#
+   res: @integer;
+   foo: @boolean;
+do
+   4*8+30+9 div 3->res->put;
+   36+(12 or 22)->res->put;
+   (-10+77)->res->put;
+   (3>2)->foo;
+   1 + 1 + 66->res->put;
+   10->put
+#)

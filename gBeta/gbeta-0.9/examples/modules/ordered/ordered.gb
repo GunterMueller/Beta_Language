@@ -1,0 +1,24 @@
+ORIGIN 'betaenv';
+BODY 'orderedImpl'
+
+-- lib:attributes --
+
+ordered:
+  (# <<SLOT OrderedLib:attributes>>;
+     cmpType:< ordered :> this(ordered);
+     init:< (# do INNER exit this(ordered)[] #);
+     lessEqual:< 
+       (# other: ^cmpType; b: @boolean
+       enter other[] 
+       do INNER 
+       exit b
+       #);
+     greaterEqual: (# b: @boolean enter lessEqual->b exit not b #);
+     max:
+       (# other,maxi: ^cmpType
+       enter other[]
+       <<SLOT OrderedMax:dopart>>
+       exit maxi[]
+       #)
+  exit this(ordered)[]
+  #)

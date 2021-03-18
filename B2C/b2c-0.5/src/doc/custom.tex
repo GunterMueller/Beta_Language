@@ -1,0 +1,62 @@
+% This file defines a few macros for TeX ...  Change them, if you want
+% to change the appearence of this document.
+
+% file quote: put a file name in quotes, or print it emphasized, or both:
+\newcommand{\fq}[1]{{\em #1\/\em}}
+
+% fragment quote: how do you want fragment names to appear in this document:
+\newcommand{\frq}[2]{--\,-- #1: #2 --\,--}
+
+% fragment file quote: specify a Fragment and a file:
+\newcommand{\ffq}[3]{--\,-- #1: #2 --\,-- in file \fq{#3}}
+
+% command quote: put a command in a typewriter type font:
+\newcommand{\cq}[1]{{\tt #1}}
+
+% command quote quoted: like \cq, but add quotes around the command:
+\newcommand{\cqq}[1]{``{\tt #1}''}
+
+% term quote: emphasize an important word or term:
+\newcommand{\tq}[1]{{\em #1\/\em}}
+
+% begin/end example quote: use this to indent pieces of code or examples:
+\newcommand{\beq}{\begin{quote}}
+\newcommand{\eeq}{\end{quote}}
+
+
+% If you use the cm-fonts, use the following definitions:
+%\newcommand{\ttlq}{\`{ }}
+%\newcommand{\ttrq}{\'{ }}
+%\newcommand{\tthoch}{\^{ }}
+
+% The following defs are ok for the users of Postscript fonts:
+\newcommand{\ttlq}{`}
+\newcommand{\ttrq}{'}
+\newcommand{\tthoch}{\^{ }}
+
+% a list of new commands:
+% \backslash prints \
+% \leftbrace prints {
+% \rightbrace prints }
+\begingroup \catcode `|=0 \catcode `[= 1
+\catcode`]=2 \catcode `\{=12 \catcode `\}=12
+\catcode`\\=12
+|gdef|backslash[\]|gdef|leftbrace[{]|gdef|rightbrace[}]
+|endgroup
+
+% \leftbracket prints [
+% \rightbracket prints ]
+% \hoch prints ^
+% \underscore prints _
+% \dollar prints $
+\begingroup \catcode `[= 12 \catcode`]=12 \catcode`^=12
+\catcode`_=12
+\catcode`$=12
+\catcode`"=12
+\gdef\leftbracket{[}\gdef\rightbracket{]}\gdef\hoch{^}\gdef\underscore{_}
+\gdef\dollar{$}\gdef\dquote{"}
+\endgroup
+
+% actually, if a TeX guru sees this file, I would be happy, if he told
+% me, how to put these commands into boxes, so that these commands are
+% even safe in those cases, that the TeX-Interpreter is called recursively.

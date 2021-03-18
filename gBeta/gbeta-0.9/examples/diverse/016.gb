@@ -1,0 +1,14 @@
+ORIGIN 'betaenv';
+-- program:merge --
+(# s: @string;
+   i: @integer;
+do '/bin/sh\n-c\n/bin/ls *.gb'->ossystem->s;
+   (for j:s.length repeat 
+      (if (j->s.at)='\n' then i+1->i if);
+   for);
+   s->putline;
+   'There are '->puttext;
+   i->putint;
+   ' gbeta source files here.'->putline;
+#)
+

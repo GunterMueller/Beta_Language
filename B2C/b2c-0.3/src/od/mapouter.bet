@@ -1,0 +1,32 @@
+ORIGIN '../objectdesc';
+INCLUDE '../ad/backlevel';
+--- ObjectDescriptorMapOuter: ObjectDescriptor ---
+(# i: @integer; bl: ^Backlevel
+do
+   (* the foo label should go away, when we can use
+    * "leave mapouter" in a newer BETA compiler version *)
+   (if om[]=NONE then &Outermap[]->om[] if);
+   foo: (# do
+   (for i: om.om.range repeat
+      (if om.om[i]## <= Backlevel## then
+	 om.om[i][]->bl[];
+	 (if bl.nlevel=1 then
+	    outer.ScanSuper
+	      (#
+	      do
+		 (if bl.startod.private.outer[]=current[] then
+		    this(ObjectDescriptor)[]->bl.startod[];
+		    i->outerindx;
+		    false->outernew;
+		    leave foo;
+		 if)
+	      #)
+	 if)
+      if)
+   for);
+   1->om.om.extend;
+   om.om.range->outerindx;
+   true->outernew;
+   (this(ObjectDescriptor)[],1)->&DirectBacklevel->om.om[outerindx][]
+   #)
+#)

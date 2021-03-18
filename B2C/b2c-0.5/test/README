@@ -1,0 +1,31 @@
+These are some test input files for the current state of the BETA
+compiler.  They are named from t1.bet to t12.bet.  The first few
+just do a few syntax checks, while t8.bet and later do also some
+real stuff.
+
+You can compile and run all these files, if you start the script
+called "regression".  When you do development on the compiler, it
+is a very good idea to do this regularly, so that you detect it
+as early as possible, if one of your changes/modifications
+introduced a bug.
+
+Before you use the BETA compiler b2c, you have to compile the
+following file by hand:
+
+	cc -c betamain.c
+	cc -c gc.c
+	cc -c mmalloc.c
+
+Then generate the compiler itself:
+
+	cd ..
+	beta -q b2c
+
+Then try to compile any of the test files in this directory:
+
+	cd test
+	../bin/b2c <filename>
+
+as in:
+
+	../b2c t8.bet

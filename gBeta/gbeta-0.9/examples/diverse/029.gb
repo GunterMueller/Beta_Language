@@ -1,0 +1,42 @@
+-- betaenv:descriptor --
+(# (* This file demonstrates the use of a virtual prefix in an 
+    * enter and/or exit part to define a "hook" where extra 
+    * arguments for input and/or output can be defined; this 
+    * affects the three methods 'a', 'b', and 'c' collectively,
+    * and this gives a central point of control for argument/result
+    * list enhancements, ensuring consistency
+    *)
+   p: (# v:< object; 
+         talker: (# name:< string; action:< string do '\n("'+name+'" '+action+')'->stdio #);
+         as: talker(# action::(# do 'assigned'->value #)#); 
+         ev: talker(# action::(# do 'evaluated'->value #)#);
+         a:< (# do INNER exit v(# do ev(# name::(# do 'a'->value #)#)#) #);
+         b:< (# btalker: talker(# name::(# do 'b'->value #)#)
+             enter v(# do as & btalker #) 
+             do INNER
+             exit v(# do ev & btalker #)
+             #);
+         c:< (# enter v(# do as(# name::(# do 'c'->value #)#)#) do INNER #)
+      #);
+   q: p(# i: @integer; 
+          (* we use the signature hook 'v' to give the methods
+           * an integer-in-integer-out signature, with a 
+           * built-in increment and moreover outputting a '.' 
+           * whenever arguments are given to the methods
+           * or retrieved from them; note that we can use
+           * the name 'talker' again as a local ad-hoc pattern, 
+           * the declaration in 'p' just gets shadowed here, and 
+           * the static name binding ensures that they are 
+           * semantically distinct *)
+          v::< (# enter i do INNER; '.'->stdio exit i+1 #);
+          talker: (# s: @string do INNER; '\nThis is "'+s+'"'->stdio #);
+          a::< talker(# do 'a'->s #);
+          b::< talker(# do 'b'->s; (* do some real work ;-> *) i+5->i #);
+          c::< talker(# (* create an alias *) i: @this(q).i do 'c'->s; INNER #)
+       #);
+   aQ: @q; ch: @char
+do
+   65->aQ.i; 
+   aQ.a->aQ.b->aQ.c(# do i->ch #); 
+   '\nch='+(ch->string)+'\n'->stdio
+#)

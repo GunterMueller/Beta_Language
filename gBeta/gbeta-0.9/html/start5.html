@@ -1,0 +1,166 @@
+
+
+
+
+
+
+
+<HTML>
+<HEAD><TITLE>gbeta Getting Started:: GNU Emacs Integration</TITLE></HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF"
+  LINK="#0000FF" VLINK="#800080" ALINK="#FF00FF">
+<TABLE WIDTH="100%">
+<TR><TD ALIGN="right">
+<TABLE><TR ALIGN="center">
+  <TD><A HREF="start_index4.html" TARGET="display"><IMG SRC="left.gif"></A></TD>
+  <TD><A HREF="start_index6.html" TARGET="display"><IMG SRC="right.gif"></A></TD>
+</TR></TABLE></TD></TR>
+<TR><TD ALIGN="left"><H1>Getting Started: GNU Emacs Integration</H1></TD></TR>
+</TABLE>
+<P><HR></P>
+<TABLE><TR><TD WIDTH="25%">&nbsp;</TD><TD WIDTH="50%">
+
+<P>
+To obtain an environment which has much better scalability for
+programs consisting of many fragment groups (source code files),
+try to run <B>gbeta</B> from GNU Emacs.  This environment offers a
+more "visually" oriented interaction as well.
+</P>
+
+<H3>Setting up Emacs</H3>
+<P>
+Assuming that you have access to GNU Emacs and already use it, you
+probably have a file <CODE>~/.emacs</CODE> which contains your
+personal Emacs initialization code.  If you do not have this file, 
+just create it with the contents given below, otherwise add these
+three lines anywhere in the file.
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE> 
+(setq gbeta-root (getenv "GBETA_ROOT"))
+(if (not gbeta-root) (setq gbeta-root "~/gbeta-0.9"))
+(load-file (concat gbeta-root "/emacs/gud-gbeta.elc")) </PRE></TD></TR>
+  </TABLE>
+</P>
+
+By the way, you can also find this in the file
+<CODE>gbeta.emacs</CODE> in the distribution.
+</P>
+
+<H3>Starting Emacs, under X..</H3>
+<P>
+Initially, go to the <CODE>start</CODE> directory, i.e. with a
+standard installation:
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>cd $HOME/gbeta-0.9/examples/start</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+Now you can start up Emacs and load a source code file:
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>emacs beer.gb &amp;</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+It is assumed that you are running under X Windows, such that Emacs is
+able to point out selected portions of the source code by changing a
+visual attribute such as the background color of the text within that
+region.  This is very important for the interaction.  Of course you
+can load the source code file from within an already running instance
+of Emacs if you prefer.
+</P>
+
+<H3>Some Emacs terminology</H3>
+<P>
+Emacs may have more than one "frame," and each frame may have more
+than one "window."  Since the Emacs terminology collides with the
+general terminology of common GUIs, we'll shortly recapitulate the
+Emacs terms here:  An Emacs <EM>frame</EM> is the graphical unit which
+is decorated by the window manager (e.g. with a titlebar and a
+border), and which can be moved, resized, iconified, raised, lowered,
+and so on.  An Emacs <EM>window</EM> is a vertical or horizontal band
+of an Emacs frame, showing a portion of one buffer.  These concepts
+are important because there is normally an interpreter window showing
+an interpretation (Emacs thinks: debugging) buffer, and a source code
+window showing one of a number of source code buffers containing the
+program being interpreted.  The interaction is different when the
+interpretation window is active and when the source code window is
+active. 
+</P>
+
+<H3>Starting the interpretation</H3>
+<P>
+To initiate an interactive execution of the program in the newly
+loaded buffer, ensure that the window showing that buffer is the
+currently active window (click in it).  Then do:
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>M-x gbeta</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+This is standard Emacs notation for pressing the Meta-modifier
+(possibly labeled with "Alt", "AltGr" or a small rhombus) along with
+the "x" key and then typing <CODE>"gbeta[ENTER]"</CODE>.  This leads
+to a prompt in the bottommost line of the frame (the "minibuffer"):
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>Run gbeta (like this): gbeta beer.gb</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+At this prompt you can edit the command line for invoking
+<B>gbeta</B> to e.g. add various options, but normally accepting the
+default and pressing <CODE>[ENTER]</CODE> is appropriate.
+</P>
+
+<P>
+This starts up an interactive <B>gbeta</B> session in one window and
+shows the source code file containing the first statement of the
+program in another window.  The file shown is not necessarily the same
+as the argument given to <B>gbeta</B>, since the
+<A HREF="index_modularization.html" TARGET="_top">fragment system</A> makes it possible to insert
+your program into some larger context. 
+</P>
+
+<P>
+The <A HREF="start_index6.html" TARGET="display">next</A> section deals with the interaction within an
+Emacs-based <B>gbeta</B> session.  As a rule of thumb, however, you can just
+start using what you already know from the command line interaction.
+</P>
+
+</TD><TD WIDTH="20%">&nbsp;</TD></TR></TABLE>
+<P><HR></P>
+<SMALL>
+  <I>
+    <CENTER>
+      <STRONG>Signed by: </STRONG>
+      <A HREF="mailto:eernst@cs.auc.dk">eernst@cs.auc.dk</A>.
+      Last Modified:  3-Jul-01
+<BR>
+    </CENTER>
+  </I>
+</SMALL>
+</BODY>
+</HTML>
+

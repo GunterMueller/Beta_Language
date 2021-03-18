@@ -1,0 +1,74 @@
+-- betaenv:descriptor --
+(# (* For an explanation and motivation, see the paper in 
+    * ftp://ftp.daimi.aau.dk/pub/empl/eernst/gbeta/papers/declinh.dvi
+    *
+    * The great thing is that this demonstrates a very general 
+    * support for the Observer Design Pattern (TM) as a native
+    * language entity, a pattern, not as a design guide to 
+    * follow when writing yet another instance of that pattern. 
+    *)
+
+   mkTxtRef: (# r: [0] @char; t: ^text enter r exit t[] #);
+   text: (# #);
+   textBuffer: (# setFileName:< (# t: ^text enter t[] do INNER #);
+                  getFileName:< (# t: ^text do INNER exit t[] #);
+               #);
+   set: (# element:< object; 
+           theElement: ^element;
+           insert: (# enter theElement[] #);
+           delete: 
+             (# e: ^element enter e[] 
+             do (if e[]=theElement[] then NONE->theElement[] if);
+             #);
+           scan: 
+             (# current: ^element;
+             do theElement[]->current[]; 
+                INNER
+             #);
+        #);
+   Window: (# refresh: (# #)#);
+   ColorIcon: Window(# setIconTitle: (# t: ^text enter t[] #)#);
+   
+   ObserverDesignPattern:
+     (# Subject:< 
+          (# attach: (# enter observers.insert #);
+             detach: (# enter observers.delete #);
+             notify: observers.scan
+               (# do this(Subject)[]->current.update #);
+             observers: @set(# element::< Observer #);
+          #);
+        Observer:< 
+          (# update:< 
+               (# theSubject: ^Subject;
+               enter theSubject[]
+               do INNER
+               #)
+          #)
+     #);
+   myODP: @ObserverDesignPattern
+     (# Subject::< textBuffer;
+        Observer::< Window
+          (# update::< 
+               (# do theSubject[]->getState; refresh #);
+             getState:< 
+               (# theSubject: ^Subject 
+               enter theSubject[] 
+               do INNER 
+               #)
+          #)
+     #);
+   myBuffer: @myODP.Subject (* a subpattern of 'TextBuffer' *)
+      (# (* ensure that 'notify' is called after changes *)
+         setFileName::< (# do notify #);
+      #);
+   aux1: (# v:< ColorIcon #);
+   aux2: @aux1(# v::< myODP.Observer #);
+   myIcon: @aux2.v
+      (# getState::< 
+           (# do theSubject.getFileName->setIconTitle #);
+      #);
+do 
+   myIcon[] -> myBuffer.attach;
+   'a new name' -> mkTxtRef -> myBuffer.setFileName;
+#)
+

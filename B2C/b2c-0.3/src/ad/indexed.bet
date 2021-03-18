@@ -1,0 +1,45 @@
+ORIGIN 'forward';
+INCLUDE '../attribute';
+BODY 'indexedbody';
+--- CompilerLib: Attributes ---
+(* Index into a repetition *)
+Indexed: ForwardDenotation
+  (#
+     ev: ^Evaluation;
+     indexvar,evpref: ^AttributeDenotation;
+     print:: (# do '['->s.append; s[]->ev.print; ']'->s.append #);
+     type:: Indexed;
+     copy:: (# <<SLOT IndexedCopy: DoPart>> #);
+     resolve:: (# <<SLOT IndexedResolve: DoPart>> #);
+     reduce:: (# doit: @<<SLOT IndexedReduce: ObjectDescriptor>> do doit #);
+     checkPath:: (# <<SLOT IndexedCheckPath: DoPart>> #);
+     checkFollow:: (# <<SLOT IndexedCheckFollow: DoPart>> #);
+     checkComplete:: (# do prec.checkComplete; resolve; ev.checkComplete #);
+     getcexpr:: (# doit: @<<SLOT IndexedGetcexpr: ObjectDescriptor>> do doit #);
+     isequal::
+       (# inx: ^Indexed
+       do (if cmp##<=Indexed## then cmp[]->inx[]; inx.ev[]=ev[]->value if)
+       #);
+  enter (prec[],ev[])
+  do
+     this(Indexed)[]->prec.encl[];
+     this(Indexed)[]->ev.encl[];
+     NONE->indexvar[]->evpref[];
+     INNER;
+  exit this(Indexed)[]
+  #);
+
+
+(* Index into a repetition; index var is supplied by the compiler *)
+DirectIndexed: ForwardDenotation
+  (#
+     var: @text;
+     type:: DirectIndexed;
+     copy:: (# do var->cpy.var #);
+     getcexpr:: (# sd: ^SimpleDecl <<SLOT DirectIndexedGetcexpr: DoPart>> #);
+     isstatic: BooleanObject
+       (# sd: ^SimpleDecl <<SLOT DirectIndexedIsstatic: DoPart>> #);
+  enter (prec[],var)
+  <<SLOT DirectIndexedDoPart: DoPart>>
+  exit this(DirectIndexed)[]
+  #);

@@ -1,0 +1,214 @@
+ORIGIN '../evaluationlib';
+INCLUDE 'type';
+
+--- IntegerConstType: DoPart ---
+do evtype_integer->value
+
+
+--- CharConstType: DoPart ---
+do evtype_char->value
+
+
+--- BooleanConstType: DoPart ---
+do evtype_boolean->value
+
+
+--- RealConstType: DoPart ---
+do evtype_real->value
+
+
+--- BinaryExpReduce: DoPart ---
+do
+   (ls[],toadd[])->lred->(lev[],ltype);
+   (rs[],toadd[])->rred->(rev[],rtype);
+
+   (if (lev[]<>NONE) and (rev[]<>NONE) then
+      (if (ltype<>rtype) and
+	  ((ltype<=0) or (ltype=evtype_boolean) or
+	   (rtype<=0) or (rtype=evtype_boolean))
+      then
+	 'Unequal types in expression!'->errorDest
+      else
+	 INNER;
+	 (lred.mainred.before[],rred.mainred.before[])->EvaluationJoin
+	   ->before[];
+	 (lred.mainred.main[],rred.mainred.main[])->EvaluationJoin->main[];
+      if);
+   if);
+
+   (if lred##=reduceexit## then
+      loop:
+        (#
+	do
+	   lred->(lev[],ltype);
+	   rred->(rev[],rtype);
+	   (if true
+	   // lev[]=NONE then
+	      (if rev[]<>NONE then
+		 'More values on the right side than on the left side!'
+		   ->errorDest
+	      if);
+	   // rev[]=NONE then
+	      'More values on the left side than on the right side!'->errorDest
+	   // (ltype<>rtype) and ((ltype <= 0) or (rtype <= 0)) then
+	      'Unequal types in expression!'->errorDest
+	   else
+	      INNER reduce;
+	      ((before[],lred.mainred.before[])->EvaluationJoin,
+		 rred.mainred.before[])->EvaluationJoin->before[];
+	      ((main[],lred.mainred.main[])->EvaluationJoin,
+		 rred.mainred.main[])->EvaluationJoin->main[];
+	      restart loop
+	   if);
+	#)
+   if);
+
+
+--- RelationalExpType: DoPart ---
+do evtype_boolean->value
+
+
+--- EqualOrNotEqualExpReduce: DoPart ---
+do
+   (if (lev##<=IntegerConst##) and (rev##<=IntegerConst##) then
+      lev[]->lc[];
+      rev[]->rc[];
+      (lc.value=rc.value) = (mytype##=EqExp##)->&BooleanConst->new[];
+   else
+      (lev[],rev[])->&mytype->new[];
+   if);
+   (if exitopt[]<>NONE then
+      (new[],exitopt[])->&jointype->log[]->exitopt[]; true->log.isboolean
+   else
+      new[]->exitopt[]
+   if)
+
+
+--- LessOrGreaterThanExpReduce: DoPart ---
+do
+   (if (ltype=evtype_rep) or (ltype=evtype_ref) then
+      'Relative comparisons (like >) can''t be used on repetitions and references'->errorDest;
+   if);
+   (lev[],rev[])->&mytype->exitopt[]
+
+
+--- ArithExpType: DoPart ---
+do
+   (if (ls.type->value)<>evtype_real then
+      rs.type->value;
+      (if (value<>evtype_real) and (value<>evtype_integer) then
+	 evtype_integer->value
+      if);
+   if);
+   (* this INNER forces the type to real for the / division operator *)
+   INNER;
+
+
+--- RealDivExpType: DoPart ---
+do evtype_real->value
+
+
+--- ArithExpReduce: DoPart ---
+do
+   (if (ltype<evtype_real) or (ltype>evtype_char) then
+      'A number is expected here!'->ls.error
+   if);
+   (if (rtype<evtype_real) or (rtype>evtype_char) then
+      'A number is expected here!'->rs.error
+   if);
+   INNER;
+   (* Only, if some error has been detected when reducing lev[] or rev[],
+    * it may happen, that they are NONE *)
+   (if lev[]<>NONE then
+      (if rev[]<>NONE then
+	 (lev[],rev[])->&mytype->exitopt[];
+      else
+         lev[]->exitopt[];
+      if)
+   else
+      rev[]->exitopt[];
+   if);
+
+
+--- IntegerArithExpReduce: DoPart ---
+do
+   (if (ltype=evtype_real) or (rtype=evtype_real) then
+      'Real values may not be used with div and mod!'->errorDest
+   if);
+
+
+--- LogicalExpType: DoPart ---
+do (if isboolean then evtype_boolean->value else evtype_integer->value if)
+
+
+--- LogicalExpReduce: DoPart ---
+do
+   (lev[],rev[])->&mytype->new[]->exitopt[];
+   (ltype=evtype_boolean)->isboolean->new.isboolean;
+
+
+--- NotExpReduce: DoPart ---
+do
+   (ev[],toadd[])->red->(newev[],type);
+   (if type<>evtype_boolean then
+      'A Boolean value is expected here!'->error
+   if);
+   newev[]->&NotExp->exitopt[];
+   red.mainred.before[]->before[];
+   red.mainred.main[]->main[];
+
+
+--- NoneExpType: DoPart ---
+do evtype_ref->value
+
+
+--- NotExpType: DoPart ---
+do evtype_boolean->value
+
+
+--- UnaryExpReduce: DoPart ---
+do
+   (ev[],toadd[])->red->(newev[],type);
+   (if (type<evtype_real) or (type>evtype_char) then
+      'A number is expected here!'->error
+   if);
+   (if newev[]<>NONE then
+      newev[]->&mytype->exitopt[];
+      red.mainred.before[]->before[];
+      red.mainred.main[]->main[];
+   if);
+
+
+--- UnaryExpType: DoPart ---
+do ev.type->value; (if value<>evtype_real then evtype_integer->value if)
+
+
+--- EvaluationJoin: DoPart ---
+do
+   (if true
+     // ev1[]=NONE then ev2[]->ev[]
+     // ev2[]=NONE then ev1[]->ev[]
+     else
+	ev2[]->ev[];
+	loop: (if ev2.next[]<>NONE then ev2.next[]->ev2[]; restart loop if);
+	ev1[]->ev2.next[];
+   if);
+
+
+--- EvalListReduce: DoPart ---
+do
+   ev.iterate
+     (#
+     do
+	(* DEBUG 'Reducing one element of an EvalList'->putline; *)
+	&el.reduce[]->red[];
+	toadd[]->red;
+	(red.before[],before[])->EvaluationJoin->before[];
+	(enteropt[],red.enteropt[])->EvaluationJoin->enteropt[];
+	(red.main[],main[])->EvaluationJoin->main[];
+	(exitopt[],red.exitopt[])->EvaluationJoin->exitopt[];
+     #)
+
+
+--- EvalListType: DoPart ---
+do evtype_unreduced->value

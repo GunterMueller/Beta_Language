@@ -1,0 +1,13 @@
+ORIGIN '~beta/basiclib/current/betaenv';
+--- Program: ObjectDescriptor ---
+(#
+   p1: (# o: @(# x: @v #); v:< (# x,y: @integer enter (x,y) #) #);
+   p2: p1 (# v::< (# z: @integer enter z #) #);
+   o: ^p2;
+do
+   &p2[]->o[];
+   (1,2,3)->o.o.x;
+   o.o.x.x->putint; newline;
+   o.o.x.y->putint; newline;
+   o.o.x.z->putint; newline;
+#)

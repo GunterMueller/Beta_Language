@@ -1,0 +1,133 @@
+
+
+
+
+
+
+
+<HTML>
+<HEAD><TITLE>gbeta Tutorial:: Pattern References</TITLE></HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF"
+  LINK="#0000FF" VLINK="#800080" ALINK="#FF00FF">
+<TABLE WIDTH="100%">
+<TR><TD ALIGN="right">
+<TABLE><TR ALIGN="center">
+  <TD><A HREF="tutorial_index8.html" TARGET="display"><IMG SRC="left.gif"></A></TD>
+  <TD><A HREF="tutorial_index10.html" TARGET="display"><IMG SRC="right.gif"></A></TD>
+</TR></TABLE></TD></TR>
+<TR><TD ALIGN="left"><H1>Tutorial: Pattern References</H1></TD></TR>
+</TABLE>
+<P><HR></P>
+<TABLE><TR><TD WIDTH="25%">&nbsp;</TD><TD WIDTH="50%">
+
+<P>
+Some people view patterns reference attributes (syntactically:
+<CODE>&lt;VariablePattern&gt;</CODE>) as the undisciplined,
+"goto"ish variant of <A HREF="tutorial_index8.html" TARGET="display">virtual patterns</A>.
+True enough, if you can use the more disciplined virtual patterns for
+a given purpose, by all means do that.  On the other hand there is
+still a place for real, genuine type variables, and that is just what
+a <CODE>&lt;VariablePattern&gt;</CODE> attribute is.
+</P>
+
+<H3>What is a pattern reference?</H3>
+<P>
+A <CODE>&lt;VariablePattern&gt;</CODE> attribute has a state which is
+a pattern reference.  The only difference between the set of patterns
+and the set of pattern references is that <CODE>NONE</CODE> is
+included in the set of pattern references.  In other words, it is the
+set of patterns enhanced with a "bottom" element which is used to
+signify the absence of a pattern value. 
+</P>
+
+<P>
+The reason behind the terminology "pattern" and "pattern reference" is
+that this might hint at the analogy with "object" and "object
+reference."  Attributes denoting the "reference" variant may change
+(what it refers to) over time, whereas attributes denoting the short
+variant ("pattern"/"object") are immutable: the state of an object may
+change, but the attribute always denotes the same object.
+</P>
+
+<H3>What does it look like?</H3>
+<P>
+The declaration uses the same marker as used in pattern concext
+<A HREF="tutorial_index5.html" TARGET="display">coercion</A>, namely <CODE>"##"</CODE>:
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>&lt;Names&gt; ":" "##" &lt;AttributeDenotation&gt;</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+for example:
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE>p: ##object</PRE></TD></TR>
+  </TABLE>
+</P>
+</P>
+
+<H3>Example 7</H3>
+<P>
+A small example of using a pattern reference attribute:
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE><SMALL>
+(* FILE ex7.gb *)
+-- betaenv:descriptor --
+(# 
+   factory:
+     (# settype: (# enter type## #);
+        counter: @integer;
+        type: ##object
+     do counter+1-&gt;counter
+     exit &type[]
+     #);
+   f: @factory;
+   agent: (# do (for 25 repeat '.'-&gt;stdio for); '\n'-&gt;stdio #)
+do 
+   agent##-&gt;f.settype;
+   (for 5 repeat f! for);
+   integer##-&gt;f.settype;
+   (for 5 repeat f! for)
+#)</SMALL></PRE></TD></TR>
+  </TABLE>
+</P>
+
+The <CODE>"!"</CODE> suffix is a <EM>computed object evaluation</EM>.
+The semantics is that the expression in front of it is evaluated.  It
+must deliver one reference to an object (this is checked statically,
+of course).  That object is then executed.  The
+<A HREF="tutorial_index12.html" TARGET="display"><CODE>for</CODE>-imperative</A> is presented later, and so is
+the explicit object <A HREF="tutorial_index14.html" TARGET="display">instantiation operator</A>,
+<CODE>"&amp;"</CODE>. 
+</P>
+
+<P>
+Now to something completely different, the <A HREF="tutorial_index10.html" TARGET="display">next</A> section is
+about co-routine sequencing. 
+</P>
+
+</TD><TD WIDTH="20%">&nbsp;</TD></TR></TABLE>
+<P><HR></P>
+<SMALL>
+  <I>
+    <CENTER>
+      <STRONG>Signed by: </STRONG>
+      <A HREF="mailto:eernst@cs.auc.dk">eernst@cs.auc.dk</A>.
+      Last Modified:  3-Jul-01
+<BR>
+    </CENTER>
+  </I>
+</SMALL>
+</BODY>
+</HTML>
+

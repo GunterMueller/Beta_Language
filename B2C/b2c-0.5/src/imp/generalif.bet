@@ -1,0 +1,100 @@
+ORIGIN '../imperative';
+INCLUDE '../evaluationlib';
+BODY 'generalifbody';
+--- CompilerLib: Attributes ---
+GeneralIfImp: Imperative
+  (#
+     ev: @EvaluationPtr;
+     iflist: ^Evaluation;
+     alt: @AlternativePtr;
+     elseprt: @ImperativePtr;
+     print::
+       (#
+       do
+	  (0,'')->s.newlevel;
+	  '(if '->s.append;
+	  s[]->ev.print;
+	  s.newline;
+	  s[]->alt.print;
+	  (if elseprt.ptr[]<>NONE then
+	     ' else '->s.append;
+	     s.newline;
+	     (s[],'')->elseprt.print;
+	  if);
+	  ' if)'->s.append;
+	  s.backlevel;
+       #);
+     checkFollow::
+       (# do ev.checkFollow; alt.checkFollow; elseprt.checkFollow #);
+     checkComplete::
+       (# do ev.checkComplete; alt.checkComplete; elseprt.checkComplete #);
+     reduce::
+       (#
+	  type: @integer;
+	  newev,before,main,ev1,ev2: ^Evaluation;
+	  red: @ReduceExit;
+	  red2: ^ReduceFunction;
+	  sc: ^StringConst;
+	  ad: ^AttributeDenotation;
+	  fac: ^Factor;
+	  bc: ^BooleanConst;
+       <<SLOT GeneralIfImpReduce: DoPart>>
+       #);
+  enter (ev,alt,elseprt)
+  do this(GeneralIfImp)[]->ev.encl->alt.encl->elseprt.encl
+  #);
+
+
+Alternative: BETAlist
+  (#
+     listtype:: Alternative;
+     sel: @SelectionPtr;
+     imp: @ImperativePtr;
+     print:: (# do s[]->sel.print; (s[],'')->imp.print; #);
+     encltype:: GeneralIfImp;
+     checkFollow:: (# do sel.checkFollow; imp.checkFollow #);
+     checkComplete:: (# do sel.checkComplete; imp.checkComplete #);
+  enter (sel,imp)
+  do this(Alternative)[]->sel.encl->imp.encl
+  exit this(Alternative)[]
+  #);
+
+AlternativePtr: BETAlistPtr
+  (#
+     listtype:: Alternative;
+     reduce: iterate (# <<SLOT AlternativePtrReduce: DoPart>> #);
+  #);
+
+
+CaseSelection: BETAlist
+  (#
+     listtype:: CaseSelection;
+     ev: @EvaluationPtr;
+     print::
+       (#
+       do
+	  ' // '->s.append;
+	  s[]->ev.print;
+       #);
+     encltype:: Alternative;
+     checkFollow:: (# do ev.checkFollow #);
+     checkComplete:: (# do ev.checkComplete #);
+  enter ev
+  do this(CaseSelection)[]->ev.encl
+  exit this(CaseSelection)[]
+  #);
+
+SelectionPtr: BETAlistPtr
+  (#
+     listtype:: CaseSelection;
+     print:: (# sep1:: (# do ' then '->t[] #); nline:: (# do s.newline #) #);
+     reduce:
+       (#
+	  ev,before,main: ^Evaluation;
+	  eq: ^EqExp;
+	  red: ^ReduceFunction;
+	  orex: ^OrExp;
+       <<SLOT SelectionPtrReduce: DoPart>>
+       exit ev[]
+       #);
+  #);

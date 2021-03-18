@@ -1,0 +1,43 @@
+-- betaenv:descriptor --
+(# (* This example shows how a combination of patterns used as
+    * classes can propagate such that the nested virtual patterns
+    * used as methods get combined implicitly.  This resembles
+    * method combination in CLOS (inherit from two classes and
+    * their before/after methods will be composed to form the
+    * effective, combined methods) *)
+
+   List: (* a dummy implementation, holding just one element *) 
+     (# Element:< object; 
+        init: (# do INNER #);
+        insert: (# enter theElement[] do INNER #);
+        deleteFirst: (# do INNER exit theElement[] #);
+        theElement: ^Element
+     #);
+   Stack: 
+     (# Element:< object;
+        init:< (# do INNER #);
+        push:< (# elm: ^Element enter elm[] do INNER #);
+        pop:< (# elm: ^Element do INNER exit elm[] #)
+     #);
+   StackImpl: Stack
+     (# init::< (# do storage.init #);
+        push::< (# do elm[]->storage.insert #);
+        pop::< (# do storage.deleteFirst->elm[] #);
+        storage: @List(# Element::this(StackImpl).Element #)
+     #);
+   StackConc: Stack
+     (# init::< (# do mutex.v; INNER #);
+        push::< protect;
+        pop::< protect;
+        protect: (# do mutex.p; INNER; mutex.v #);
+        mutex: @semaphore
+     #);
+   ThreadSafeStack: StackConc & StackImpl;
+   myStack: @ThreadSafeStack(# Element::string #);
+   s: ^string
+do 
+   myStack.init;
+   &string[]->myStack.push;
+   myStack.pop->s[]
+#)
+

@@ -1,0 +1,12 @@
+(* FILE ex11.gb *)
+-- betaenv:descriptor --
+(#
+   chars: [10] @char;
+   crefs: [0] ^char
+do
+   (for i:chars.range repeat '@'+i -> chars[i] for);
+   chars[4:7] -> stdio;
+   chars[]->crefs[];
+   '****'->crefs;
+   chars->stdio
+#)

@@ -1,0 +1,217 @@
+ORIGIN 'inner';
+INCLUDE '../namebitch';
+INCLUDE '../objectdesc';
+INCLUDE '../specialdesc';
+INCLUDE '../ad/backlevel';
+INCLUDE '../virtual';
+--- InnerImpCheckFollow: DoPart ---
+do
+   findenclod: ObjectDescriptor##->encl.findencltype
+     (#
+	emsg::
+	  (# do 'Compiler error: InnerImp outside Pattern!'->error #)
+     do
+	term[]->od[];
+	(if od.private.outer[]<>NONE then
+	   (if od.private.outer.private.sd[]<>NONE then
+	      (if od.private.outer.private.sd.isrepetition then
+		 true->special;
+		 leave findenclod;
+	      if);
+	   if);
+	if);
+	findod: (if str.length<>0 then
+	   (* !!! Will have to re-think this! *)
+	   od.ScanOuter
+	     (# att: ^Attribute
+	     do
+		(if current.encl##<=Attribute## then
+		   current.encl[]->att[];
+		   (if att.names.ptr.str[]->str.equalNCS then
+		      (od[],level)->&DirectBacklevel->bl[];
+		      current[]->od[];
+		      leave findod;
+		   if)
+		if)
+	     #);
+	   'No enclosing block with this name!'->error;
+	   leave findenclod
+	else
+	   (od[],0)->&DirectBacklevel->bl[];
+	if);
+	(* We set a mark in the od, that this INNER statement refers
+	 * to.  The exception are those od's, that have a DoPart slot,
+	 * as those are implicitely assumed to have an inner.  Setting
+	 * innerVirtual for those would just clobber the information,
+	 * that is already stored there ... *)
+	(if not od.private.doprt.ptr.isslot then
+	   0->od.private.innerVirtual
+	if);
+     #)
+
+
+--- CallInnerDoDo: DoPart ---
+do
+   t[]->bl.getcexpr->res;
+   (if res=0 then 'th'->t if);
+   t->q;
+   '->pattern->virt'->q.append;
+   od.private.innerVirtual->q.putint;
+
+   '    if('->c_file.cstream.puttext;
+   q[]->c_file.cstream.puttext;
+   ') if(!(*'->c_file.cstream.puttext;
+   q[]->c_file.cstream.puttext;
+   ')('->c_file.cstream.puttext;
+   t[]->c_file.cstream.puttext;
+
+   (if lab[]<>NONE then
+      ')) goto L'->c_file.cstream.puttext;
+      lab.testOD->c_file.cstream.putint;
+      ';\n'->c_file.cstream.puttext;
+   else
+      ')) return 0;\n'->c_file.cstream.puttext;
+   if);
+
+
+--- RepMethodDoDo: DoPart ---
+do
+   (* JS Implemented an algorithm, that may allocate more memory than
+    *    requested, to avoid moving the data in the repetition around over
+    *    and over again, when it steadily grows. *)
+   (* JO Allocate the repetition in garbage collected memory. *)
+   'p->b_size'->size;
+   ' * p->b_elsize'->elsize;
+   'p->b_ptr'->ptr;
+   'th->b_amount'->amount;
+
+   (* JS `alsize' stores the number of repetition elements, that would fit
+    *    into the space currently allocated for the repetition: *)
+   'p->b_alsize'->alsize;
+   
+   (* Declare a handy pointer to the repetition *)
+   '    struct repetition *p = (struct repetition *) th->encl1;\n'
+     ->c_file.cstream.puttext;
+
+   (* Calculate the new size of the repetition for the "extend" directive *)
+   (if not (('new'->od.private.nme.equalNCS)->isnew) then
+      '    int oldsize = '->c_file.cstream.puttext;
+      size[]->c_file.cstream.puttext;
+      ';\n    int n;\n    '->c_file.cstream.puttext;
+      size[]->c_file.cstream.puttext;
+      ' += '->c_file.cstream.puttext;
+      amount[]->c_file.cstream.puttext;
+      ';\n'->c_file.cstream.puttext;
+   if);
+
+   (* Ensure, that the size of the repetition is not negative: *)
+   '    if('->c_file.cstream.puttext;
+   size[]->c_file.cstream.puttext;
+   ' < 0)\n\t'->c_file.cstream.puttext;
+   size[]->c_file.cstream.puttext;
+   ' = 0;\n'->c_file.cstream.puttext;
+
+   (if isnew then
+      (* Allocate new storage for the repetition.
+       * JS: allocate exactly the requested size.
+       * JO: Replaced `free' with `mrfree' to tell the garbage collector about
+       *     the freed block.  Also replaced `malloc' with `mrmalloc'.
+       * !!! Depending on the type of the garbage collection, the call to
+       *     `mrfree' may be completley superfluous!
+       *)
+      (* JS DEBUG 
+	 '    printf("New: all released and allocated new %d\\n",'
+	    ->c_file.cstream.puttext; 
+	 size[]->c_file.cstream.puttext;
+	 ');\n'->c_file.cstream.puttext;
+       *)
+      '    mrfree('->c_file.cstream.puttext;
+      ptr[]->c_file.cstream.puttext;
+      ');\n    '->c_file.cstream.puttext;
+      ptr[]->c_file.cstream.puttext;
+      ' = mrmalloc('->c_file.cstream.puttext;
+      size[]->n[]->c_file.cstream.puttext;
+      elsize[]->c_file.cstream.puttext;
+      ');\n    '->c_file.cstream.puttext;
+      alsize[]->c_file.cstream.puttext;
+      ' = '->c_file.cstream.puttext;   
+      size[]->c_file.cstream.puttext;
+      ';\n'->c_file.cstream.puttext;
+   else
+      (* Extend or shrink size of the repetition.  Re-allocate memory, if
+       * that is necessary.
+       * JS: Try to avoid many reallocations by a special algorithm.
+       * JO: Replaced `mrealloc' with `mrrealloc' to get garbage collected
+       *     memory.
+       *)
+      (* JSDEBUG 
+	 '    printf("Extend: new size: %d, alsize: %d, amount: %d\\n",'
+	   ->c_file.cstream.puttext; 
+	 size[]->c_file.cstream.puttext;
+	 ','->c_file.cstream.puttext;
+	 alsize[]->c_file.cstream.puttext;
+	 ','->c_file.cstream.puttext;
+	 amount[]->c_file.cstream.puttext;
+	 ');\n'->c_file.cstream.puttext;
+       *)
+      (* First handle case, that the repetition still fits into the allocated
+       * space.  We may have to shrink the space, though, if there is too much
+       * waste, or we have to zero out the elements, that were just deleted.
+       *)
+      '    if('->c_file.cstream.puttext;
+      size[]->c_file.cstream.puttext;
+      ' <= '->c_file.cstream.puttext;
+      alsize[]->c_file.cstream.puttext;
+      ') {\n\tif('->c_file.cstream.puttext;
+      amount[]->c_file.cstream.puttext;
+      ' >= 0 || '->c_file.cstream.puttext;
+      size[]->c_file.cstream.puttext;
+      ' >= RepMinUse('->c_file.cstream.puttext;
+      alsize[]->c_file.cstream.puttext;
+      '))\n\t    return 1;\n\tn = oldsize - '->c_file.cstream.puttext;
+      size[]->c_file.cstream.puttext;
+      ';\n\toldsize = '->c_file.cstream.puttext;
+      size[]->c_file.cstream.puttext;
+
+      (* Now handle the case, that the repetition grows.  Calculate a minimum
+       * extension via the `RepMinExt()' macro, and compare it to the requested
+       * new size.  Use whichever value is larger.
+       *)
+      ';\n    } else {\n\toldsize = '->c_file.cstream.puttext;
+      alsize[]->c_file.cstream.puttext;
+      ';\n\t'->c_file.cstream.puttext;
+      alsize[]->c_file.cstream.puttext;
+      ' += RepMinExt(oldsize);\n\tif('->c_file.cstream.puttext;
+      alsize[]->c_file.cstream.puttext;
+      ' < '->c_file.cstream.puttext;
+      size[]->c_file.cstream.puttext;
+      ')\n\t    '->c_file.cstream.puttext;
+      alsize[]->c_file.cstream.puttext;
+      ' = '->c_file.cstream.puttext;
+      size[]->c_file.cstream.puttext;
+      ';\n\t'->c_file.cstream.puttext;
+
+      (* Use `mrrealloc' to actually re-allocate the memory *)
+      ptr[]->c_file.cstream.puttext;
+      ' = mrrealloc('->c_file.cstream.puttext;
+      ptr[]->c_file.cstream.puttext;
+      ', '->c_file.cstream.puttext;
+      alsize[]->c_file.cstream.puttext;
+      elsize[]->c_file.cstream.puttext;
+      ');\n\tn = '->c_file.cstream.puttext;
+      alsize[]->c_file.cstream.puttext;
+      ' - oldsize;\n    }\n'->c_file.cstream.puttext;
+      'n'->n[];
+   if);
+
+   (* set newly allocated memory to zero *)
+   '    memset('->c_file.cstream.puttext;
+   ptr[]->c_file.cstream.puttext;
+   (if not isnew then
+      ' + oldsize'->c_file.cstream.puttext;
+      elsize[]->c_file.cstream.puttext;
+   if);
+   ', 0, '->c_file.cstream.puttext;
+   n[]->c_file.cstream.puttext;
+   elsize[]->c_file.cstream.puttext;
+   ');\n'->c_file.cstream.puttext;

@@ -1,0 +1,957 @@
+(* FILE "./private/ibetaSlicelib.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaSlicelib.bet,v 1.77 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN '../ibetaSType';
+INCLUDE 'basicinterplib';
+INCLUDE 'ibetaTwolib';
+BODY 'ibetaSlicelibbody'
+
+(*************************************************************
+ *                                                           *
+ *                       Static Slices                       *
+ *                                                           *
+ *************************************************************)
+
+-- StaticSliceListLib:attributes --
+
+print: printBase
+  (# withEach: (# current: ^patternStaticSlice enter current[] do INNER #);
+     before:< object;
+     beforeEach:< withEach;
+     afterEach:< withEach;
+     after:< object;
+     element_nl: @boolean               (* per-element 'nl' *)
+  enter element_nl
+  <<SLOT StaticSliceListPrint:dopart>> 
+  #);
+
+printShort: printBase
+  (# withEach: (# current: ^patternStaticSlice enter current[] do INNER #);
+     before:< object;
+     beforeEach:< withEach;
+     afterEach:< withEach;
+     after:< object;
+     element_nl: @boolean               (* per-element 'nl' *)
+  enter element_nl
+  <<SLOT StaticSliceListPrintShort:dopart>> 
+  #);
+
+observe: observeBase(# <<SLOT StaticSliceListObserve:dopart>> #)
+
+-- StaticPatternTypeLib:attributes --
+
+insert: 
+  (* Insert 'new' into this staticPatternType as the frontmost
+   * link; 'new' is owned by this staticPatternType thereafter *)
+  (# new: ^patternStaticSlice
+  enter new[]
+  <<SLOT StaticPatternTypeInsert:dopart>>
+  #);
+
+mixin:
+  (* Mixin-like inheritance:  In the given ('context','world'), 
+   * enhance this static pattern type by using it as the type
+   * of the prefix for this main part, and deliver the result; the operation
+   * changes 'sptype', so beware of aliasing! *)
+  (# context: ^staticContext;           (* Never NONE *)
+     world: ^staticContextDB;           (* Never NONE *)
+     l2mpar: ^l2MainPart                (* Never NONE *)
+  enter (context[],world[],l2mpar[])
+  <<SLOT StaticPatternTypeMixin:dopart>>
+  #);
+
+merge:
+  (* Merge 'other' onto this staticPatterntype; 'other' gets copied 
+   * and is thus not affected by the operation *)
+  (# other: ^staticPatternType;
+     l2dclast: ^l2AstNode;              (* Used for diagnostics *)
+     usageAst: ^l2AstNode               (* For diagnostics, too! *)
+  enter (other[],l2dclast[],usageAst[])
+  <<SLOT StaticPatternTypeMerge:dopart>>
+  #);
+
+mergeMustSucceed:
+  (# stype: ^staticType;                (* Never NONE *)
+     l2dclast: ^l2AstNode;              (* For diagnostics *)
+     usageAst: ^l2AstNode               (* For diagnostics, too! *)
+  enter (stype[],l2dclast[],usageAst[])
+  <<SLOT StaticPatternTypeMergeMustSucceed:dopart>>
+  #);
+
+rawLessEqual: booleanValue
+  (* A "raw", slice-based structural comparison of pattern types *)
+  (# otherSPType: ^staticPatternType;
+     otherSlice: ^patternStaticSlice
+  enter otherSPType[]
+  <<SLOT StaticPatternTypeRawLessEqual:dopart>>
+  #);
+
+check:
+  (* Verify that this static pattern type is well-formed; if not, 
+   * and the violation is the presence of more than one composite 
+   * slice referring to the same main part, 'duplicateError' 
+   * is invoked; if the violation is that the resulting pattern 
+   * would contain a virtual whose virtual-chain (of declarations) 
+   * is not well-formed, i.e. it is not (:<)(::<)*(::)?, then 
+   * 'virtualError' is invoked *)
+  (# duplicateError:< exception(# do INNER #);
+     virtualError:< exception(# do INNER #)
+  <<SLOT StaticPatternTypeCheck:dopart>> 
+  #);
+
+badKind: (# <<SLOT StaticPatternTypeBadKind:dopart>> #);
+
+getStaticTransientOut:
+  (# context: ^staticContext;           (* Never NONE *)
+     world: ^staticContextDB;           (* Never NONE *)
+     usageAst: ^l2AstNode;              (* Used for diagnostics *)
+     stran: ^staticTransient            (* Never NONE *)
+  enter (context[],world[],usageAst[])
+  <<SLOT StaticPatternTypeGetTranOut:dopart>>
+  exit stran[]
+  #);
+
+getStaticTransientIn:
+  (# context: ^staticContext;           (* Never NONE *)
+     world: ^staticContextDB;           (* Never NONE *)
+     usageAst: ^l2AstNode;              (* Used for diagnostics *)
+     stran: ^staticTransient            (* Never NONE *)
+  enter (context[],world[],usageAst[])
+  <<SLOT StaticPatternTypeGetTranIn:dopart>>
+  exit stran[]
+  #);
+
+prefixWithComponent:
+  (* Merge this static static pattern type onto 'component', 
+   * i.e. leave the static type unchanged if already a 
+   * component, otherwise add a new 'component' slice as
+   * the topmost slice of the static type *)
+  (# usageAst: ^l2AstNode
+  enter usageAst[]
+  <<SLOT StaticPatternTypePrefixWithComponent:dopart>>
+  exit this(staticPatternType)[]
+  #);
+
+tmpInstantiate:
+  (* Create a staticOCP which describes an instance of 
+   * this static pattern type located on the tmp stack 
+   * at the given 'framepos' index; the 'generatingAst' 
+   * is used to uniquely identify the temporary such that 
+   * temps. discovered during analysis (not codegen) which 
+   * do not have a precisely known tmp.stack location can 
+   * still be recognized as "the same" or "(possibly) not 
+   * the same" *)
+  (# context: ^staticContext;
+     world: ^staticContextDB;
+     usageAst: ^l2AstNode;
+     generatingAst: ^l2AstNode;
+     framepos: @integer;
+     tmpstocp: ^staticOCP
+  enter (context[],world[],usageAst[],generatingAst[],framePos)
+  <<SLOT StaticPatternTypeTmpInstantiate:dopart>>
+  exit tmpstocp[]
+  #);
+
+isDave: booleanValue
+  (* Determine whether this static pattern type is eligible for 
+   * the special treatment where []-semantics is implicitly 
+   * assumed *)
+  (# <<SLOT StaticPatternTypeIsDave:dopart>> #);
+
+ast2slice:
+  (# l2ast: ^l2AstNode;                 (* Never NONE *)
+     pSlice: ^patternStaticSlice        (* NONE means "not found" *)
+  enter l2ast[]
+  <<SLOT StaticPatternTypeAst2Slice:dopart>>
+  exit pSlice[]
+  #);
+
+makeNotKnownStatically:
+  (* Change this static pattern type such that 'knownStatically'
+   * will not return true; this is used during coercions, e.g.,
+   * from the type of a qualification of a dynamic item and the
+   * type of the denoted object; another description is that 
+   * this is used when knowledge about a pattern is converted
+   * into knowledge about an entity (e.g., object) whose 
+   * pattern is constrained by the former value of this 
+   * static pattern type as an upper bound *)
+  (# <<SLOT StaticPatternTypeMakeNKS:dopart>> #);
+
+makeKnownStatically:
+  (* Change this static pattern type such that 'knownStatically'
+   * will return true *)
+  (# <<SLOT StaticPatternTypeMakeKS:dopart>> #);
+
+gbcPrint: printBase(# <<SLOT StaticPatternTypeGbcPrint:dopart>> #);
+
+gbcMark: textValue
+  (# l2ndcl: ^l2NameDcl
+  enter l2ndcl[]
+  <<SLOT StaticPatternTypeGbcMark:dopart>>
+  #);
+
+gbcPrintDecl: gbcPrint
+  (# l2ndcl: ^l2NameDcl
+  enter l2ndcl[]
+  <<SLOT StaticPatternTypeGbcPrintDecl:dopart>>
+  #);
+
+gbcPrintInsertedItem: gbcPrint
+  (# l2oden: ^l2ObjectDenotation
+  enter l2oden[]
+  <<SLOT StaticPatternTypeGbcPrintInsertedItem:dopart>>
+  #);
+
+createPattern:
+  (# thrd: ^thread;
+     unwind: ##stackUnwinder;
+     dContext: ^substanceSlice;
+     l1pat: ^l1PatternEntity
+  enter (thrd[],unwind##,dContext[])
+  <<SLOT StaticPatternTypeCreatePattern:dopart>>
+  exit l1pat[]
+  #);
+
+createObject:
+  (# thrd: ^thread;
+     unwind: ##stackUnwinder;
+     dContext: ^substanceSlice;
+     l1pat: ^l1PatternEntity;
+     l1obj: ^l1ObjectEntity;
+     oofo: ^stackableObject
+  enter (thrd[],unwind##,dContext[])
+  <<SLOT StaticPatternTypeCreateObject:dopart>>
+  exit l1obj[]
+  #);
+
+doesNothing: booleanValue
+  (* Returns true iff the execution of the described kind of objects is 
+   * known to have no effect (e.g., a lone integer slice or (# #)) *)
+  (# <<SLOT StaticPatternTypeDoesNothing:dopart>> #);
+
+isComponent: booleanValue
+  (* Returns true iff this static pattern type is known to contain  
+   * a component slice *)
+  (# <<SLOT StaticPatternTypeIsComponent:dopart>> #);
+
+isPredefined: booleanValue
+  (* Determine whether this is one of the predefined patterns in gbeta *)
+  (# <<SLOT StaticPatternTypeIsPredefined:dopart>> #);
+
+predefinedCases:
+  (* This static pattern type must be one of the predefined patterns 
+   * in gbeta; then, invoke the corresponding callback below *)
+  (# onObject:< object;
+     onBoolean:< object;
+     onChar:< object;
+     onInteger:< object;
+     onReal:< object;
+     onString:< object;
+     onComponent:< object;
+     onSemaphore:< object
+  <<SLOT StaticPatternTypePredefinedCases:dopart>>
+  #);
+
+generateGetPredefinedPattern:
+  (* This must be one of the predefined patterns in gbeta; then, add 
+   * one bytecode to program to push that pattern on the ptn.stack *)
+  (# program: ^betaByteCodeList
+  enter program[]
+  <<SLOT StaticPatternTypeGenerateGetPredefinedPattern:dopart>>
+  #);
+
+generateGetPredefinedObject:
+  (* This must be one of the predefined patterns in gbeta; then, add 
+   * one bytecode to program to push an instance on the objref. stack *)
+  (# program: ^betaByteCodeList
+  enter program[]
+  <<SLOT StaticPatternTypeGenerateGetPredefinedObject:dopart>>
+  #);
+
+generateGetPredefinedTmp:
+  (* This must be one of the predefined patterns in gbeta; then, add 
+   * one bytecode to program to push an instance on the tmp. stack *)
+  (# framePos: @integer;
+     program: ^betaByteCodeList
+  enter (framePos,program[])
+  <<SLOT StaticPatternTypeGenerateGetPredefinedTmp:dopart>>
+  #)
+
+-- StaticPrimitiveEntityTypeLib:attributes --
+
+transferBasicState:
+  (# other: ^StaticPrimitiveEntityType
+  enter other[]
+  <<SLOT StaticPrimitiveEntityTypeTransferBasicState:dopart>>
+  #)
+
+-- StaticOCPLib:attributes --
+
+printShort: printBase(# <<SLOT StaticOCPPrintShort:dopart>> #);
+
+sameOriginScan:
+  (* Scan-like operation: INNER is executed for each accepted
+   * slice with 'current' referring to it.  Works like this:
+   * Walk down the static slices of this static OCP to
+   * visit all those whose origin is statically known to be
+   * the same object (substance) as found with 'originPath' *)
+  (# originPath: ^runtimePath;		(* Never NONE *)
+     current: ^staticSlice 		(* Never NONE *)
+  enter originPath[]
+  <<SLOT StaticOCPSameOriginScan:dopart>>
+  #);
+
+checkFinal:
+  (* Check that the final binding 'l2fdcl' is not
+   * violated in context of this 'staticOCP' *)
+  (# world: ^staticContextDB; 
+     usageAst: ^l2AstNode;
+     l2fdcl: ^l2FinalDecl
+  enter (world[],usageAst[],l2fdcl[])
+  <<SLOT StaticOCPCheckFinal:dopart>>
+  #);
+
+checkFinalObject:
+  (* Check that the final object binding 'l2fsit' is 
+   * not violated in context of this 'staticOCP' *)
+  (# world: ^staticContextDB;
+     usageAst: ^l2AstNode;
+     l2fsit: ^l2FinalStaticItem
+  enter (world[],usageAst[],l2fsit[])
+  <<SLOT StaticOCPCheckFinalObject:dopart>>
+  #);
+
+checkFinals:
+  (* Check that no final binding in this 'staticOCP' is violated *)
+  (# world: ^staticContextDB;
+     usageAst: ^l2AstNode;
+  enter (world[],usageAst[])
+  <<SLOT StaticOCPCheckFinals:dopart>>
+  #);
+
+checkVirtuals:
+  (* Check that no virtual in this 'staticOCP' is dangerous *)
+  (# world: ^staticContextDB;
+     usageAst: ^l2AstNode;
+  enter (world[],usageAst[])
+  <<SLOT StaticOCPCheckVirtuals:dopart>>
+  #);
+
+getFinalStaticItem:
+  (* Given a virtual static item 'l2vsit' this static OCP is scanned in 
+   * order to find a corresponding final binding 'l2fsit'; if no such
+   * final binding is found, NONE is returned *)
+  (# l2vsit: ^l2VirtualStaticItem;      (* Never NONE *)
+     l2fsit: ^l2FinalStaticItem;        (* NONE means "not found" *)
+  enter l2vsit[]
+  <<SLOT StaticOCPGetFinalStaticItem:dopart>>
+  exit l2fsit[]
+  #);
+
+generateGetPattern:
+  (* Generate code to ensure that the pattern associated with 
+   * this staticOCP ends up on the 'patterns' stack and to
+   * check that it is not NONE unless 'noneAllowed' *)
+  (# program: ^betaByteCodeList;
+     cInfo: ^compileInfo;
+     noneAllowed: @boolean;
+     usageAst: ^l2AstNode;
+     gensptype: ^staticPatternType
+  enter (program[],cInfo[],noneAllowed,usageAst[])
+  <<SLOT StaticOCPGenerateGetPattern:dopart>>
+  exit gensptype[]
+  #);
+
+generateGetObject:
+  (* Generate code to ensure that an object associated with 
+   * this staticOCP ends up on the 'objRefs' stack and to
+   * check that it is not NONE; this may instantiate a 
+   * pattern in order to obtain an object *)
+  (# program: ^betaByteCodeList;
+     cInfo: ^compileInfo;
+     noneAllowed: @boolean;
+     usageAst: ^l2AstNode;
+     gensptype: ^staticPatternType
+  enter (program[],cInfo[],noneAllowed,usageAst[])
+  <<SLOT StaticOCPGenerateGetObject:dopart>>
+  exit gensptype[]
+  #);
+
+generateGetTmpObject:
+  (* Generate code to ensure that an object associated with 
+   * this staticOCP ends up on the 'tmpObjs' stack and to
+   * check that it is not NONE; this may instantiate a 
+   * pattern in order to obtain an object *)
+  (# program: ^betaByteCodeList;
+     cInfo: ^compileInfo;
+     usageAst: ^l2AstNode;
+     generatingAst: ^l2AstNode;
+     genstocp: ^staticOCP;
+     framePos: @integer
+  enter (program[],cInfo[],usageAst[],generatingAst[])
+  <<SLOT StaticOCPGenerateGetTmpObject:dopart>>
+  exit genstocp[]
+  #);
+
+createTmpVersion:
+  (* The "normal" usage context for this method is 
+   * byte code generation; an object will be placed on 
+   * the 'tmpObjs' stack at run-time, possibly created
+   * from a pattern, and the original entity (whether 
+   * an object(ref) or a pattern(ref)) is described by
+   * this staticOCP; the returned 'tmpbased_stocp' will 
+   * then describe the object on the 'tmpObjs' stack;
+   * We can use it during analysis, too, but in this 
+   * case the 'framePos' is 'unknownStackPos' since 
+   * we so not know the exact tmp.object stack layout, 
+   * and this means that the 'generatingAst' becomes 
+   * the tie breaker: two tmp. objects are considered the 
+   * same if they have unknown stack pos and same 
+   * generating AST; conclusion: use a consistent choice 
+   * of 'generatingAst' args!  Inconsistency does not affect 
+   * soundness, but it does cause the rejection of some 
+   * programs that are actually typesafe, since we "cannot 
+   * discover that certain temps. are the same object" *)
+  (# generatingAst: ^l2AstNode;
+     framePos: @integer;
+     tmpbased_stocp: ^staticOCP
+  enter (generatingAst[],framePos)
+  <<SLOT StaticOCPCreateTmpVersion:dopart>> 
+  exit tmpbased_stocp[]
+  #)
+
+(*************************************************************
+ *                                                           *
+ *                     Static Transients                     *
+ *                                                           *
+ *************************************************************)
+
+-- InterpreterBaseLib:attributes --
+
+createSingletonTransient:
+  (* Create and deliver a single static transient; 'type'
+   * should be furtherbound to one of the concrete 
+   * static transients (boolean/char/integer/..)
+   * whose 'init' does not expect arguments *)
+  (# type:< staticTransient;
+     stran: ^type
+  <<SLOT CreateSingletonTransient:dopart>>
+  exit stran[]
+  #);
+
+createEmptyTransient:
+  (* Create and deliver an empty sublist transient *)
+  (# sstran: ^staticSublistTransient
+  <<SLOT CreateEmptyTransient:dopart>>
+  exit sstran[]
+  #);
+
+(* ------------------------------------------------------------
+ * Static coercion support (this is a quote from a mail in 
+ * betaexp, first an introduction here, and then the schemas 
+ * for the individual operation categories along with the 
+ * patterns for the categories):
+ * ------------------------------------------------------------
+ * 
+ *   Entries NOT shown are illegal.
+ *   Entries marked with "*" are illegal.
+ *
+ *   Abbreviations:  int     means   integer
+ *                   bool    means   boolean
+ *                   iref    means   item reference
+ *                   cref    means   component reference
+ *                   sref    means   structure reference
+ *
+ *   NONE is both an iref and a cref. [EE: and an sref, probably?!]
+ * 
+ *   In addition to the above types, there is also a primitive type.
+ *   The result of any primitive operation %OP has this type.
+ *   This type is compatible with most other types. I.e. it can e.g
+ *   be assigned compared with/to int, bool, char.
+ *   A complete specification is not yet available.
+ *
+ *   [EE: Assignment is handled with the operation "compatible"]
+ *
+ *   For assignment binary operators rows and columns show left
+ *   and right operands respectively, and the elements show the
+ *   result type.
+ *
+ *   Assignment: ->
+ *
+ *          | int  | char | real | bool | iref | cref | sref | str
+ *     -------------------------------------------------------------
+ *     int  | int  | char | real |  +   |  *   |  *   |  *   |  *
+ *     -------------------------------------------------------------
+ *     char | int  | char |  *   |  *   |  *   |  *   |  *   | str
+ *     -------------------------------------------------------------
+ *     real | int  |  *   | real |  *   |  *   |  *   |  *   |  *
+ *     -------------------------------------------------------------
+ *     bool |  *   |  *   |  *   | bool |  *   |  *   |  *   |  *
+ *     -------------------------------------------------------------
+ *     iref |  *   |  *   |  *   |  *   | iref |  *   |  *   |  *
+ *     -------------------------------------------------------------
+ *     cref |  *   |  *   |  *   |  *   |  *   | cref |  *   |  *
+ *     -------------------------------------------------------------
+ *     sref |  *   |  *   |  *   |  *   |  *   |  *   | sref |  *
+ *     -------------------------------------------------------------
+ *     str  | if1  | if1  |  *   |  *   |  *   |  *   |  *   | str
+ *)
+
+unOpStaticCoercionBase:
+  (# input: ^staticTransient;
+     usageAst: ^l2AstNode;
+     output: ^staticTransient
+  enter (input[],usageAst[])
+  do INNER
+  exit output[]
+  #);
+
+binOpStaticCoercionBase:
+  (# right,left: ^staticTransient;
+     usageAst: ^l2AstNode;
+     output: ^staticTransient
+  enter (left[],right[],usageAst[])
+  do INNER
+  exit output[]
+  #);
+
+arithBinOpStaticCoercionBase: binOpStaticCoercionBase
+  (# <<SLOT ArithBinOpStaticCoercionBase:dopart>> #);
+
+arithBinOpStaticCoercion: arithBinOpStaticCoercionBase
+  (*   Binary operators:  -  *  div
+   *
+   *          | int  | char | real | str
+   *     ---------------------------------
+   *     int  | int  | int  | real | if1
+   *     ---------------------------------
+   *     char | int  | int  |  *   | if1
+   *     ---------------------------------
+   *     real | real |  *   | real |  *
+   *     ---------------------------------
+   *     str  | if1  | if1  |  *   | if1
+   *)
+  (# <<SLOT ArithBinOpStaticCoercion:dopart>> #);
+
+plusBinOpStaticCoercion: arithBinOpStaticCoercionBase
+  (*   Binary operators:  +
+   *
+   *          | int  | char | real | str
+   *     ------------------------------------
+   *     int  | int  | int  | real | if1
+   *     ------------------------------------
+   *     char | int  | int  |  *   | if1
+   *     ------------------------------------
+   *     real | real |  *   | real |  *
+   *     ------------------------------------
+   *     str  | if1  | if1  |  *   | if1/str
+   * 
+   * [EE: non-singleton strings are given special treatment with '+':
+   *  adding two string, at least one of them non-literal-char, means 
+   *  concatenating them as strings; in all other cases the string(s)
+   *  must be literalchar and wil be changed to integer first]
+   *)
+  (# <<SLOT PlusBinOpStaticCoercion:dopart>> #);
+
+modBinOpStaticCoercion: binOpStaticCoercionBase
+  (*   Binary operator:  mod
+   *
+   *          | int  | char | str
+   *     --------------------------
+   *     int  | int  | int  | if1
+   *     --------------------------
+   *     char | int  | int  | if1
+   *     --------------------------
+   *     str  | if1  | if1  | if1
+   *)
+  (# <<SLOT ModBinOpStaticCoercion:dopart>> #);
+
+rdivBinOpStaticCoercion: binOpStaticCoercionBase
+  (*   Binary operator:  / (char will probably be eliminated here!)
+   *
+   *          | int  | char  | real | str
+   *     ----------------------------------
+   *     int  | real | real  | real | if1
+   *     ----------------------------------
+   *     char | real | real  |  *   | if1
+   *     ----------------------------------
+   *     real | real |  *    | real |  *
+   *     ----------------------------------
+   *     str  | if1  | if1   |  *   | if1
+   *)
+  (# <<SLOT RdivBinOpStaticCoercion:dopart>> #);
+
+eqneqBinOpStaticCoercion: binOpStaticCoercionBase
+  (*   Binary operators:  =  <>
+   *
+   *          | int  | char | real | bool | iref | cref | sref | str
+   *     -------------------------------------------------------------
+   *     int  | bool | bool | bool |  *   |  *   |  *   |  *   | if1
+   *     -------------------------------------------------------------
+   *     char | bool | bool | bool |  *   |  *   |  *   |  *   | if1
+   *     -------------------------------------------------------------
+   *     real | bool | bool | bool |  *   |  *   |  *   |  *   | if1
+   *     -------------------------------------------------------------
+   *     bool |  *   |  *   |  *   | bool |  *   |  *   |  *   |  *
+   *     -------------------------------------------------------------
+   *     iref |  *   |  *   |  *   |  *   | bool |  *   |  *   |  *
+   *     -------------------------------------------------------------
+   *     cref |  *   |  *   |  *   |  *   |  *   | bool |  *   |  *
+   *     -------------------------------------------------------------
+   *     sref |  *   |  *   |  *   |  *   |  *   |  *   | bool |  *
+   *     -------------------------------------------------------------
+   *     char | if1  | if1  | if1  |  *   |  *   |  *   |  *   | bool
+   *)
+  (# <<SLOT EqneqBinOpStaticCoercion:dopart>> #);
+
+uneqBinOpStaticCoercion: binOpStaticCoercionBase
+  (*   Binary operators:  <  <=  >  >=  [EE: added pref column&row]
+   *
+   *          | int  | char | real | bool | pref | str
+   *     -----------------------------------------------
+   *     int  | bool | bool | bool |  *   |  *   | if1
+   *     -----------------------------------------------
+   *     char | bool | bool | bool |  *   |  *   | if1       <-- !! char<string
+   *     -----------------------------------------------            raises char
+   *     real | bool | bool | bool |  *   |  *   | if1
+   *     -----------------------------------------------
+   *     bool |  *   |  *   |  *   | bool |  *   |  *
+   *     -----------------------------------------------
+   *     pref |  *   |  *   |  *   |  *   | pref |  *
+   *     -----------------------------------------------
+   *     str  | if1  | if1  | if1  |  *   |  *   | bool
+   *)
+  (# <<SLOT UneqBinOpStaticCoercion:dopart>> #);
+
+andorBinOpStaticCoercion: binOpStaticCoercionBase
+  (*   Binary operators:  and or [EE: and "xor"]
+   *
+   *          | bool
+   *     ------------
+   *     bool | bool
+   *)
+  (# <<SLOT AndorBinOpStaticCoercion:dopart>> #);
+
+addUnOpStaticCoercion: unOpStaticCoercionBase
+  (*   Unary operators:  +  -
+   *
+   *     int, char, real result type is the same as operand type
+   *)
+  (# <<SLOT AddUnOpStaticCoercion:dopart>> #);
+
+notUnOpStaticCoercion: unOpStaticCoercionBase
+  (*   Unary operator:  not
+   *
+   *     bool    result type is  bool
+   *)
+  (# <<SLOT NotUnOpStaticCoercion:dopart>> #);
+
+impossibleStaticUnCoercion:
+  (* Tell user that the requested coercion is not available *)
+  (# input: ^staticTransient;
+     usageAst: ^l2AstNode;
+     solution: ^text
+  enter (input[],usageAst[],solution[])
+  <<SLOT ImpossibleStaticUnCoercion:dopart>>
+  #);
+
+impossibleStaticBinCoercion:
+  (* Tell user that the requested coercion is not available *)
+  (# left,right: ^staticTransient;
+     usageAst: ^l2AstNode
+  enter (left[],right[],usageAst[])
+  <<SLOT ImpossibleStaticBinCoercion:dopart>>
+  #)
+
+-- StaticTransientLib:attributes --
+
+observe: observeBase(# <<SLOT StaticTransientObserve:dopart>> #)
+
+-- StaticTransientListLib:attributes --
+
+print: printBase 
+  (# withEach: (# current: ^staticTransient enter current[] do INNER #);
+     before:< object;
+     beforeEach:< withEach;
+     afterEach:< withEach;
+     after:< object;
+     element_nl: @boolean               (* per-element 'nl' *)
+  enter element_nl
+  <<SLOT StaticTransientListPrint:dopart>> 
+  #);
+
+printShort: printBase 
+  (# withEach: (# current: ^staticTransient enter current[] do INNER #);
+     before:< object;
+     beforeEach:< withEach;
+     afterEach:< withEach;
+     after:< object;
+     element_nl: @boolean               (* per-element 'nl' *)
+  enter element_nl
+  <<SLOT StaticTransientListPrintShort:dopart>> 
+  #);
+
+observe: observeBase(# <<SLOT StaticTransientListObserve:dopart>> #);
+
+normalize: 
+  (* Bring this static transient list on a normal form;
+   * if all static transient lists are on normal form, 
+   * comparisons can simply be carried out element by 
+   * element in the lists *)
+  (# <<SLOT StaticTransientListNormalize:dopart>> #);
+
+correlate: booleanValue
+  (* Scan-like operation that runs through the two lists
+   * in lockstep; for each pair of static transients
+   * the virtual 'foreach' is executed; the operation
+   * fails (terminates and returns false) if ever 'foreach'
+   * returns false on a given pair, or if the lengths
+   * of the two lists differ; otherwise 'true' is returned *)
+  (# foreach:< booleanValue
+       (# otherCurrent,current: ^staticTransient
+       enter (otherCurrent[],current[]) 
+       do INNER
+       #);
+     other: ^staticTransientList
+  enter other[]
+  <<SLOT StaticTransientListCorrelate:dopart>>
+  #);
+
+equal: correlate
+  (* Determines whether 'other' is equal to this list;
+   * assumes that both lists are on normal form *)
+  (# forEach::(# do otherCurrent[]->current.equal->value #)#);
+
+compatible: correlate
+  (* Determines whether there are coercions such 
+   * that 'other' can be made equal to this list;
+   * also assumes that the lists are on normal form *)
+  (# forEach::(# do (otherCurrent[],usageAst[])->current.compatible->value #);
+     usageAst: ^l2AstNode               (* Used for diagnostics *)
+  enter usageAst[]
+  #)
+
+-- StaticSublistTransientLib:attributes --
+
+add: 
+  (* Accept the static transient 'stran' for incorporation
+   * into this static sublist transient; if 'stran' is 
+   * another sublist transient, its contents are (destructively) 
+   * transferred and appended to the contents of this sublist
+   * transient, and if 'stran' is any other kind of transient
+   * it is appended to the contents of this sublist transient;
+   * this is used for composition of enter/exit lists from 
+   * the specialization levels of a static type *)
+  (# stran: ^staticTransient
+  enter stran[]
+  <<SLOT StaticSublistTransientAdd:dopart>>
+  #)
+
+-- StaticOQuaTransientLib:attributes --
+
+orefCompatible: booleanValue
+  (* Check whether this oqua transient will be able to accept the 
+   * given oref transient in a reference assignment operation; 
+   * since the structural aspect of the values are trivially compatible 
+   * this is entirely a static qualification check; it returns true
+   * if the reference assignment is always safe and false if it is 
+   * possibly unsafe (corresponding to a "quaWarning" given during check);
+   * the four callbacks "on..." are invoked when the ref-ass. is unsafe
+   * in one of four ways:  
+   *
+   * 'onBoundUnsafe' indicates that only an upper bound is known where an
+   * exactly known pattern would be required for safety (this is, e.g.,
+   * the case when we are assigning from a constant type to a virtual
+   * type which is OK locally but may of course grow).
+   *
+   * 'onDownUnsafe' is invoked when the ref-ass. includes a
+   * down-cast (this is the classical qua-check situation in Beta)
+   *
+   * 'onUpUnsafe' is invoked when the ref-ass. includes an up-cast (this
+   * is of course only a problem with an exact reference)
+   *
+   * 'onCrossUnsafe' is invoked when the involved pattern and qualification
+   * are simply unrelated, as far as it is known statically (this is not
+   * likely to succeed at run-time, but in some pathological cases it may)
+   *)
+  (# onBoundUnsafe:< object;
+     onDownUnsafe:< object;
+     onUpUnsafe:< object;
+     onCrossUnsafe:< object;
+     other: ^staticORefTransient
+  enter other[]
+  <<SLOT StaticOQuaTransientORefCompatible:dopart>> 
+  #)
+
+-- StaticPQuaTransientLib:attributes --
+
+prefCompatible: booleanValue
+  (* Check whether this pqua transient will be able to accept the
+   * given pref transient in a variable pattern assignment operation; 
+   * since the structural aspect of the values are trivially compatible
+   * this is entirely a static qualification check; it returns true
+   * if the variable pattern assignment is always safe and false if it is 
+   * possibly unsafe (corresponding to a "quaWarning" given during check);
+   * the three callbacks "on..." are invoked when the ref-ass. is unsafe
+   * in one of three ways:
+   *
+   * 'onBoundUnsafe' indicates that only an upper bound is known where 
+   * an exactly known pattern would be required for safety (this is, e.g., the
+   * case when we are assigning from a constant type to a virtual type 
+   * which is OK locally but may of course grow).
+   *
+   * 'onDownUnsafe' is invoked when the var-ptn-ass. includes a 
+   * down-cast (this is the classical qua-check situation in Beta)
+   *
+   * 'onCrossUnsafe' is invoked when the involved pattern and qualification
+   * are simply unrelated, as far as it is known statically (this is not
+   * likely to succeed at run-time, but in some pathological cases it may)
+   *)
+  (# onBoundUnsafe:< object;
+     onDownUnsafe:< object;
+     onUpUnsafe:< object;
+     onCrossUnsafe:< object;
+     other: ^staticPRefTransient
+  enter other[]
+  <<SLOT StaticPQuaTransientPRefCompatible:dopart>> 
+  #)
+
+(************************************************************
+ *                                                          *
+ *                   BETA Virtual Machine                   *
+ *                                                          *
+ ************************************************************)
+
+-- BetaVirtualMachineLib:attributes --
+
+print: printBase(# <<SLOT BetaVirtualMachinePrint:dopart>> #);
+observe: observeBase(# <<SLOT BetaVirtualMachineObserve:dopart>> #);
+
+(*************************************************************
+ *                                                           *
+ *                         Execution                         *
+ *                                                           *
+ *************************************************************)
+
+-- ComponentObjectSliceLib:attributes --
+
+stackPopObject:
+  (* Pop the stack until the first object and check that this
+   * object is 'l1obj'; if not, raise an internal error! *)
+  (# l1obj: ^l1ObjectEntity;
+     thrd: ^thread
+  enter (l1obj[],thrd[])
+  <<SLOT ComponentObjectSlicePopObject:dopart>>
+  #);
+
+forkingExecute:
+  (# thrd: ^thread;                     (* Current thread of execution *)
+     unwind: ##stackUnwinder;           (* Never NONE *)
+     new_impl_thread: ^|system          (* The new impl. thread created *)
+  enter (thrd[],unwind##)
+  <<SLOT ComponentObjectSliceForkingExecute:dopart>>
+  exit new_impl_thread[]
+  #)
+
+-- CompositeObjectSliceLib:attributes --
+
+attrsDefine:
+  (# l2ndcl: ^l2NameDcl;
+     l1ent: ^l1Entity;
+  enter (l2ndcl[],l1ent[])
+  <<SLOT CompositeObjectSliceAttrsDefine:dopart>>
+  #);
+
+attrsLookup:
+  (# thrd: ^thread;                     (* Current thread of execution *)
+     unwind: ##stackUnwinder;           (* Never NONE *)
+     l2ndcl: ^l2NameDcl;                (* Never NONE *)
+     l1ent: ^l1Entity;                  (* Never NONE nor 'freshAttribute' *)
+     offset: @integer;                  (* Placement of 'l2ndcl' in 'attrs' *)
+     attr: ^l1MapElement                (* private *)
+  enter (thrd[],unwind##,l2ndcl[])
+  <<SLOT CompositeObjectSliceAttrsLookup:dopart>>
+  exit l1ent[]
+  #);
+
+attrsLookupAttr:
+  (# thrd: ^thread;                     (* Current thread of execution *)
+     unwind: ##stackUnwinder;           (* Never NONE *)
+     l2ndcl: ^l2NameDcl;                (* Never NONE *)
+     offset: @integer;                  (* Placement of 'l2ndcl' in 'attrs' *)
+     oofo: ^stackableObject;            (* Used during lazy init *)
+     attr: ^l1MapElement;               (* Never NONE *)
+     (* private *)
+     target_attr: ^l1MapElement;
+     target_oSlice: ^objectSlice;
+     target_coSlice: ^compositeObjectSlice;
+     l1del: ^l1DelegateEntity
+  enter (thrd[],unwind##,l2ndcl[])
+  <<SLOT CompositeObjectSliceAttrsLookupAttr:dopart>>
+  exit attr[]
+  #);
+
+attrsFillInAttribute:
+  (# thrd: ^thread;                     (* Current thread of execution *)
+     unwind: ##stackUnwinder;           (* Never NONE *)
+     l2ast: ^l2AstNode;                 (* Never NONE *)
+     l2adcl: ^l2AttributeDecl;          (* Never NONE *)
+     attr: ^l1MapElement;               (* Never NONE *)
+     l1ent: ^l1Entity 
+  enter (thrd[],unwind##,attr[])
+  <<SLOT CompositeObjectSliceAttrsFill:dopart>>
+  exit l1ent[]
+  #);
+
+attrsCompiledFillInAttribute:
+  (# thrd: ^thread;                     (* Current thread of execution *)
+     unwind: ##stackUnwinder;           (* Never NONE *)
+     l2ast: ^l2AstNode;                 (* Never NONE *)
+     l2adcl: ^l2AttributeDecl;          (* Never NONE *)
+     attr: ^l1MapElement;               (* Never NONE *)
+     oofo: ^stackableObject;            (* Used during lazy init *)
+     l1ent: ^l1Entity 
+  enter (thrd[],unwind##,attr[])
+  <<SLOT CompositeObjectSliceAttrsCompiledFill:dopart>>
+  exit l1ent[]
+  #)
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

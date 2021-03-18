@@ -1,0 +1,9 @@
+-- betaenv:descriptor --
+(#
+   <<SLOT lib:attributes>>;
+   puttext: (# enter stdio do INNER #);
+   putline: puttext(# do '\n'->stdio #);
+   theProgram: @<<SLOT program:merge>>
+do
+   theProgram
+#)

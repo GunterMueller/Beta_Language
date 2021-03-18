@@ -1,0 +1,166 @@
+Known bugs and problems.  If a number is missing, that particular
+problem has already been fixed:
+
+
+2) <, >, <= and >= Comparison of pattern variables is not yet supported.
+
+
+3) Components not implemented, yet.
+
+
+5) A special object creator function is emitted for each virtual
+   pattern.  If a given pattern is used in more than one virtual,
+   this may be a waste.  It is left to the optimiser to inline
+   the duplicate functions into one.
+
+
+6) Circularities in enter/exit lists are not detected.  Rather, the
+   compiler hangs in an infinite loop.  See the following example:
+   (#
+      A: (# bb: ^B; exit bb #);
+      B: (# aa: ^A; exit aa #);
+
+      aa: @A;
+      bb: @B;
+   do
+      aa->bb;
+   #)
+
+
+7) In the compiler, the (if imperative has been used quite often,
+   as if it was guaranteed, that the first branch is tested first,
+   then the second branch, and so on.
+
+   According to the BETA book, this is NOT guaranteed.  The
+   alternatives might be tested for in any order.  So that this
+   BETA compiler still works with future versions of the Mjolner
+   system, this usage has to be changed.  However, other people
+   told me, that this is going to be standard behaviour, that in
+   the general if imperative, the order of comparisons is well
+   defined.
+
+
+8) When an object is created, the static references held by that
+   object are initialized in random order.  If any reference depends
+   on any of the others, that may yield problems.  The following
+   code therefore may or may not work:
+
+   (#
+      A: @(# P: (# ... #) ... #);
+      B: @A.P;
+   #);
+
+
+9) The type of a repetition is searched from within the repetition
+   pattern.  In the following declaration:
+
+	new: (# a,b: @integer do ... #);
+	rep: [1] ^new;
+
+   "rep" will be initialized as a repetition of the repetitions own
+   "new" method, rather than the "new" pattern, that was defined above
+   it.
+
+
+11) Code generation: before a pointer is dereferenced, an implicit check
+    shall be performed, whether it is NONE or not.
+
+
+12) Code generation: before a repetition element is dereferenced, an
+    implicit check versus the repetition's size shall be performed.
+
+
+13) The copy method may be used on any AttributeDenotation, but if
+    an index into a repetition has already been resolved, and a
+    copy is performed, bad things may happen, as the temporary
+    variable, that holds the index, might no longer be found ...
+
+    I don't know, if this actually is a problem.  So far, a warning
+    message is printed in cases, that *might* be troublesome.
+
+
+16) Check, that the prefix of a pattern does not contain
+    "complicate" denotations like "indexed" or "computed remote".
+    Otherwise, the run time behaviour may well be undefined.
+
+
+17) Not really a bug, but probably worth mentioning: an older
+    version of the Mjolner compiler generates wrong code, when
+    logical operators and comparisons of pattern variables are
+    used within the same (if clause.  For example, the following
+    code triggers this bug:
+
+    (if (A##<=B##) and (C##<=D##) then ... if)
+
+    However, this can be re-written as:
+
+    (if A##<=B## then (if C##<=D## then ... if) if)
+
+    Such a re-write had to be performed a couple times in the
+    source of the b2c compiler.  When you modify b2c, don't undo
+    that re-write, unless you know what you are doing.
+
+    This problem should be fixed in the Mjolner BETA system version
+    5.2.
+
+
+18) If a temporary variable is initialized inside a loop, it may
+    be inserted over and over again into the root set of the
+    garbage collector.  That may cause the root set to grow over
+    all bounds.
+
+
+19) The garbage collector does not check part objects.  If an object
+    has no more references, it is purged, even, if it has part
+    objects with an active reference.  See file t24.bet from the
+    example directory.
+
+
+20) Temporary pattern variables are not inserted into the root set,
+    yet, so the environment objects, that they point to, may be
+    illegally purged as well.
+
+    This and the two errors before are best solved by a general
+    overhowl of the garbage collector to be done.  The marking
+    functions should go away, and be replaced by a list of
+    pointers for each pattern.
+
+
+22) We'll have to implement a general concept for having mixed
+    attribute paths, where part of the denotations reference
+    patterns, and part reference objects.  So far, only minimal
+    support for it is implemented in file: `ad/namerefbody.bet'.
+    Well, actually the code there is only a HACK to make special
+    computed remotes work fine, nothing more.
+
+
+24) Do we need perform an CheckFollow check on the evaluation in an Indexed?
+
+
+25) Allow the C compiler and its options to be specified on the command line.
+
+
+26) Document the b2c script, which I put in directory bin.
+
+
+27) If an ATTRIBUTE fragment with an unknown fragment name is encountered,
+    no error message is printed.
+
+
+28) If a name is re-used for a static or dynamic reference attribute
+    in a nested pattern, the generated C code will be incorrect.
+    See the following example:
+
+	P1: (# a: @integer #);
+	P2: P1 (# a: @boolean #);
+
+    This is legal BETA, defining P2 to contain two fields (one integer,
+    one boolean), of which only the boolean is directly accessible.
+    However, this is turned into wrong C.
+
+
+29) The "new", "range" and "extend" methods of repetitions may be used
+    as superpatterns.  Is this a bug or feature?
+
+
+30) (for for) loops are implemented inefficiently.

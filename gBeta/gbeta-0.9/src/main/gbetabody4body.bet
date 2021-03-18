@@ -1,0 +1,626 @@
+(* FILE "./main/gbetabody4body.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: gbetabody4body.bet,v 1.29 2001/07/01 21:44:10 eernst Exp $
+ *)
+
+ORIGIN 'gbetabody'
+
+-- GbetaFindPosition:dopart --
+do
+   L: (# failed: 
+           (# msg: ^text
+           enter msg[]
+           do '\nCould not find position: '->puttext;
+              msg[]->putline;
+              leave L
+           #);
+         vagueFailed:
+           (# 
+           do 'please specify the position more precisely'->failed
+           #);
+         syntaxfailed:
+           (# 
+           do 'syntax error (positions are "[<groupname>:]<charpos>")'->failed
+           #);
+         findDefaultPos:
+           (# root: ^l2AstNode;
+              defaultPos: ^l2AstNode
+           enter root[]
+           do (if root[]<>NONE then 
+                  (if root##<=l2MainPart## then 
+                      (# l2mpar: ^l2MainPart
+                      do root[]->l2mpar[];
+                         (* take the first imp of the dopart *)
+                         (if not l2mpar.doPartOpt.empty then
+                             (l2mpar.dopartOpt.head).elm[]->defaultPos[]
+                          else
+                             vagueFailed
+                         if)
+                      #)
+                   else
+                      (* er .. well, just take the first "qualified" node *)
+                      M: (# 
+                         do root.rawScanPre
+                            (# 
+                            do (if current##<=qualification## then
+                                   current[]->defaultPos[];
+                                   leave M
+                               if)
+                            #);
+                            (* nothing found *)
+                            vagueFailed
+                         #)
+                  if)
+               else
+                  'root[] was NONE for findPosition'
+                    ->internalError
+              if)
+           exit defaultPos[]
+           #);
+         fgname: ^text; 
+         fg: ^this(interpreterBase).private.betaAstHandler.fragmentGroup; 
+         colonpos,charpos: @integer
+      do 
+         (if defaultPos[]=NONE then 
+             root[]->findDefaultPos->defaultPos[]
+         if);
+         (* determine the requested fragment group *)
+         (if not t.empty then 
+             t.removeLeadingWhiteSpace; 
+             t.reset;
+             ':'->t.find(# do inx->colonpos #)
+         if);
+         M: (if colonpos=0 then
+                (* ':' not present, use filename of default position *)
+                (if (defaultPos[]<>NONE) and (defaultPos.mpsAst[]<>NONE) then 
+                    defaultPos.mpsAst.frag.father->fg[]
+                 else
+                    'please specify a fragment group'->failed;
+                    leave L
+                if)
+             else
+                (1,colonpos-1)->t.sub->fgname[];
+                (1,colonpos)->t.olddelete; t.reset;
+                this(interpreterBase).private.fragmentGraph.nodes.scan
+                (# checkName: 
+                     (# name: ^text
+                     enter name[]
+                     do (name.length-fgname.length+1,name.length)
+                          ->name.sub->name[];
+                     exit name[]->fgname.equal
+                     #)
+                do (if true 
+                    // current.group.name->checkName then
+                       current.group[]->fg[];
+                       leave M
+                    // current.group.textFileName->checkName then 
+                       current.group[]->fg[];
+                       leave M
+                    // current.group.diskFileName->checkName then 
+                       current.group[]->fg[];
+                       leave M
+                   if)
+                #);
+                (* not found, complain *)
+                'fragment group not found'->failed;
+                leave L
+            if);
+         
+         (* determine the requested char-pos in the file *)
+         t.removeLeadingWhiteSpace; 
+         (if t.empty then
+             (* no position, using the given 'defaultPos' *)
+             defaultPos[]->this(findPosition).current[];
+             INNER findPosition
+          else
+             (* position requested, search for it *)
+             t.getint(# syntaxError::(# do syntaxfailed #)#)->charpos;
+             
+             (* search that ast node *)
+             M: (# 
+                do (* by using scanPost we visit the innermost enclosing 
+                    * node first; this is important since imperatives
+                    * can be deeply nested and we want to break at the 
+                    * "narrowest" enclosing imperative *)
+                   root.rawScanPost
+                   (# 
+                   do (if (current##<=qualification##) then
+                          (if (current.nodePrivate.sourceFirstPos<=charpos) and
+                              (current.nodePrivate.sourceLastPos>=charpos) and
+                              (current.mpsAst[]<>NONE) and
+                              (current.mpsAst.frag.father=fg[]) then
+                              (* found it! *)
+                              current[]->this(findPosition).current[];
+                              INNER findPosition
+                          if)
+                      if)
+                   #);
+                   (* not found, complain *)
+                   'Could not find relevant syntax here'->failed;
+                   leave L
+                #)
+         if)
+      #)
+
+-- GbetaSetBreakPoint:dopart --
+do
+   (* expected command format: "break #" or "break <groupname>:#" *)
+   L: (root[],t[],defaultPos[])->findPosition
+   (# qualification::l2Imp
+   do (* we only want to set breakpoints at "top-level imperatives", 
+       * but imperatives nested in compound imperatives are also 
+       * "top-level" *)
+      (if (not (current.father##<=l2Imp##)) or
+          (current.father##<=l2SimpleForImp##) or
+          (current.father##<=l2NamedForImp##) or
+          (current.father##<=l2SimpleIfImp##) or
+          (current.father##<=l2GeneralIfImp##) then
+          (current[],before,once)->breakpoints.add; leave L 
+      if)
+   #)
+
+-- GbetaResetBreakPoint:dopart --
+do
+   L: (# 
+      do (root[],t[],defaultPos[])->findPosition
+         (# qualification::l2Imp
+         do breakPoints.iterate
+            (# 
+            do (if current.elm.l2ast[]=this(findPosition).current[] then 
+                   current[]->breakpoints.delete;
+                   leave L
+               if)
+            #)
+         #);
+         (* not found *)
+         '\nBreakpoint not found'->putline
+      #)
+
+-- GbetaSetGoInHere:dopart --
+do
+   L: (# fail:
+           (# (* not found; NB: this would be a bug, but since we 
+               * are just inspecting the program we let it pass *)
+           do '\nMainPart not found (Please report this - it is a bug!)'
+           #)
+      do (root[],t[],defaultPos[])->findPosition
+         (# qualification::l2AstNode;
+            l2ast: ^l2AstNode;
+            l2mpar: ^l2MainPart
+         do current[]->l2ast[];
+            M: (if (l2ast[]<>NONE) and (l2ast##<=l2MainPart##) then
+                   l2ast[]->l2mpar[];
+                   value->l2mpar.private.go_in_here;
+                   leave L
+                else
+                   (if l2ast[]<>NONE then
+                       l2ast.scope.location->l2ast[];
+                       restart M
+                    else
+                       fail; leave L
+                   if)
+               if)
+         #);
+         fail
+      #)
+
+-- GbetaShowBreakPoints:dopart --
+do
+   '\n---------- BREAKPOINTS ----------'->puttext;
+   breakpoints.scan
+   (# non_first: @boolean
+   do (if non_first then '\n----------'->puttext else true->non_first if);
+      (* !! this could just become the normal 'print' for breakpoints *)
+      '\nBreak '->puttext;
+      (if current.once then 'once '->puttext if);
+      (if current.before then 'at '->puttext else 'after '->puttext if);
+      '<group>:<ast>,<charpos> = '->putline; 
+      (if current.l2ast.mpsAst[]<>NONE then 
+          '`'->put;
+          current.l2ast.mpsAst.frag.fatherR.textfilename->puttext;
+          ':'->puttext; current.l2ast.mpsAst.index->putint;
+          ','->puttext; current.l2ast.nodePrivate.sourceFirstPos->putint
+       else
+          '<noSyntax>'->puttext
+      if);
+      (screen[],3,true)->current.l2ast.print
+   #);
+   '\n---------- END ----------'->putline
+
+-- GbetaShowGoInHere:dopart --
+do
+   '\n---------- GO IN HERE ----------'->puttext;
+   this(interpreter).private.l2ast.scanPre
+   (# qualification::l2MainPart
+   do (if current.private.go_in_here then
+          (if current.mpsAst[]<>NONE then
+              '\n'->put;
+              (for indent_delta repeat ' '->put for);
+              'goinhere: `'->puttext;
+              current.mpsAst.frag.fatherR.textfilename->puttext;
+              ':'->puttext; current.nodePrivate.sourceFirstPos->putint;
+              ','->puttext; current.nodePrivate.sourceLastPos->putint
+           else
+              '<noSyntax>'->puttext
+          if)
+      if)
+   #);
+   '\n---------- END ----------'->putline
+
+-- GbetaCmdHelp:dopart --
+do
+   name.copy->msg[];
+   L: (if msg.length<indent then ' '->msg.prepend; restart L if);
+   ':  '->msg.puttext;
+   explanation[]->msg.puttext;
+   msg[]->putline
+
+-- GbetaHelp:dopart --
+do
+   msg[]->putline;
+   '\nRecognized commands:'->putline; newline;
+   interp.commands.scan(# do (current.name,current.shortHelp)->cmdHelp #)
+
+-- GbetaShortHelp:dopart --
+do
+   msg[]->putline; 
+
+-- GbetaExecuteCommand:dopart --
+do
+   L: (# getFg:
+           (# l2ast: ^l2AstNode;
+              fg: ^this(interpreterBase).private.betaAstHandler.fragmentGroup
+           enter l2ast[]
+           do (if l2ast.mpsAst[]<>NONE then l2ast.mpsAst.frag.father->fg[] if)
+           exit fg[]
+           #);
+         attmsg: ^text;
+         t: ^text; (* input from user; consumed during parsing *)
+         effective_t: @text; (* cleaned up user input; preserved *)
+         l2ast: ^l2AstNode;
+         index: @integer;
+         msg: @text;
+      do (* obtain the command from the user *)
+         (if verboseOutput then newline if); newline;
+         'executing~'->msg;
+         thrd.private.initialComponent.id->msg.putint;
+         '> '->msg.puttext;
+         msg[]->obtainLine->t[];
+         
+         (* clean up input; default command is most recent command *)
+         t.cleanUpBackSpaces;
+         t.removeLeadingWhiteSpace;
+         (if t.length=0 then last_command->t if);
+         t->effective_t; (* effective_t is now the cleaned-up user command *)
+         
+         (* search for a command with the given name *)
+         interp.commands.scan
+         (# done: @boolean
+         do (if current.name->t.eatWordIfMatch then
+                (root[],t[],thrd[],unwind##)->current.executeRunning->done;
+                (if done then
+                    (if current.setsLastCommand then
+                        effective_t->last_command 
+                    if);
+                    leave L
+                 else 
+                    restart L
+                if)
+            if)
+         #);
+         
+         (* Last resort: try to interpret the command as a number *)
+         (if t.hasDigit then 
+             (* at least this could be a number; get it *)
+             t.reset;
+             t.getint
+             (# syntaxError::
+                  (# msg: ^text
+                  do 'Unrecognized command: "'->msg[];
+                     t[]->msg.puttext; '"'->msg.put;
+                     msg[]->help;
+                     restart L 
+                  #)
+             #)->index;
+             
+             (* .. then investigate the specified syntax *)
+             (if ((root[],index,thrd.private.currentImp[]->getFg)
+                   ->getTheNode(# notFound::(# do restart L #)#)
+                   ->l2ast[])<>NONE then 
+                 (&text[]->attmsg[],root[],l2ast[])->doNode;
+                 (NONE,root[])->display; 
+                 NONE->setAttributeVisualizer;
+                 attmsg[]->puttext
+             if)
+          else
+             (# msg: ^text
+             do 'Unrecognized command: "'->msg[]; 
+                t[]->msg.puttext; '"'->msg.put;
+                msg[]->help
+             #)
+         if);
+         restart L
+      #);
+   (if not interactive then NONE->thrd.callback[] if)
+
+-- GbetaExecuteCommandStopped:dopart --
+do
+   L: (# getFg:
+           (# l2ast: ^l2AstNode;
+              fg: ^this(interpreterBase).private.betaAstHandler.fragmentGroup
+           enter l2ast[]
+           do (if l2ast.mpsAst[]<>NONE then l2ast.mpsAst.frag.father->fg[] if)
+           exit fg[]
+           #);
+         attmsg: ^text;
+         t: ^text; (* input from user; consumed while being parsed *)
+         effective_t: @text; (* cleaned up input from user; not consumed *)
+         l2ast: ^l2AstNode;
+         index: @integer
+      do 
+         (* by default we do repeat the interpretation *)
+         true->rerun;
+         
+         (* if in Emacs, remove colored position marker from source buffer *)
+         (if not verboseOutput then (NONE,root[])->displayNoPos if);
+         
+         (* obtain the command from the user *)
+         (if verboseOutput then newline if); newline;
+         'terminated> '->obtainLine->t[];
+         
+         (* clean up input; default command is 'quit' or last command *)
+         t.cleanUpBackSpaces;
+         t.removeLeadingWhiteSpace;
+         (if t.length=0 then
+             (if verboseOutput then
+                 (* in terminal; probably running a very small
+                  * example pgm, so we just 'quit' by default *)
+                 'quit'->t
+              else
+                 (* in Emacs; do not quit too easily -- the
+                  * startup was probably a bit involved and the
+                  * GUD framework does not expect the debugger
+                  * to quit all the time *)
+                 last_command->t
+             if)
+         if);
+         t->effective_t; (* effective_t is now the cleaned-up user command *)
+
+         (* search for a command with the given name *)
+         interp.commands.scan
+         (# done,die: @boolean
+         do (if current.name->t.eatWordIfMatch then
+                (root[],t[])->current.executeStopped->(done,die);
+                (if die then false->rerun if);
+                (if done then
+                    (if current.setsLastCommand then 
+                        effective_t->last_command
+                    if);
+                    leave L
+                 else
+                    restart L
+                if)
+            if)
+         #);
+         
+         (* Last resort: try to interpret the command as a number *)
+         (if t.hasDigit then 
+             (* at least this could be a number; get it *)
+             t.reset;
+             t.getint
+             (# syntaxError::
+                  (# msg: ^text
+                  do 'Unrecognized command: "'->msg[];
+                     t[]->msg.puttext; '"'->msg.put;
+                     msg[]->help;
+                     restart L 
+                  #)
+             #)->index;
+                
+             (* .. then investigate the specified syntax *)
+             (if ((root[],index,root[]->getFg)
+                   ->getTheNode(# notFound::(# do restart L #)#)
+                   ->l2ast[])<>NONE then 
+                 (&text[]->attmsg[],root[],l2ast[])->doNode;
+                 (if l2ast[]<>root[] then
+                     (NONE,l2ast.getContext)->display
+                  else
+                     (NONE,root[])->display
+                 if);
+                 NONE->setAttributeVisualizer;
+                 attmsg[]->puttext
+             if)
+          else
+             (# msg: ^text
+             do 'Unrecognized command: "'->msg[];
+                t[]->msg.puttext; '"'->msg.put;
+                msg[]->help
+             #)
+         if);
+         restart L
+      #)
+
+-- GbetaParseAndInterpret:dopart --
+do
+   L: (# saveImp: ^l2Imp
+      do (if thrd.private.currentImp[]<>NONE then
+             thrd.private.currentImp[]->saveImp[];
+             (thrd[],imp[],thrd.private.currentImp[])->parseAndInterpret
+             (# parseError::
+                  (# do 'Parse error! Command not executed.'->putline;
+                     leave L
+                  #);
+                noContextWarning::
+                  (# do 'Could not find the dynamic context!'->putline;
+                     'Command aborted'->putline
+                  #);
+                leavingWarning::
+                  (# do 'NB: attempt to leave/restart out of the "do"'
+                       ->putline
+                  #);
+                errorWarning::
+                  (# do 'NB: A run-time error occurred within the "do"'
+                       ->putline
+                  #);
+                killWarning::
+                  (# do 'NB: The running thread was killed during the "do"'
+                       ->putline
+                  #)
+             #);
+             saveImp[]->thrd.private.currentImp[]
+          else
+             'Can only "do" when the program is being interpreted'
+               ->putline;
+             newline
+         if)
+      #)
+
+-- GbetaLookupAndPrintAden:dopart --
+do
+   L: (# saveImp: ^l2Imp
+      do (if thrd.private.currentImp[]<>NONE then
+             thrd.private.currentImp[]->saveImp[];
+             (thrd[],aden[],thrd.private.currentImp[])->lookupAndPrint
+             (# parseError::
+                  (# do 'Parse error! Attribute denotation not looked up.'
+                       ->putline;
+                     newline;
+                     leave L
+                  #);
+                noContextWarning::
+                  (# do 'Could not find the dynamic context!'->putline;
+                     'Command aborted'->putline
+                  #);
+                leavingWarning::
+                  (# do 'Warning: leave/restart out of the lookup expression'
+                       ->putline
+                  #);
+                errorWarning::
+                  (# do 'Warning: a run-time error occurred during the lookup'
+                       ->putline
+                  #);
+                killWarning::
+                  (# do 'Warning: current thread was killed during the lookup'
+                       ->putline
+                  #)
+             #);
+             saveImp[]->thrd.private.currentImp[];
+          else
+             'Can only "print" when the program is being interpreted'
+               ->putline;
+             newline
+         if)
+      #)
+
+-- GbetaLookupAndPrintAdenStatic:dopart --
+do
+   L: (# 
+      do (if thrd.private.currentImp[]<>NONE then
+             (aden[],thrd.private.currentImp[])->lookupAndPrintStatic
+             (# parseError::
+                  (# do 'Parse error! Attribute denotation not looked up.'
+                       ->putline;
+                     newline;
+                     leave L
+                  #)
+             #)
+          else
+             'Can only find "info" when the program is being interpreted'
+               ->putline;
+             newline
+         if)
+      #)
+
+-- GbetaLookupAndPrintAdenStaticEval:dopart --
+do
+   L: (# 
+      do (if thrd.private.currentImp[]<>NONE then
+             (eval[],thrd.private.currentImp[])
+               ->lookupAndPrintStaticEval
+             (# parseError::
+                  (# do 'Parse error! Attribute denotation not looked up.'
+                       ->putline;
+                     newline;
+                     leave L
+                  #)
+             #)
+          else
+             'Can only find "evalinfo" when the program is being interpreted'
+               ->putline;
+             newline
+         if)
+      #)
+
+-- GbetaLookupAndPrintAdenStaticAssign:dopart --
+do
+   L: (# 
+      do (if thrd.private.currentImp[]<>NONE then
+             (transact[],thrd.private.currentImp[])
+               ->lookupAndPrintStaticAssign
+             (# parseError::
+                  (# do 'Parse error! Attribute denotation not looked up.'
+                       ->putline;
+                     newline;
+                     leave L
+                  #)
+             #)
+          else
+             'Can only find "assigninfo" when the program is being '
+               ->puttext;
+             'interpreted'->putline;
+             newline
+         if)
+      #)
+
+-- GbetaKillThisThread:dopart --
+do 
+   (# cnt: @integer
+   do '\nKilling thread~'->puttext;
+      thrd.private.initialComponent.id->putint;
+      '. '->puttext;
+      threadCount->cnt;
+      (if cnt
+       //1 then newline
+       //2 then 'Still one thread running.'->putline
+       else 'Still '->puttext; cnt-1->putint; ' threads running.'->putline
+      if);
+      (&exitKill[]).init->&unwind
+   #)
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

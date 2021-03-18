@@ -1,0 +1,104 @@
+ORIGIN '../evaluationlib';
+INCLUDE 'type';
+--- StringConstType: DoPart ---
+do evtype_string->value; INNER
+
+
+--- StringConstGetInteger: DoPart ---
+do t; (if t.t.length=1 then 1->t.t.inxGet->&IntegerConst->ev[] if)
+
+
+--- StringConstTranslate: DoPart ---
+do
+   ''->t;
+   2->inx;
+   str.length->len;
+   l: (if inx<len then
+      inx->str.inxGet->c;
+      (if c='\\' then
+	 (if (inx+1->inx)>=len then
+	    (failureTrace,'Internal compiler error: backslash at end of string!')->Stop;
+	 if);
+	 (if inx->str.inxGet->c
+	   // 'a' then 7->c;
+	   // 'b' then 8->c;
+	   // 'e'
+	   // 'E' then 27->c;
+	   // 'f' then 12->c;
+	   // 'n' then 10->c;
+	   // 'r' then 13->c;
+	   // 't' then 9->c;
+	   // 'v' then 11->c;
+	   // 'x' then
+	      (* read hex number *)
+	      (if inx+1<len then
+		 (if (inx+1->str.inxGet->Xdigit->dig)<16 then
+		    dig->c;
+		    inx+1->inx;
+		    (if (inx+1->str.inxGet->Xdigit->dig)<16 then
+		       dig+(c*16)->c; inx+1->inx;
+		    if);
+		 if);
+	      if);
+	   else
+	      (* read octal number *)
+	      (if inx+1<len then
+		 (if (inx+1->str.inxGet->Xdigit->dig)<8 then
+		    dig->c;
+		    inx+1->inx;
+		    (if (inx+1->str.inxGet->Xdigit->dig)<8 then
+		       dig+(c*8)->c;
+		       inx+1->inx;
+		       (if ((inx+1->str.inxGet->Xdigit->dig)<8) and (c<32)
+		       then
+			  dig+(c*8)->c; inx+1->inx;
+		       if);
+		    if);
+		 if);
+	      if);
+	 if)
+      else
+	 (if c='\'' then
+	    inx+1->inx;
+	    (if (inx->str.inxGet)<>'\'' then
+	       (failureTrace,'Internal compiler error: single quote in string!')->Stop;
+	    if);
+	 if);
+      if);
+      c->t.put;
+      inx+1->inx;
+      restart l;
+   if);
+
+
+--- StringConstLib: Attributes ---
+Xdigit: IntegerValue
+  (# c: @char
+  enter c
+  do
+     16->value;
+     (if c
+       // 0 then 0->value
+       // 1 then 1->value
+       // 2 then 2->value
+       // 3 then 3->value
+       // 4 then 4->value
+       // 5 then 5->value
+       // 6 then 6->value
+       // 7 then 7->value
+       // 8 then 8->value
+       // 9 then 9->value
+       // 'a' then 10->value
+       // 'A' then 10->value
+       // 'b' then 11->value
+       // 'B' then 11->value
+       // 'c' then 12->value
+       // 'C' then 12->value
+       // 'd' then 13->value
+       // 'D' then 13->value
+       // 'e' then 14->value
+       // 'E' then 14->value
+       // 'f' then 15->value
+       // 'F' then 15->value
+     if)
+  #)

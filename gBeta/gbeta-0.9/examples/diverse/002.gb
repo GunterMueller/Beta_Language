@@ -1,0 +1,5 @@
+-- betaenv:descriptor --
+{ 
+   p: {enter &boolean exit real} 
+}
+

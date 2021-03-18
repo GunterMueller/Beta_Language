@@ -1,0 +1,46 @@
+ORIGIN '../attribute';
+BODY 'simpledeclbody';
+--- CompilerLib: Attributes ---
+SimpleDecl: Attribute
+  (#
+     type: @integer;
+     data_inline: @boolean;
+     print::< (# <<SLOT SimpleDeclPrint: DoPart>> #);
+     getcdecl::<
+       (# ad: ^AttributeDenotation <<SLOT SimpleDeclGetcdecl: DoPart>> #);
+
+     (* JO Extension of virtual method for mark function creation*)
+     getmdef::<
+        (# ad: ^AttributeDenotation; attod: ^ObjectDescriptor
+        <<SLOT SimpleDeclGetmdef: DoPart>>
+        #);
+     getisrefel::<
+       (# ad: ^AttributeDenotation; attod: ^ObjectDescriptor
+       <<SLOT SimpleDeclGetisrefel: DoPart>>
+       #);
+     (* JO *)
+
+     getcexpr::< (# <<SLOT SimpleDeclGetcexpr: DoPart>> #);
+     DoInit::<
+       (# pat,oad: ^AttributeDenotation;
+	  evold: ^Evaluation;
+	  att: ^Attribute
+       <<SLOT SimpleDeclDoInit: DoPart>>
+       #);
+     dontInit:< BooleanObject (# do (type=1)->value; INNER #);
+     resolve::< (# <<SLOT SimpleDeclResolve: DoPart>> #);
+     checkFollow::< (# <<SLOT SimpleDeclCheckFollow: DoPart>> #);
+     checkIsnotbasic: (# <<SLOT SimpleDeclCheckIsnotbasic: DoPart>> #);
+     ispattern:: (# do false->value #);
+     isvirtual:: (# do os.isvirtual->value #);
+     isref:: (# do type=1->value #);
+     isrep::< (# do false->value; INNER #);
+     maybesubpattern::
+       (# do (if type=1 then true->value else os.isvirtual->value if) #);
+     maybenone:: (# do type=1->value #);
+  enter type
+  do false->data_inline; INNER
+  #);
+
+
+TemporaryDecl: SimpleDecl (# dontinit:: (# do false->value #) #);

@@ -1,0 +1,45 @@
+ORIGIN '../imperative';
+INCLUDE '../eelib';
+INCLUDE '../evaluation';
+INCLUDE '../label';
+BODY 'innerbody';
+--- CompilerLib: Attributes ---
+InnerImp: Imperative
+  (#
+     str: @text;
+     special: @boolean;
+     bl: ^AttributeDenotation;
+     od: ^ObjectDescriptor;
+     print::
+       (#
+       do
+	  'INNER'->s.append;
+	  (if str.length<>0 then ' '->s.append; str[]->s.append if);
+       #);
+     checkFollow:: (# <<SLOT InnerImpCheckFollow: DoPart>> #);
+     reduce::
+       (#
+       do (if special then &repMethod[]->ee.add else &callInner->ee.add if)
+       #);
+
+     (* Call the INNER part of a do part *)
+     callInner: Evaluation
+       (#
+	  lab: ^Label;
+	  DoDo:: (# t,q: @text; res: @integer <<SLOT CallInnerDoDo: DoPart>> #);
+       do currentLabel.l[]->lab[]
+       exit this(callInner)[]
+       #);
+
+     (* The INNER part of the "new" and "extend" method will allocate
+      * the requiested space for the repetition. *)
+     repMethod: Evaluation
+       (#
+          DoDo::
+	    (# size,elsize,ptr,amount,alsize: @text; n: ^text; isnew: @boolean
+	    <<SLOT RepMethodDoDo: DoPart>>
+	    #)
+       #);
+  enter str
+  do NONE->bl[]; NONE->od[]; false->special
+  #);

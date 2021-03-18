@@ -1,0 +1,20 @@
+ORIGIN 'ordered'; 
+ORIGIN 'orderedText';
+ORIGIN 'orderedNumber'
+
+-- OrderedLib:attributes --
+
+asString:< (# s: @string do INNER exit s #)
+
+-- TextLib:attributes --
+
+asString::(# do value->s #)
+
+-- IntLib:attributes --
+
+asString::(# do '<anInt>'->s #)
+
+-- FloatLib:attributes --
+
+asString::(# do '<aFloat>'->s #)
+

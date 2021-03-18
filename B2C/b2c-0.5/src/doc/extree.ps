@@ -1,0 +1,81 @@
+%!PS-Adobe-2.0 EPSF-2.0
+%%Title: exception tree example
+%%BoundingBox: 0 0 266 94
+%%Creator: Kai Petzke
+%%CreationDate: Fri Feb 26 23:00:00 1997
+%%EndComments
+
+save
+0.5 0.5 scale
+true setstrokeadjust
+
+/linienbreite 2.0 def
+/pfeilbreite 9 def
+/pfeilhoehe 8 def
+/pfeilfuss 12 def
+
+/ziely 0 def
+/zielx 0 def
+/len 0 def
+
+/pfeil {
+    10 dict begin
+    /ziely exch def
+    /zielx exch def
+    length 0 ne
+    {
+	/len zielx dup mul ziely dup mul add sqrt def
+	gsave
+	[ ziely len div zielx len div dup neg exch 2 index 0 0 ] concat
+	newpath
+	0 len moveto
+	pfeilbreite 2 div neg pfeilfuss neg rlineto
+	pfeilbreite linienbreite sub 2 div pfeilfuss pfeilhoehe sub rlineto
+	0 pfeilhoehe len sub rlineto
+	linienbreite 0 rlineto
+	0 len pfeilhoehe sub rlineto
+	pfeilbreite linienbreite sub 2 div pfeilhoehe pfeilfuss sub rlineto
+	pfeilbreite 2 div neg pfeilfuss rlineto
+	closepath fill
+	grestore
+    } if
+    end
+} bind def
+
+/Helvetica findfont 20 scalefont setfont
+
+/center {
+    dup stringwidth pop -0.5 mul 7 moveto show
+} bind def
+
+/threeway {
+    gsave
+    center
+    140 57 translate dup exec -20 0 translate -70 -32 pfeil
+    -120 0 translate dup exec 0 -32 pfeil
+    -120 0 translate dup 70 -32 pfeil -20 0 translate exec
+    grestore
+} bind def
+
+204 -6 translate
+
+    {(EOSError) center}
+    {}
+    {
+	{
+	    {(FileExistsError) center}
+	    {(AccessError) center}
+	    {(NoSuchFileError) center}
+	(OpenError) threeway}
+	{(WriteError) center}
+	{(ReadError) center}
+    (FileError) threeway}
+(StreamError)
+threeway
+
+
+restore
+showpage
+
+%%Trailer
+%%EOF

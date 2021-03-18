@@ -1,0 +1,45 @@
+ORIGIN '~beta/basiclib/current/betaenv';
+INCLUDE 'compile';
+INCLUDE 'slotbind'; (* !!! JS move it somewhere *)
+INCLUDE 'option';
+--- program: ObjectDescriptor ---
+(#
+   arg: @integer;
+   objectname,cwd: ^text;
+   com: @Compiler;
+   set_start_time: external (# #);
+   print_usage: external (# #);
+   tp: ^textpair;
+   o: ^object;
+do
+   set_start_time;
+
+   (* basic initialization *)
+   com.init;
+   com[]->ObjectPool.put;
+   com.opt.commandline->arg;
+
+   (* set up list of files to be compiled *)
+   (if noOfArguments < arg then (failure,'No files specified!')->stop if);
+   arg->Arguments->objectname[];
+   com.fc.fc.CurrentDirectory->cwd[];
+   loop: (if arg<=noOfArguments then
+      (arg->Arguments,cwd[])->com.markfile; arg+1->arg; restart loop
+   if);
+
+   (* compile all files *)
+   loop: (if not com.tl.empty then
+      com.tl.remove->tp[]; tp->com.compilefile; restart loop
+   if);
+   
+   (if com.opt.genSlotMap then
+      objectname[]->com.genslotbind; (* JS generate map of fragments and slot *)
+   if);
+
+   (* do all required external compiles *)
+   loop: (if not com.el.empty then com.el.remove->o[]; o; restart loop if);
+   
+   (* link everything together *)
+   objectname[]->com.linkit;
+   print_usage;
+#)

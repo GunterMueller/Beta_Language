@@ -1,0 +1,124 @@
+ORIGIN 'terminal';
+BODY 'private/formbody';
+--- Lib: Attributes ---
+formEnv: terminalEnv
+  (# defaultType::< formWindow;
+  do INNER
+  #);
+
+
+--- TerminalLib: Attributes ---
+formWindow: window
+  (#
+     <<SLOT FormWindowLib: Attributes>>;
+     fprivate: @<<SLOT terminalFormWindowPrivate: ObjectDescriptor>>;
+
+     init::< (# <<SLOT terminalFormWindowInit: DoPart>> #);
+     attrDefault:< attribute;
+     attrField:< attribute;
+     attrFieldFocus:< attribute;
+     attrFieldSelect:< attribute;
+  #);
+
+
+--- FormWindowLib: Attributes ---
+(* an object, that can be made part of a FORM *)
+formObject:
+  (#
+     <<SLOT FormObjectLib: Attributes>>;
+
+     (**********************************************************************
+      * Virtuals, that depend on the TYPE of the FormObject.  These are    *
+      * typically bound by the library.                                    *
+      **********************************************************************)
+     (* Accept or give away the input focus *)
+     focusIn:< Object;
+     focusOut:< Object;
+
+     (* Set this to TrueObject, if you don't want to accept the input focus *)
+     focusNo:< BooleanValue;
+
+     (* Check the object's contents.  If an error is encountered, the string
+      * `err' should be set.  This virtual may be further bound by a user
+      * of a field further restrict the data inputted to that field. *)
+     check:<
+       (# err: ^text
+       do NONE->err[]; INNER; (err[]=NONE)->checked;
+       exit err[]
+       #);
+     checked: @boolean;
+
+
+     (**********************************************************************
+      * Virtuals to pass values in and out.  They are not called from the  *
+      * object itself, but from an enclosing form.                         *
+      **********************************************************************)
+     (* Load a value to this object from a form's current record *)
+     load:< (# do false->checked; INNER #);
+     (* Store a value from this object to the form's current record.  You
+      * can be sure, that `checked' is true, when `store' is called. *)
+     store:< object;
+  #);
+
+
+(* a field for data entry *)
+field: formObject
+  (#
+     <<SLOT FieldLib: Attributes>>;
+     private: @<<SLOT WindowFieldPrivate: ObjectDescriptor>>;
+
+     (* Where is the field located, and how big is it? *)
+     pos:< (# x,y: @integer do INNER exit (x,y) #);
+     len:< IntegerValue;
+     textlen:< IntegerValue;
+
+     (* Bind this virtual, if you wish specific behaviour, when the RETURN
+      * key is pressed. *)
+     onReturn:< object;
+
+     (* check the field's contents *)
+     check::< (# t: ^text <<SLOT WindowFieldCheck: DoPart>> #);
+
+     (* Methods to manipulate the state of the field *)
+     focusIn:: (# <<SLOT WindowFieldFocusIn: DoPart>> #);
+     focusOut:: (# <<SLOT WindowFieldFocusOut: DoPart>> #);
+     doenter: @(# t: ^text enter t[] <<SLOT WindowFieldDoEnter: DoPart>> #);
+     doexit: @(# t: ^text <<SLOT WindowFieldDoExit: DoPart>> exit t[] #);
+ 
+     load::< (# t: ^text <<SLOT WindowFieldLoad: DoPart>> #);
+     store::< (# t: ^text <<SLOT WindowFieldStore: DoPart>> #);
+  enter doenter
+  exit doexit
+  #);
+
+
+(* A form itself is also a formObject *)
+form: formObject
+  (#
+     <<SLOT FormLib: Attributes>>;
+     private: @<<SLOT WindowFormPrivate: ObjectDescriptor>>;
+
+     (* Methods to manipulate the state of a form *)
+     focusIn:: (# <<SLOT WindowFormFocusIn: DoPart>> #);
+     focusOut:: (# <<SLOT WindowFormFocusOut: DoPart>> #);
+     focusNo::< (# <<SLOT WindowFormFocusNo: DoPart>> #);
+
+     (* Collect all data of the form *)
+     record: ^recordType;
+     recordType:< object;
+ 
+     (* Bind this virtual, if you wish specific behaviour, when the RETURN
+      * key is pressed on the last object in the form. *)
+     onReturn:< object;
+
+     load::< (# <<SLOT WindowFormLoad: DoPart>> #);
+     check::< (# <<SLOT WindowFormCheck: DoPart>> #);
+     store::< (# <<SLOT WindowFormStore: DoPart>> #);
+
+     (* The init method is run the first time, that a `focusIn' occurs, or
+      * if you explicitely call it.  It should set up a list of fields, which
+      * belong to this form using the `addObject' method. *)
+     init:< (# <<SLOT WindowFormInit: DoPart>> #);
+     addObject:
+       (# obj: ^FormObject enter obj[] <<SLOT WindowFormAddObject: DoPart>> #);
+  #);

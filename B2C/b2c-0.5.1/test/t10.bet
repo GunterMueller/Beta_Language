@@ -1,0 +1,65 @@
+ORIGIN '../basiclib/v1.4/betaenv';
+INCLUDE 'put5';
+--- program: ObjectDescriptor ---
+(#
+   <<SLOT programLib: Attributes>>;
+   a: @IntegerObject;
+   b: ^IntegerObject;
+   c: ^IntegerValue;
+   p1:
+     (# a: @integer; b: @IntegerObject; c: @Integer
+     <<SLOT p1DoPart: DoPart>>
+     exit a
+     #);
+   p2: <<SLOT p2: ObjectDescriptor>>;
+   p3: (# <<SLOT p3DoPart: DoPart>> #);
+
+   o2: @p2;
+
+   x1: (# m:< (# do ('I',' ','a','m',' ')->put5; INNER #) do m #);
+   x2: x1
+     (# m::<
+	  (# do (99,117,114,105,111)->put5; 117->put; 115->put; INNER; 10->put
+	  #)
+     #);
+   x3: x2 (# m::< (# do (32,97,98,111,117)->put5; 116->put #) #);
+
+   y1: (# x:< x1 do x #);
+   y2: y1 (# x::< x2 #);
+   y3: y2 (# x:: x3 #);
+do
+   p1;
+   p2;
+   o2.world;
+   p3;
+   p4;
+   y1;
+   y3;
+   &IntegerObject[]->b[];
+   97->a;
+   98->b;
+   (58,32,a,b,10)->put5;
+   a[]->b[];
+   99->b;
+   (58,32,a,b,10)->put5;
+   b[]->c[];
+   &IntegerObject[]->c[];
+   c[]->b[];
+#)
+
+
+--- p1DoPart: DoPart ---
+do (72,101,108,108,111)->put5; 32->put; INNER
+
+--- p2: ObjectDescriptor ---
+p1
+  (# world: (# do (87,111,114,108,100)->put5; 33->put; 10->put #)
+  do world
+  #)
+
+--- p3DoPart: DoPart ---
+do INNER
+
+
+--- programLib: Attributes ---
+p4: (# do (65,116,116,114,105)->put5; (98,117,116,101,115)->put5; 10->put #);

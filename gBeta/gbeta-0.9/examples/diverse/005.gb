@@ -1,0 +1,10 @@
+-- betaenv:descriptor --
+(# 
+   intbool: integer&boolean;
+   x: ^intbool;
+   y: @integer&boolean;
+   z: @intbool;
+do
+   &x[];
+#)
+

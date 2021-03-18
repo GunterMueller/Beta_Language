@@ -1,0 +1,6 @@
+#!/bin/sh
+
+rm -f startC.tmp
+grep begin_start start[0-9]*.m4 | sed 's/^[^(]*(/_start_toc_entry(/' > startC.tmp
+cat startC.pre startC.tmp startC.post > startC.m4
+rm -f startC.tmp

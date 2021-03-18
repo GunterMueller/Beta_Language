@@ -1,0 +1,182 @@
+\section{History of computer languages}
+The newcomer, who hears from the BETA language for the first time
+may ask just one question: Why BETA?  Why another computer
+language?  Aren't C, C++, Fortran, Smalltalk, LISP, Eiffel,
+Cobol, BASIC already enough?  Do we really need Babylon?
+
+Apparently, we do.  When comparing human languages to computer
+languages, one will find, that computer languages are \em
+much\em\/\ inforior than human languages.  This is not
+unexpected; human languages have been in use at least 1000 times
+as long as computer languages.  However, in one aspect, computer
+languages are advanced: they are more precise.  But this is also
+a disadvantage --- computer languages do not forgive errors.
+
+Despite the history of computer languages is short, there has
+been a rapid development; and fundamental changes happened at
+least once a decade.  New features were introduced each time,
+and once programmers got used to them, they no longer wanted
+to miss them.
+
+The most basic computer languages are assembler languages.  They
+consist of a set of simple instructions, like: ``Read the number
+stored in memory cell A, and copy it to cell B'', or: ``Read cells
+D and F, add their values, and store the result in E''.  Every
+single step has to be carried out by hand.  Programming in
+assembler is tedious, and the programmer is forced to think of
+a lot of things, like which registers carry which values at which
+time.  Assembler languages require the programmer to learn a lot
+about the machine, which shall be used to solve a given problem.
+Assembler languages are in general not portable between different
+machines.  When a program is moved to a different architecture,
+most, if not all of it, may have to be rewritten.
+
+It was a huge step forward, when the first symbolic computer
+languages came out.  They allow programmers to give
+human-understandable names to the values used inside a program.
+A special program, the \tq{compiler} or \tq{interpreter}, will
+translate these numbers into register values.  And because the
+compiler can be made to suit different machines, programs written
+in symbolic computer languages are portable between different
+architectures.  The compiler also takes care of the precedence
+of the operators in mathmatical expressions, and will turn
+terms like ``$A + 3*(B+C/D) - E$'' into the correct sequence of
+assembler instructions.
+
+But programming is still tedious with a symbolic language.  For
+example, if a certain expression has to be evaluated at two
+points in a given program, it has to be typed twice.  This
+problem is fixed by functional or procedural languages like
+COBOL or FORTRAN, which allow to isolate expressions and/or
+programming statements into functions and procedures, and call
+these, whenever needed, instead of writing the same statements
+over and over again.  From here, it is only a short step to
+introducing libraries, which are collections of often used
+subprograms and subroutines.
+
+These two improvements, symbolic and functional languages,
+have made it much easier to emit computer instructions, by
+using abstract symbolic expressions instead of assembler
+instructions, and by allowing the easy re-use of code, that
+has been written once.  However, they have not much changed
+the way, that data is stored within the system.  A FORTRAN
+variable is not much more than an assembler memory cell.  Both
+can save a value, and reproduce that value at a later time.
+A Fortran array is just a collection of adjanctant memory
+cells.
+
+The next steps in advancing computer languages have therefore
+been made on the data side, by introducing more abstract data
+types than just numbers and characters.  The structures or
+records, which languages like C and Pascal provide, allow the
+programmer to group values together.  Instead of listing all
+the values in the group, for example in a function call, only
+a handle for the group (called pointer or reference) has to
+be given.
+
+But the possibility to group together values is more than just
+a convenience.  In a FORTRAN program, all variables are in
+principal the same.  The names, that the programmer choose for
+them, may have some meaning to a different human reading the
+program, but not to the program itself.  But by grouping
+variables together, and by choosing, which variables belong
+to a group, the C programmer makes destinctions between the
+variables of a program, and this distinction is made available
+to the compiling system.  In my opinion, the whole goal of
+object oriented computer languages is to make more and more
+properties of a variable available to the compiling system.
+The hard task is to find those properties, that should be known
+to the system, and which don't.  Seen as such, C is already an
+(though simple) object oriented language.
+
+This is in contradiction with the most popular definitions of
+object oriented languages, which use the presence of inheritence
+or subclassing as the key point.  Inheritance allows the
+programmer to express, that objects of a new type B are like
+objects of an already existing type A, plus a few extensions.
+For most people, inheritance is the ``key point'' to object
+orientation.  In my point of view, it is just one step in the
+task described above: to tell the compiling system as many
+properties about a variable as possible.  That a given variable
+is derived from another one is sure one of these properties.
+
+Inheritance is easy to realize in many computer languages, because
+computer memory is linear, and extending the structure of A
+to the structure of B won't affect those memory cells, that
+hold the variables for A.  Any function, that has been
+written for A will work for B, too.
+Quite often, this is not, what people want.  A function, which
+does some processing for objects of type A may have to do
+some additional or even slightly different processing for
+objects of type B.  So virtual functions were introduced,
+which perform different operations for different objects.
+
+By making functions dependant on the object type, the
+compiling system is given some information about the object.
+Again, we are performing our task of giving the compiler more
+and more details about objects.
+
+This is by far not the end.  The C++ standard mentions
+templates, which allow to group together classes to some kind
+of ``super-classes''.  Most operators, like the arithmetic
+expressions, may be overloaded for classes as arguments.
+Classes may be marked as exceptions, and a few more.
+
+Most of these are rather specific.  The ``+'' operator has few
+special meaning to the compiling system.  The programmer of
+some class could also choose to overload the ``*'' operator
+instead, and that would not change the assembler output
+generated by the compiler.  Choosing an operator to overload
+or choosing a variable name are quite similiar actions.  They
+have a lot of meaning for the programmer, but they do not
+affect the compiler itself.
+
+The BETA language follows a different path.  Instead of listing
+more and more minute details of a variable or object, it tries
+to find the most general properties of the objects in question.
+
+BETA sure has support for grouping values together in structures,
+for inheritance and for virtual function calls.  Well, the last
+is not really true.  BETA has support for virtual patterns.  A
+virtual pattern can be used like a virtual function, but also
+like a virtual class.  Yes, BETA allows part or all of the data
+which is stored in an object to be virtual, thus depending on the
+object type themselves.  This allows an object to be extended in
+two dimensions, in contrast to the classical inheritance, which
+allows only linear extension at the end.  Virtual objects can be
+used as a replacement for C++'s Templates, but that is by far
+not their only application.
+
+In C++, all objects ``live'' in the same domain.  Though pointers
+between objects may exist, they have no meaning for the C++ run
+time system.  It is left to the programmer to keep track of the
+relationships between different objects at run time.
+
+In BETA, all objects live inside an environment.  For example,
+objects of class or subclass ``ship'' can live inside a ``water''
+environment.  That way, any methods defined on the ship object
+(like ``move'' or ``load cargo'') can access the properties (like
+minimum depth) of the underlying water environment.  The same
+is true for cars, which live inside a street environment,
+which defines parameters like ``speed limit''.
+
+But what about a car ferry?  BETA allows to stack environments.
+Car ferry would be defined as a subclass of ship.  And car
+ferry objects would have a part object (or environment), which
+is a subclass of street, so that a car ferry can actually load
+cars.
+
+In other words: any BETA object can form the environment for
+another BETA object.  If object O is in environment E, O can
+access all the methods and data defined in E.  If two similiar
+objects O1 and O2 reside in different environments E1 and E2,
+they may behave differently, depending of the methods of E1 and
+E2, which they import.  By making the information about the
+environment available to the compiling system, we are back to our
+major job of object orientation laid out above.
+
+C++ defines an environment, too, which is the collection of all
+globally accessible variables, classes and functions.  But this
+rips off any dependency of objects upon the environment.  No
+specific environment information can be provided, the compiling
+system remains uninformed.

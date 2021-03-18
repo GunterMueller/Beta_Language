@@ -1,0 +1,3 @@
+ORIGIN 'tjs1'
+--- tjs1att: Attributes ---
+c: (# do 'C'-> putline #);

@@ -1,0 +1,4 @@
+ORIGIN 'objectdesc';
+INCLUDE 'attribute';
+--- AttributePtrExt: ObjectDescriptor ---
+AttributePtr (# #)

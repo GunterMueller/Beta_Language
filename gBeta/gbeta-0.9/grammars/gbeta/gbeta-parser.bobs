@@ -1,0 +1,261 @@
+OPTIONS(32,34,59)
+METASYMBOLS  M1== M2=| M3=< M4=; M5="
+"<<" "--" "_EMPTY_" "_NAME_" "_KONST_" "_STRING_" "_ERROR_" 
+">=" "else" "restart" "->" "none" 
+"not" "%" "and" "suspend" "then" ".%" 
+"code" "repeat" "&" "{" "|" "'" 
+"mod" "do" "[" "(" "}" "@@" 
+"tos" "//" ":" ")" "*" "inner" 
+"]" ";" "+" "leave" "^" "<" 
+"=" "," "(#" "when" "exit" "##" 
+">" "-" "." "/" "if" "while" 
+"@" "this" "enter" "xor" "<=" "div" 
+"<>" "!" "or" "[]" "for" "#)" 
+"(*" ;
+STRINGCH = ';
+COMMENT = "(*" ; "*)";
+GOALSYMBOL = betaform;
+<betaform< = _ERROR_.-1= "_ERROR_";
+<nameappl< = ^.-3= "_NAME_";
+<namedecl< = :.-4= "_NAME_";
+<const< = %.-5= "_KONST_";
+<string< = '.-6= "_STRING_";
+<betaform< = ?.1= <descriptorform< 
+              | ?.1= <attributesform< ;
+<descriptorform< = DescriptorForm.2= <objectdescriptor<  ;
+<attributesform< = AttributesForm.3= <attributes<  ;
+<objectdescriptor< = ObjectDescriptor.4= <prefixopt<  <mainpart<  ;
+<mainpart< = ?.5= <longmainpart< 
+              | ?.5= <shortmainpart< ;
+<longmainpart< = LongMainPart.6= "(#" <attributes<  <actionpart<  "#)" ;
+<shortmainpart< = ShortMainPart.7= "{" <attributes<  <actionpart<  "}" ;
+<attributes< = Attributes.8= <attributedeclopt< 
+              | +.8= <attributes< ";"<attributedeclopt< ;
+<prefixopt< = _EMPTY_.9= "_EMPTY_"
+              | ?.-2= <prefix< ;
+<prefix< = ?.10= <simpleprefix< 
+              | ?.10= <compositeprefix< ;
+<simpleprefix< = SimplePrefix.11= <attributedenotation<  ;
+<compositeprefix< = CompositePrefix.12= "(" "&" <merge<  "&" ")" ;
+<attributedeclopt< = _EMPTY_.13= "_EMPTY_"
+              | ?.-2= <attributedecl< ;
+<attributedecl< = ?.14= <patterndecl< 
+              | ?.14= <simpledecl< 
+              | ?.14= <repetitiondecl< 
+              | ?.14= <virtualdecl< 
+              | ?.14= <bindingdecl< 
+              | ?.14= <finaldecl< 
+              | ?.14= <errordecl< ;
+<patterndecl< = PatternDecl.15= <names<  ":" <merge<  ;
+<simpledecl< = SimpleDecl.16= <names<  ":" <referencespecification<  ;
+<repetitiondecl< = RepetitionDecl.17= <names<  ":" "[" <index<  "]" <referencespecification<  ;
+<virtualdecl< = VirtualDecl.18= <names<  ":" "<" <disownopt<  <merge<  <restrictionopt<  ;
+<bindingdecl< = BindingDecl.19= <names<  ":" ":" "<" <swapopt<  <disownopt<  <merge<  <restrictionopt<  ;
+<finaldecl< = FinalDecl.20= <names<  ":" ":" <swapopt<  <merge<  ;
+<disownopt< = _EMPTY_.21= "_EMPTY_"
+              | ?.-2= <disown< ;
+<disown< = Disown.22= "-" ;
+<swapopt< = _EMPTY_.23= "_EMPTY_"
+              | ?.-2= <swap< ;
+<swap< = Swap.24= "!" ;
+<restrictionopt< = _EMPTY_.25= "_EMPTY_"
+              | ?.-2= <restrictionpart< ;
+<restrictionpart< = RestrictionPart.26= ":" ">" <restrictions<  ;
+<restrictions< = Restrictions.27= <restriction< 
+              | +.27= <restrictions< ","<restriction< ;
+<restriction< = Restriction.28= <attributedenotation<  ;
+<variablepattern< = VariablePattern.29= "##" <attributedenotation<  ;
+<referencespecification< = ?.30= <staticitem< 
+              | ?.30= <virtualstaticitem< 
+              | ?.30= <finalstaticitem< 
+              | ?.30= <dynamicitem< 
+              | ?.30= <staticcomponent< 
+              | ?.30= <dynamiccomponent< 
+              | ?.30= <variablepattern< ;
+<staticitem< = StaticItem.31= "@" <merge<  ;
+<virtualstaticitem< = VirtualStaticItem.32= "<" <disownopt<  "@" <attributedenotation<  ;
+<finalstaticitem< = FinalStaticItem.33= ":" "@" <merge<  ;
+<dynamicitem< = DynamicItem.34= "^" <exactopt<  <attributedenotation<  ;
+<exactopt< = _EMPTY_.35= "_EMPTY_"
+              | ?.-2= <exact< ;
+<exact< = Exact.36= "=" ;
+<staticcomponent< = StaticComponent.37= "@" "|" <merge<  ;
+<dynamiccomponent< = DynamicComponent.38= "^" "|" <exactopt<  <attributedenotation<  ;
+<objectspecification< = ?.39= <objectdescriptor< 
+              | ?.39= <attributedenotation< ;
+<merge< = Merge.40= <objectspecification< 
+              | +.40= <merge< "&"<objectspecification< ;
+<index< = ?.41= <simpleindex< 
+              | ?.41= <namedindex< ;
+<namedindex< = NamedIndex.42= <namedcl<  ":" <evaluation<  ;
+<actionpart< = ActionPart.43= <enterpartopt<  <dopartopt<  <exitpartopt<  ;
+<enterpartopt< = _EMPTY_.44= "_EMPTY_"
+              | ?.-2= <enterpart< ;
+<dopartopt< = _EMPTY_.45= "_EMPTY_"
+              | ?.-2= <dopart< ;
+<exitpartopt< = _EMPTY_.46= "_EMPTY_"
+              | ?.-2= <exitpart< ;
+<enterpart< = EnterPart.47= "enter" <evaluation<  ;
+<dopart< = DoPart.48= "do" <imperatives<  ;
+<exitpart< = ExitPart.49= "exit" <evaluation<  ;
+<imperatives< = Imperatives.50= <impopt< 
+              | +.50= <imperatives< ";"<impopt< ;
+<impopt< = _EMPTY_.51= "_EMPTY_"
+              | ?.-2= <imp< ;
+<imp< = ?.52= <labelledimp< 
+              | ?.52= <leaveimp< 
+              | ?.52= <restartimp< 
+              | ?.52= <innerimp< 
+              | ?.52= <suspendimp< 
+              | ?.52= <evaluation< 
+              | ?.52= <whileimp< 
+              | ?.52= <whenimp< 
+              | ?.52= <codeimp< 
+              | ?.52= <errorimp< ;
+<labelledimp< = LabelledImp.53= <namedcl<  ":" <imp<  ;
+<forimp< = ForImp.54= "(" "for" <index<  <repdo<  <imperatives<  "for" ")" ;
+<repdo< = ?.55= <rep< 
+              | ?.55= <doit< ;
+<rep< = Rep.56= "repeat" ;
+<doit< = Doit.57= "do" ;
+<whileimp< = WhileImp.58= "(" "while" <evaluation<  <repdo<  <imperatives<  "while" ")" ;
+<generalifimp< = GeneralIfImp.59= "(" "if" <evaluation<  <alternatives<  <elsepartopt<  "if" ")" ;
+<simpleifimp< = SimpleIfImp.60= "(" "if" <evaluation<  "then" <imperatives<  <elsepartopt<  "if" ")" ;
+<whenimp< = WhenImp.61= "(" "when" <namedcl<  ":" <attributedenotation<  <whenalternatives<  <elsepartopt<  "when" ")" ;
+<leaveimp< = LeaveImp.62= "leave" <scopespecopt<  ;
+<restartimp< = RestartImp.63= "restart" <scopespecopt<  ;
+<innerimp< = InnerImp.64= "inner" <scopespecopt<  ;
+<scopespecopt< = _EMPTY_.65= "_EMPTY_"
+              | ?.-2= <scopespec< ;
+<scopespec< = ?.66= <integerscopespec< 
+              | ?.66= <nameaplscopespec< ;
+<integerscopespec< = IntegerScopeSpec.67= <integerconst<  ;
+<nameaplscopespec< = NameAplScopeSpec.68= <nameapl<  ;
+<suspendimp< = SuspendImp.69= "suspend" ;
+<codeimp< = CodeImp.70= "(" "code" <codeitems<  "code" ")" ;
+<alternatives< = Alternatives.71= <alternative< 
+              | +.71= <alternatives< <alternative< ;
+<alternative< = Alternative.72= <selections<  "then" <imperatives<  ;
+<selections< = Selections.73= <selection< 
+              | +.73= <selections< <selection< ;
+<selection< = ?.74= <caseselection< ;
+<caseselection< = CaseSelection.75= "//" <evaluation<  ;
+<whenalternatives< = WhenAlternatives.76= <whenalternative< 
+              | +.76= <whenalternatives< <whenalternative< ;
+<whenalternative< = WhenAlternative.77= "//" <exactopt<  <attributedenotation<  "then" <imperatives<  ;
+<elsepartopt< = _EMPTY_.78= "_EMPTY_"
+              | ?.-2= <elsepart< ;
+<elsepart< = ElsePart.79= "else" <imperatives<  ;
+<evaluations< = Evaluations.80= <evaluation< 
+              | +.80= <evaluations< ","<evaluation< ;
+<evaluation< = ?.81= <expression< 
+              | ?.81= <assignmentevaluation< ;
+<assignmentevaluation< = AssignmentEvaluation.82= <evaluation<  "->" <transaction<  ;
+<transaction< = ?.83= <reference< 
+              | ?.83= <objectreference< 
+              | ?.83= <evallist< 
+              | ?.83= <structurereference< 
+              | ?.83= <primitive< 
+              | ?.83= <address< 
+              | ?.83= <forimp< 
+              | ?.83= <simpleifimp< 
+              | ?.83= <generalifimp< ;
+<reference< = ?.84= <objectdenotation< 
+              | ?.84= <dynamicobjectgeneration< 
+              | ?.84= <computedobjectevaluation< 
+              | ?.84= <repetitionslice< ;
+<dynamicobjectgeneration< = ?.85= <dynamicitemgeneration< 
+              | ?.85= <dynamiccomponentgeneration< ;
+<objectdenotation< = ObjectDenotation.86= <merge<  ;
+<computedobjectevaluation< = ComputedObjectEvaluation.87= <reference<  "!" ;
+<objectreference< = ObjectReference.88= <reference<  "[]" ;
+<structurereference< = StructureReference.89= <merge<  "##" ;
+<evallist< = EvalList.90= "(" <evaluations<  ")" ;
+<dynamicitemgeneration< = DynamicItemGeneration.91= "&" <merge<  ;
+<dynamiccomponentgeneration< = DynamicComponentGeneration.92= "&" "|" <merge<  ;
+<primitive< = Primitive.93= "tos" <simpleentry<  ;
+<address< = Address.94= "@@" <attributedenotation<  ;
+<attributedenotation< = ?.95= <nameapl< 
+              | ?.95= <remote< 
+              | ?.95= <computedremote< 
+              | ?.95= <indexed< 
+              | ?.95= <thisobject< 
+              | ?.95= <qualifiedattrden< 
+              | ?.95= <remoteprimitive< ;
+<remote< = Remote.96= <attributedenotation<  "." <nameapl<  ;
+<computedremote< = ComputedRemote.97= "(" <evaluations<  ")" "." <nameapl<  ;
+<indexed< = Indexed.98= <attributedenotation<  "[" <evaluation<  "]" ;
+<thisobject< = ThisObject.99= "this" "(" <scopespecopt<  ")" ;
+<qualifiedattrden< = QualifiedAttrDen.100= <attributedenotation<  "(" ":" <merge<  ":" ")" ;
+<remoteprimitive< = RemotePrimitive.101= <attributedenotation<  ".%" <nameapl<  ;
+<expression< = ?.102= <relationalexp< 
+              | ?.102= <simpleexp< ;
+<relationalexp< = ?.103= <eqexp< 
+              | ?.103= <ltexp< 
+              | ?.103= <leexp< 
+              | ?.103= <gtexp< 
+              | ?.103= <geexp< 
+              | ?.103= <neexp< ;
+<simpleexp< = ?.104= <addexp< 
+              | ?.104= <signedterm< 
+              | ?.104= <term< ;
+<addexp< = ?.105= <plusexp< 
+              | ?.105= <minusexp< 
+              | ?.105= <orexp< 
+              | ?.105= <xorexp< ;
+<signedterm< = ?.106= <unaryplusexp< 
+              | ?.106= <unaryminusexp< ;
+<term< = ?.107= <mulexp< 
+              | ?.107= <factor< ;
+<mulexp< = ?.108= <timesexp< 
+              | ?.108= <realdivexp< 
+              | ?.108= <intdivexp< 
+              | ?.108= <modexp< 
+              | ?.108= <andexp< 
+              | ?.108= <primitiveexp< ;
+<eqexp< = EqExp.109= <simpleexp<  "=" <simpleexp<  ;
+<ltexp< = LtExp.110= <simpleexp<  "<" <simpleexp<  ;
+<leexp< = LeExp.111= <simpleexp<  "<=" <simpleexp<  ;
+<gtexp< = GtExp.112= <simpleexp<  ">" <simpleexp<  ;
+<geexp< = GeExp.113= <simpleexp<  ">=" <simpleexp<  ;
+<neexp< = NeExp.114= <simpleexp<  "<>" <simpleexp<  ;
+<plusexp< = PlusExp.115= <simpleexp<  "+" <term<  ;
+<minusexp< = MinusExp.116= <simpleexp<  "-" <term<  ;
+<orexp< = OrExp.117= <simpleexp<  "or" <term<  ;
+<xorexp< = XorExp.118= <simpleexp<  "xor" <term<  ;
+<unaryplusexp< = UnaryPlusExp.119= "+" <term<  ;
+<unaryminusexp< = UnaryMinusExp.120= "-" <term<  ;
+<timesexp< = TimesExp.121= <term<  "*" <factor<  ;
+<realdivexp< = RealDivExp.122= <term<  "/" <factor<  ;
+<intdivexp< = IntDivExp.123= <term<  "div" <factor<  ;
+<modexp< = ModExp.124= <term<  "mod" <factor<  ;
+<andexp< = AndExp.125= <term<  "and" <factor<  ;
+<primitiveexp< = PrimitiveExp.126= <term<  "%" <nameapl<  <factor<  ;
+<factor< = ?.127= <textconst< 
+              | ?.127= <integerconst< 
+              | ?.127= <notexp< 
+              | ?.127= <noneexp< 
+              | ?.127= <transaction< 
+              | ?.127= <unaryprimitiveexp< ;
+<repetitionslice< = RepetitionSlice.128= <attributedenotation<  "[" <evaluation<  ":" <evaluation<  "]" ;
+<notexp< = NotExp.129= "not" <factor<  ;
+<noneexp< = NoneExp.130= "none" ;
+<unaryprimitiveexp< = UnaryPrimitiveExp.131= "%" <nameapl<  <factor<  ;
+<names< = Names.132= <namedcl< 
+              | +.132= <names< ","<namedcl< ;
+<namedcl< = NameDcl.133= <namedecl<  ;
+<nameapl< = NameApl.134= <nameappl<  ;
+<simpleentry< = _EMPTY_.135= "_EMPTY_"
+              | ?.-2= <textconst< ;
+<textconst< = TextConst.136= <string<  ;
+<integerconst< = IntegerConst.137= <const<  ;
+<simpleindex< = SimpleIndex.138= <evaluation<  ;
+<codeitems< = CodeItems.139= <codeitem< 
+              | +.139= <codeitems< ","<codeitem< ;
+<codeitem< = ?.140= <codestring< 
+              | ?.140= <codeconst< ;
+<codestring< = CodeString.141= <string<  ;
+<codeconst< = CodeConst.142= <const<  ;
+<errordecl< = ErrorDecl.143= "_ERROR_" ;
+<errorimp< = ErrorImp.144= "_ERROR_" ;
+;;

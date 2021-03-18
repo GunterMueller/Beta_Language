@@ -1,0 +1,594 @@
+(* FILE "./gbeta2abeta/private/gbeta2abetabody.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: gbeta2abeta4body.bet,v 1.7 2001/07/01 21:44:10 eernst Exp $
+ *)
+
+ORIGIN 'gbeta2abetaAutogen';
+INCLUDE '~beta/basiclib/numberio';
+INCLUDE '../../beta2abeta/private/betaastbody';
+INCLUDE '../../utils';
+INCLUDE 'gbeta2abeta1body'
+
+-- gBeta2abetaLib:attributes --
+
+gElsePartCase: gBeta2abetaPrefix
+  (# name::(# do 'ElsePart'->value[] #)
+  do 'ElsePart'->unexpected
+     (* done in GeneralIfImp,SimpleIfImp *)
+  #);
+
+gEvaluationsCase: gBeta2abetaPrefix
+  (# name::(# do 'Evaluations'->value[] #)
+  do 'Evaluations'->unexpected
+     (* done in EvalList,ComputedRemote *)
+  #);
+
+gAssignmentEvaluationCase: gBeta2abetaPrefix
+  (# name::(# do 'AssignmentEvaluation'->value[] #);
+     node: ^AssignmentEvaluation;
+     l2asev: ^interpreterbase.l2AssignmentEvaluation
+  do mpsAst[]->node[];
+     (&ib.l2AssignmentEvaluation[]).init->l2asev[];
+     (focus[],node.getEvaluation,Evaluation##)
+       ->astOrSlotToLevelTwo
+       ->l2asev.Evaluation[];
+     (focus[],node.getTransaction,Transaction##)
+       ->astOrSlotToLevelTwo
+       ->l2asev.Transaction[];
+     l2asev[]->l2ast[]
+  #);
+
+gObjectDenotationCase: gBeta2abetaPrefix
+  (# name::(# do 'ObjectDenotation'->value[] #);
+     node: ^ObjectDenotation;
+     theMerge: ^Merge;
+     l2oden: ^interpreterbase.l2ObjectDenotation
+  do mpsAst[]->node[];
+     (&ib.l2ObjectDenotation[]).init->l2oden[];
+     node.getMerge->theMerge[];
+     (focus[],theMerge[],l2oden.ObjectSpecifications[]
+     ,Merge##,ObjectSpecification##)
+       ->astlistOrSlotsToLevelTwo;
+     theMerge[]->l2oden.ObjectSpecifications.Identity.mpsAst[];
+     nameGen->l2oden.name[];
+     l2oden[]->l2ast[]
+  #);
+
+gComputedObjectEvaluationCase: gBeta2abetaPrefix
+  (# name::(# do 'ComputedObjectEvaluation'->value[] #);
+     node: ^ComputedObjectEvaluation;
+     l2coev: ^interpreterbase.l2ComputedObjectEvaluation
+  do mpsAst[]->node[];
+     (&ib.l2ComputedObjectEvaluation[]).init->l2coev[];
+     (focus[],node.getReference,Reference##)
+       ->astOrSlotToLevelTwo
+       ->l2coev.Reference[];
+     l2coev[]->l2ast[]
+  #);
+
+gObjectReferenceCase: gBeta2abetaPrefix
+  (# name::(# do 'ObjectReference'->value[] #);
+     node: ^ObjectReference;
+     l2oref: ^interpreterbase.l2ObjectReference
+  do mpsAst[]->node[];
+     (&ib.l2ObjectReference[]).init->l2oref[];
+     (focus[],node.getReference,Reference##)
+       ->astOrSlotToLevelTwo
+       ->l2oref.Reference[];
+     l2oref[]->l2ast[]
+  #);
+
+gStructureReferenceCase: gBeta2abetaPrefix
+  (# name::(# do 'StructureReference'->value[] #);
+     node: ^StructureReference;
+     theMerge: ^Merge;
+     l2sref: ^interpreterbase.l2StructureReference
+  do mpsAst[]->node[];
+     (&ib.l2StructureReference[]).init->l2sref[];
+     node.getMerge->theMerge[];
+     (focus[],theMerge[],l2sref.ObjectSpecifications[]
+     ,Merge##,ObjectSpecification##)
+       ->astlistOrSlotsToLevelTwo;
+     theMerge[]->l2sref.ObjectSpecifications.Identity.mpsAst[];
+     l2sref[]->l2ast[]
+  #);
+
+gEvalListCase: gBeta2abetaPrefix
+  (# name::(# do 'EvalList'->value[] #);
+     node: ^EvalList;
+     theEvaluations: ^Evaluations;
+     l2evll: ^interpreterbase.l2EvalList
+  do mpsAst[]->node[];
+     (&ib.l2EvalList[]).init->l2evll[];
+     node.getEvaluations->theEvaluations[];
+     (focus[],theEvaluations[],l2evll.Evaluations[],
+     Evaluations##,Evaluation##)
+       ->astListOrOneSlotToLevelTwo;
+     theEvaluations[]->l2evll.Evaluations.Identity.mpsAst[];
+     l2evll[]->l2ast[]
+  #);
+
+gDynamicItemGenerationCase: gBeta2abetaPrefix
+  (# name::(# do 'DynamicItemGeneration'->value[] #);
+     node: ^DynamicItemGeneration;
+     theMerge: ^Merge;
+     l2dig: ^interpreterbase.l2DynamicItemGeneration
+  do mpsAst[]->node[];
+     (&ib.l2DynamicItemGeneration[]).init->l2dig[];
+     node.getMerge->theMerge[];
+     (focus[],theMerge[],l2dig.ObjectSpecifications[]
+     ,Merge##,ObjectSpecification##)
+       ->astListOrSlotsToLevelTwo;
+     theMerge[]->l2dig.ObjectSpecifications.Identity.mpsAst[];
+     nameGen->l2dig.name[];
+     l2dig[]->l2ast[]
+  #);
+
+gDynamicComponentGenerationCase: gBeta2abetaPrefix
+  (# name::(# do 'DynamicComponentGeneration'->value[] #);
+     node: ^DynamicComponentGeneration;
+     theMerge: ^Merge;
+     l2dcg: ^interpreterbase.l2DynamicComponentGeneration
+  do mpsAst[]->node[];
+     (&ib.l2DynamicComponentGeneration[]).init->l2dcg[];
+     node.getMerge->theMerge[];
+     (focus[],theMerge[],l2dcg.ObjectSpecifications[]
+     ,Merge##,ObjectSpecification##)
+       ->astListOrSlotsToLevelTwo;
+     theMerge[]->l2dcg.ObjectSpecifications.Identity.mpsAst[];
+     nameGen->l2dcg.name[];
+     l2dcg[]->l2ast[]
+  #);
+
+gPrimitiveCase: gBeta2abetaPrefix
+  (# name::(# do 'Primitive'->value[] #)
+  do (* dummy-supported: type OK, semantics NoOp *)
+     (&ib.l2Primitive[]).init->l2ast[]
+  #);
+
+gAddressCase: gBeta2abetaPrefix
+  (# name::(# do 'Address'->value[] #)
+  do (* dummy-supported: type OK, semantics NoOp *)
+     (&ib.l2Address[]).init->l2ast[]
+  #);
+
+gRemoteCase: gBeta2abetaPrefix
+  (# name::(# do 'Remote'->value[] #);
+     node: ^Remote;
+     l2rem: ^interpreterbase.l2Remote
+  do mpsAst[]->node[];
+     (&ib.l2Remote[]).init->l2rem[];
+     (focus[],node.getAttributeDenotation,AttributeDenotation##)
+       ->astOrSlotToLevelTwo
+       ->l2rem.AttributeDenotation[];
+     node.getNameApl
+       ->asl2_NameApl
+       ->l2rem.NameApl[];
+     l2rem[]->l2ast[]
+  #);
+
+gComputedRemoteCase: gBeta2abetaPrefix
+  (# name::(# do 'ComputedRemote'->value[] #);
+     node: ^ComputedRemote;
+     theEvaluations: ^Evaluations;
+     l2crem: ^interpreterbase.l2ComputedRemote
+  do mpsAst[]->node[];
+     (&ib.l2ComputedRemote[]).init->l2crem[];
+     node.getEvaluations->theEvaluations[];
+     (focus[],theEvaluations[],l2crem.Evaluations[],
+     Evaluations##,Evaluation##)
+       ->astListOrOneSlotToLevelTwo;
+     theEvaluations[]->l2crem.Evaluations.Identity.mpsAst[];
+     node.getNameApl
+       ->asl2_NameApl
+       ->l2crem.NameApl[];
+     l2crem[]->l2ast[]
+  #);
+
+gIndexedCase: gBeta2abetaPrefix
+  (# name::(# do 'Indexed'->value[] #);
+     node: ^Indexed;
+     l2inxd: ^interpreterbase.l2Indexed
+  do mpsAst[]->node[];
+     (&ib.l2Indexed[]).init->l2inxd[];
+     (focus[],node.getAttributeDenotation,AttributeDenotation##)
+       ->astOrSlotToLevelTwo
+       ->l2inxd.AttributeDenotation[];
+     (focus[],node.getEvaluation,Evaluation##)
+       ->astOrSlotToLevelTwo
+       ->l2inxd.Evaluation[];
+     l2inxd[]->l2ast[]
+  #);
+
+gThisObjectCase: gBeta2abetaPrefix
+  (# name::(# do 'ThisObject'->value[] #);
+     node: ^ThisObject;
+     l2this: ^interpreterbase.l2ThisObject
+  do mpsAst[]->node[];
+     (&ib.l2ThisObject[]).init->l2this[];
+     node.getScopeSpecOpt->handleScopeSpec
+     (# onNameApl::(# do l2napl[]->l2this.NameAplOpt[] #);
+        onCount::(# do true->l2this.UsesCount; value->l2this.CountOpt #);
+        onDefault::(# do false->l2this.UsesCount; 1->l2this.CountOpt #)
+     #);
+     l2this[]->l2ast[]
+  #);
+
+gQualifiedAttrDenCase: gBeta2abetaPrefix
+  (# name::(# do 'QualifiedAttrDen'->value[] #);
+     node: ^QualifiedAttrDen;
+     l2quad: ^interpreterbase.l2QualifiedAttrDen
+  do mpsAst[]->node[];
+     (&ib.l2QualifiedAttrDen[]).init->l2quad[];
+     (focus[],node.getAttributeDenotation,AttributeDenotation##)
+       ->astOrSlotToLevelTwo
+       ->l2quad.AttributeDenotation[];
+     (focus[],node.getMerge,l2quad.Merge[]
+     ,Merge##,ObjectSpecification##)
+       ->astlistOrSlotsToLevelTwo;
+     l2quad[]->l2ast[]
+  #);
+
+gRemotePrimitiveCase: gBeta2abetaPrefix
+  (# name::(# do 'RemotePrimitive'->value[] #)
+  do 'RemotePrimitive'->unsupported
+  #);
+
+gEqExpCase: gBeta2abetaPrefix
+  (# name::(# do 'EqExp'->value[] #);
+     node: ^EqExp;
+     l2exp: ^interpreterbase.l2EqExp
+  do mpsAst[]->node[];
+     (&ib.l2EqExp[]).init->l2exp[];
+     (focus[],node.getOperand1,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getOperand2,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+gLtExpCase: gBeta2abetaPrefix
+  (# name::(# do 'LtExp'->value[] #);
+     node: ^LtExp;
+     l2exp: ^interpreterbase.l2LtExp
+  do mpsAst[]->node[];
+     (&ib.l2LtExp[]).init->l2exp[];
+     (focus[],node.getOperand1,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getOperand2,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+gLeExpCase: gBeta2abetaPrefix
+  (# name::(# do 'LeExp'->value[] #);
+     node: ^LeExp;
+     l2exp: ^interpreterbase.l2LeExp
+  do mpsAst[]->node[];
+     (&ib.l2LeExp[]).init->l2exp[];
+     (focus[],node.getOperand1,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getOperand2,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+gGtExpCase: gBeta2abetaPrefix
+  (# name::(# do 'GtExp'->value[] #);
+     node: ^GtExp;
+     l2exp: ^interpreterbase.l2GtExp
+  do mpsAst[]->node[];
+     (&ib.l2GtExp[]).init->l2exp[];
+     (focus[],node.getOperand1,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getOperand2,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+gGeExpCase: gBeta2abetaPrefix
+  (# name::(# do 'GeExp'->value[] #);
+     node: ^GeExp;
+     l2exp: ^interpreterbase.l2GeExp
+  do mpsAst[]->node[];
+     (&ib.l2GeExp[]).init->l2exp[];
+     (focus[],node.getOperand1,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getOperand2,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+gNeExpCase: gBeta2abetaPrefix
+  (# name::(# do 'NeExp'->value[] #);
+     node: ^NeExp;
+     l2exp: ^interpreterbase.l2NeExp
+  do mpsAst[]->node[];
+     (&ib.l2NeExp[]).init->l2exp[];
+     (focus[],node.getOperand1,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getOperand2,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+gPlusExpCase: gBeta2abetaPrefix
+  (# name::(# do 'PlusExp'->value[] #);
+     node: ^PlusExp;
+     l2exp: ^interpreterbase.l2PlusExp
+  do mpsAst[]->node[];
+     (&ib.l2PlusExp[]).init->l2exp[];
+     (focus[],node.getSimpleExp,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getTerm,Term##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+gMinusExpCase: gBeta2abetaPrefix
+  (# name::(# do 'MinusExp'->value[] #);
+     node: ^MinusExp;
+     l2exp: ^interpreterbase.l2MinusExp
+  do mpsAst[]->node[];
+     (&ib.l2MinusExp[]).init->l2exp[];
+     (focus[],node.getSimpleExp,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getTerm,Term##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+gOrExpCase: gBeta2abetaPrefix
+  (# name::(# do 'OrExp'->value[] #);
+     node: ^OrExp;
+     l2exp: ^interpreterbase.l2OrExp
+  do mpsAst[]->node[];
+     (&ib.l2OrExp[]).init->l2exp[];
+     (focus[],node.getSimpleExp,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getTerm,Term##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+gXorExpCase: gBeta2abetaPrefix
+  (# name::(# do 'XorExp'->value[] #);
+     node: ^XorExp;
+     l2exp: ^interpreterbase.l2XorExp
+  do mpsAst[]->node[];
+     (&ib.l2XorExp[]).init->l2exp[];
+     (focus[],node.getSimpleExp,SimpleExp##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getTerm,Term##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+gUnaryPlusExpCase: gBeta2abetaPrefix
+  (# name::(# do 'unaryPlusExp'->value[] #);
+     node: ^unaryPlusExp;
+     l2exp: ^interpreterbase.l2UnaryPlusExp
+  do mpsAst[]->node[];
+     (&ib.l2UnaryPlusExp[]).init->l2exp[];
+     (focus[],node.getTerm,Term##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand[];
+     l2exp[]->l2ast[]
+  #);
+
+gUnaryMinusExpCase: gBeta2abetaPrefix
+  (# name::(# do 'unaryMinusExp'->value[] #);
+     node: ^unaryMinusExp;
+     l2exp: ^interpreterbase.l2UnaryMinusExp
+  do mpsAst[]->node[];
+     (&ib.l2UnaryMinusExp[]).init->l2exp[];
+     (focus[],node.getTerm,Term##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand[];
+     l2exp[]->l2ast[]
+  #);
+
+gTimesExpCase: gBeta2abetaPrefix
+  (# name::(# do 'TimesExp'->value[] #);
+     node: ^TimesExp;
+     l2exp: ^interpreterbase.l2TimesExp
+  do mpsAst[]->node[];
+     (&ib.l2TimesExp[]).init->l2exp[];
+     (focus[],node.getTerm,Term##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getFactor,Factor##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+gRealDivExpCase: gBeta2abetaPrefix
+  (# name::(# do 'RealDivExp'->value[] #);
+     node: ^RealDivExp;
+     l2exp: ^interpreterbase.l2RealDivExp
+  do mpsAst[]->node[];
+     (&ib.l2RealDivExp[]).init->l2exp[];
+     (focus[],node.getTerm,Term##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getFactor,Factor##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+gIntDivExpCase: gBeta2abetaPrefix
+  (# name::(# do 'IntDivExp'->value[] #);
+     node: ^IntDivExp;
+     l2exp: ^interpreterbase.l2IntDivExp
+  do mpsAst[]->node[];
+     (&ib.l2IntDivExp[]).init->l2exp[];
+     (focus[],node.getTerm,Term##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getFactor,Factor##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+gModExpCase: gBeta2abetaPrefix
+  (# name::(# do 'ModExp'->value[] #);
+     node: ^ModExp;
+     l2exp: ^interpreterbase.l2ModExp
+  do mpsAst[]->node[];
+     (&ib.l2ModExp[]).init->l2exp[];
+     (focus[],node.getTerm,Term##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getFactor,Factor##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+gAndExpCase: gBeta2abetaPrefix
+  (# name::(# do 'AndExp'->value[] #);
+     node: ^AndExp;
+     l2exp: ^interpreterbase.l2AndExp
+  do mpsAst[]->node[];
+     (&ib.l2AndExp[]).init->l2exp[];
+     (focus[],node.getTerm,Term##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand1[];
+     (focus[],node.getFactor,Factor##)
+       ->astOrSlotToLevelTwo
+       ->l2exp.operand2[];
+     l2exp[]->l2ast[]
+  #);
+
+gPrimitiveExpCase: gBeta2abetaPrefix
+  (# name::(# do 'PrimitiveExp'->value[] #)
+  do 'PrimitiveExp'->unsupported
+  #);
+
+gRepetitionSliceCase: gBeta2abetaPrefix
+  (# name::(# do 'RepetitionSlice'->value[] #);
+     node: ^RepetitionSlice;
+     l2rsli: ^interpreterbase.l2RepetitionSlice
+  do mpsAst[]->node[];
+     (&ib.l2RepetitionSlice[]).init->l2rsli[];
+     (focus[],node.getAttributeDenotation,AttributeDenotation##)
+       ->astOrSlotToLevelTwo
+       ->l2rsli.AttributeDenotation[];
+     (focus[],node.getLow,Evaluation##)
+       ->astOrSlotToLevelTwo
+       ->l2rsli.Low[];
+     (focus[],node.getHigh,Evaluation##)
+       ->astOrSlotToLevelTwo
+       ->l2rsli.High[];
+     l2rsli[]->l2ast[]
+  #);
+
+gNotExpCase: gBeta2abetaPrefix
+  (# name::(# do 'notExp'->value[] #);
+     node: ^notExp;
+     l2not: ^interpreterbase.l2NotExp
+  do mpsAst[]->node[];
+     (&ib.l2NotExp[]).init->l2not[];
+     (focus[],node.getfactor,Factor##)
+       ->astOrSlotToLevelTwo
+       ->l2not.operand[];
+     l2not[]->l2ast[]
+  #);
+
+gNoneExpCase: gBeta2abetaPrefix
+  (# name::(# do 'noneExp'->value[] #)
+  do (&ib.l2NoneExp[]).init->l2ast[]
+  #);
+
+gUnaryPrimitiveExpCase: gBeta2abetaPrefix
+  (# name::(# do 'UnaryPrimitiveExp'->value[] #)
+  do 'UnaryPrimitiveExp'->unsupported
+  #);
+
+gNamesCase: gBeta2abetaPrefix
+  (# name::(# do 'Names'->value[] #)
+  do 'Names'->unexpected
+     (* done in PatternDecl,SimpleDecl,RepetitionDecl,
+      * VirtualDecl,BindingDecl,FinalDecl *)
+  #);
+
+gNameDclCase: gBeta2abetaPrefix
+  (# name::(# do 'NameDcl'->value[] #)
+  do 'NameDcl'->unexpected
+     (* done in NamedIndex,LabelledImp,Names *)
+  #);
+
+gNameAplCase: gBeta2abetaPrefix
+  (# name::(# do 'NameApl'->value[] #);
+     msg::(# do l2napl.value[]->quote->value[] #);
+     node: ^NameApl;
+     theNameAppl: ^NameAppl;
+     t: ^text;
+     l2napl: ^interpreterbase.l2NameApl
+  do mpsAst[]->node[];
+     (&ib.l2NameApl[]).init->l2napl[];
+     (node.getNameAppl->theNameAppl[]).getText->t[];
+     t->l2napl.value;
+     l2napl[]->l2ast[]
+  #);
+
+(*
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

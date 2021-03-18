@@ -1,0 +1,25 @@
+ORIGIN 'forward';
+BODY 'renamebody';
+(* Rename an attribute denotation to a new variable name.  Used for
+ * example in object generator functions, where "n" is the name of
+ * the newly generated object.  May also be used by the optimiser
+ * to replace a new variable for a commonly used denotation.
+ *)
+--- CompilerLib: Attributes ---
+AttDenRename: ForwardDenotation
+  (#
+     myod: ^ObjectDescriptor;
+     str: @text;
+     type:: AttDenRename;
+     copy:: (# do str->cpy.str #);
+     (* Don't bind copydelete, as the default action of copydelete
+      * (namely to delete this instance of AttDenRename) is correct. *)
+     getcexpr::
+       (# noprec:: (# do true->value #)
+       <<SLOT AttDenRenameGetCexpr: DoPart>>
+       #);
+     isequal:: (# adr: ^AttDenRename <<SLOT AttDenRenameIsEqual: DoPart>> #);
+  enter (prec[],str)
+  <<SLOT AttDenRenameDoPart: DoPart>>
+  exit this(AttDenRename)[]
+  #);

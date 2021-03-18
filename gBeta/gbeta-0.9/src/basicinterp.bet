@@ -1,0 +1,2162 @@
+(* FILE "./basicinterp.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: basicinterp.bet,v 1.137 2001/07/03 00:13:18 eernst Exp $
+ *)
+
+ORIGIN '~beta/basiclib/basicsystemenv';
+INCLUDE '~beta/mps/astlevel';
+INCLUDE 'utils';
+BODY 'private/basicinterpbody'
+
+-- systemlib:attributes --
+
+interpreterBase:
+  (# <<SLOT InterpreterBaseLib:attributes>>;
+
+     scanCallback:
+       (* Used when scanning trees made from 'l2AstNode's *)
+       (# theCurrent: ^l2AstNode
+       enter theCurrent[]
+       do INNER
+       #);
+
+     attributeVisualizer:
+       (* Abstract super for all attribute visualizers; an
+        * attribute visualizer is an object that receives
+        * each ast node for investigation before and after
+        * it (and its subtree) is printed; this makes it
+        * possible to control printing status such as color
+        * settings etc. and thus visualize properties or
+        * attributes of nodes. Install such an object with
+        * 'setAttributeVisualizer' and it affects all
+        * printing until you install another one; installing
+        * NONE disables the feature, and this is also the
+        * default *)
+       (# init:< (# do INNER exit this(attributeVisualizer)[] #);
+          description:< textValue
+            (# <<SLOT AttributeVisualizerDescription:dopart>> #);
+          dest: ^stream;                (* Where does the print goto? *)
+          l2ast: ^l2AstNode;            (* Node whose attributes *)
+          pre: @boolean                 (* True iff pre-print visit *)
+       enter (dest[],l2ast[],pre)
+       do INNER
+       #);
+
+     setAttributeVisualizer:
+       (* See 'attributeVisualizer' *)
+       (# attrvis: ^attributeVisualizer
+       enter attrvis[]
+       <<SLOT SetAttributeVisualizer:dopart>>
+       #);
+
+     getAttributeVisualizer:
+       (* See 'attributeVisualizer' *)
+       (# attrvis: ^attributeVisualizer
+       <<SLOT GetAttributeVisualizer:dopart>>
+       exit attrvis[]
+       #);
+
+     (* Possible values of scopeNode.kind *)
+     predefinedScopeKind: (# exit 11 #);
+     attributesFormScopeKind: (# exit 12 #);
+     mainPartScopeKind: (# exit 13 #);
+     labelledImpScopeKind: (# exit 14 #);
+     forImpScopeKind: (# exit 15 #);
+     whenImpScopeKind: (# exit 16 #);
+     repetitionScopeScopeKind: (# exit 17 #);
+
+     scopeNode:
+       (* Abstract superpattern; used for unifying main parts et al.
+        * that define name scopes such that we can traverse them
+        * and use them without "downcasting" all the time *)
+       (# <<SLOT ScopeNodeLib:attributes>>;
+
+          init:< (# do world.init; INNER #);
+
+          (* ----- Cheap Down-typing ----- *)
+
+          kind:<
+            (* Deliver "kind" value for this scope node; used to
+             * destinguish between the different specializations
+             * present in various pieces of syntax; since we
+             * want to distinguish between the types of 'location'
+             * and not the types of scope nodes themselves, testing
+             * directly becomes a bit heavy; hence we need 'kind' *)
+            integerValue;
+
+          (* ----- Semantic Attributes ----- *)
+
+          world: @staticContextDB
+            (# getInitialSyntax::(# do location->l2ast[] #)#);
+
+          getInitialContext:<
+            (* Create a staticContext that describes this
+             * scope (object or otherwise); put the new context
+             * into the world along with the enclosing contexts
+             * all the way out to the predefined level; this
+             * constitutes the run-time context for the evaluation
+             * of syntax whose 'scope' is this scopeNode; this
+             * yields the starting point for type analysis *)
+            (# position: ^runtimePath;  (* Never NONE *)
+               world: ^staticContextDB; (* Never NONE *)
+               usageAst: ^l2AstNode;    (* Used for diagnostics *)
+               stcon: ^staticContext    (* Never NONE *)
+            enter (position[],world[],usageAst[])
+            <<SLOT ScopeNodeGetInitialContext:dopart>>
+            exit stcon[]
+            #);
+
+          findNameDcl:<
+            (* Search for occurrence of the 'name' amongst the
+             * names defined in this scope node; does not take
+             * prefix or other global aspects into account *)
+            (# name: ^text;             (* Never NONE *)
+               l2ndcl: ^l2NameDcl       (* NONE means "not found" *)
+            enter name[]
+            do INNER
+            exit l2ndcl[]
+            #);
+
+          location:<
+            (* Deliver a reference to the syntactic entity
+             * associated with this scope node *)
+            (# l2ast: ^l2AstNode do INNER exit l2ast[] #);
+
+          getSubstanceScope:
+            (* Deliver the nearest enclosing scopeNode (possibly
+             * this one) that is associated with substance at
+             * run-time, i.e. which has kind different from
+             * labelledImpScopeKind *)
+            (# scope: ^scopeNode
+            <<SLOT ScopeNodeGetSubstanceScope:dopart>>
+            exit scope[]
+            #);
+
+          (* private *)
+          enclosing: ^scopeNode;        (* NONE means "outermost" *)
+          staticLevel: @integer         (* Zero for predefined *)
+       #);
+
+     (* Possible values of declNode.kind *)
+     predefinedDeclKind: (# exit 1 #);
+     labelledImpDeclKind: (# exit 2 #);
+     indexDeclKind: (# exit 3 #);
+     vdeclDeclkind: (# exit 4 #);
+     patternDeclDeclKind: (# exit 5 #);
+     simpleDeclDeclKind: (# exit 6 #);
+     repetitionDeclDeclKind: (# exit 7 #);
+     whenDeclKind: (# exit 8 #);
+
+     declNode:
+       (* Used for unifying declarations; each l2NameDcl
+        * contains a dyn-ref to its associated declaration
+        * such that this decl is easy to find; since the
+        * possible associated declarations are not sufficiently
+        * related in types, the DeclNode pattern is used to
+        * provide uniform access to them (it might be a labelledImp,
+        * a named index, or several others, as reflected below) *)
+       (# <<SLOT DeclNodeLib:attributes>>;
+
+          (* ----- Cheap Down-typing ----- *)
+
+          kind:< integerValue;
+
+          (* ----- Semantic Attributes ----- *)
+
+          getStaticType:<
+            (* Given a 'context' that specifies the statically
+             * known structure of the enclosing object, and
+             * a 'world' database of object structure obtained
+             * during the analysis, compute the static type
+             * associated with the declared entity *)
+            (# context: ^staticContext; (* Never NONE *)
+               world: ^staticContextDB; (* Never NONE *)
+               usageAst: ^l2AstNode;    (* Used for diagnostics *)
+               stype: ^staticType       (* Never NONE *)
+            enter (context[],world[],usageAst[])
+            <<SLOT DeclNodeGetStaticType:dopart>>
+            exit stype[]
+            #);
+
+          getStaticQuaType:<
+            (* Given a 'context' that specifies the statically
+             * known structure of the enclosing object, and
+             * a 'world' database of object structure obtained
+             * during the analysis, compute the static type
+             * associated with the qualification of the declared
+             * entity *)
+            (# context: ^staticContext; (* Never NONE *)
+               world: ^staticContextDB; (* Never NONE *)
+               usageAst: ^l2AstNode;    (* Used for diagnostics *)
+               qual: ^staticType;       (* Never NONE *)
+               qualExact: @boolean
+            enter (context[],world[],usageAst[])
+            <<SLOT DeclNodeGetStaticQuaType:dopart>>
+            exit (qual[],qualExact)
+            #);
+
+          isIndirect:<
+            (* Returns 'true' iff the declared entity is an object
+             * reference or a pattern reference or a repetition of those;
+             * notice that a label, the literal 'true' etc. are direct;
+             * this tells whether or not a dereferencing step must be
+             * taken after looking up the name of the entity *)
+            booleanValue;
+
+          isRepeated:<
+            (* Returns 'true' iff the declared entity is a repetition *)
+            booleanValue;
+
+          location:< (# l2ast: ^l2AstNode do INNER exit l2ast[] #);
+
+          stype_cache: ^staticType      (* Cache for local static type *)
+       #);
+
+     l2AstNode:
+       (# <<SLOT AstNodeLib:attributes>>;
+
+          init:< (# do INNER exit this(l2AstNode)[] #);
+          typename:< textvalue;
+          shortTypename:< textvalue;
+          
+          print:< 
+            (* Pretty-print the abstract syntax 
+             * tree rooted at this l2AstNode *)
+            printBase(# <<SLOT AstNodePrint:dopart>> #);
+          
+          printCode:< 
+            (* Ensure that byte code etc. has been generated, then 
+             * print the byte code in a form suitable to provide the 
+             * basis for execution by an external virtual machine *)
+            printBase(# <<SLOT AstNodePrintCode:dopart>> #);
+
+          rawScanPre:
+            (* Pre-order visit all nodes in the tree rooted by this astnode *)
+            (# current: ^l2AstNode      (* Never NONE *)
+            <<SLOT AstNodeRawScanPre:dopart>>
+            #);
+
+          rawScanPost:
+            (* Post-order visit all nodes in the tree rooted by this astnode *)
+            (# current: ^l2AstNode      (* Never NONE *)
+            <<SLOT AstNodeRawScanPost:dopart>>
+            #);
+
+          rawScanPrePost:
+            (* Visit all nodes in the tree rooted by this astnode twice; use
+             * 'preVisit' and 'postVisit' to specify what should be done
+             * when visiting each node before resp. after the traversal
+             * of subtrees for that node; NOTE: (1) there is no INNER,
+             * 'preVisit' and 'postVisit' are used instead; (2) one instance
+             * of 'preVisit' and one instance of 'postVisit' are created
+             * at the beginning of the traversal and then used repeatedly
+             * for all nodes *)
+            (# preVisit:<               (* Called at pre-order visit *)
+                 (# current: ^l2AstNode (* Never NONE *)
+                 enter current[]
+                 do INNER
+                 #);
+               postVisit:<              (* Called at post-order visit *)
+                 (# current: ^l2AstNode (* Never NONE *)
+                 enter current[]
+                 do INNER
+                 #)
+            <<SLOT AstNodeRawScanPrePost:dopart>>
+            #);
+
+          scanPre:
+            (* Like rawScanPre, but only visit nodes that are qualified
+             * by 'qualification' *)
+            (# qualification:< l2AstNode;
+               current: ^qualification  (* Never NONE *)
+            <<SLOT AstNodeScanPre:dopart>>
+            #);
+
+          scanPost:
+            (* Like rawScanPost, but only visit nodes that are qualified
+             * by 'qualification' *)
+            (# qualification:< l2AstNode;
+               current: ^qualification  (* Never NONE *)
+            <<SLOT AstNodeScanPost:dopart>>
+            #);
+
+          scanPrePost:
+            (* Like rawScanPrePost, but only visit nodes that are qualified
+             * by 'qualification' *)
+            (# preVisit:<               (* Called at pre-order visit *)
+                 (# qualification:< l2AstNode;
+                    current: ^qualification (* Never NONE *)
+                 enter current[]
+                 do INNER
+                 #);
+               postVisit:<              (* Called at post-order visit *)
+                 (# qualification:< l2AstNode;
+                    current: ^qualification (* Never NONE *)
+                 enter current[]
+                 do INNER
+                 #)
+            <<SLOT AstNodeScanPrePost:dopart>>
+            #);
+
+          scanImpl:< (* private *)
+            (# preCB,postCB: ^scanCallback (* NONE means skip *)
+            enter (preCB[],postCB[])
+            <<SLOT AstNodeScanImpl:dopart>>
+            #);
+
+          (* ----- Semantic Attributes ----- *)
+
+          father: ^l2AstNode;           (* father-node in the syntax tree *)
+          scope: ^scopeNode;            (* nearest enclosing scope *)
+
+          getScopeNode:<
+            (* return the scope node for this ast node, if any *)
+            (# sn: ^scopeNode           (* NONE means "no scope nodes here" *)
+            do INNER
+            exit sn[]
+            #);
+
+          observeSemAtt:< printBaseBase
+            (# title: ^text;
+               category: @char
+            enter (dest[],title[],category)
+            <<SLOT AstNodeObserveSemAtt:dopart>>
+            #);
+
+          check:<
+            (* Do all static semantic checking/analysis for this
+             * ast node; this probably invokes various analysis on
+             * other parts of the program, and may give rise to a
+             * static error in case the program is not well-formed *)
+            (# context: ^staticContext; (* Never NONE *)
+               world: ^staticContextDB; (* Never NONE *)
+               usageAst: ^l2AstNode     (* Used for diagnostics *)
+            enter (context[],world[],usageAst[])
+            <<SLOT AstNodeCheck:dopart>>
+            #);
+
+          (* ----- BackRef to MPS ----- *)
+
+          mpsAst: ^astInterface.ast;
+
+          (* ----- Private ----- *)
+
+          nodePrivate: @<<SLOT AstNodePrivate:descriptor>>
+       #);
+
+     l2NameDcl: l2AstNode
+       (# <<SLOT NameDclLib:attributes>>;
+          typename::(# do 'NameDcl'->value[] #);
+          shortTypename::(# do 'ND'->value[] #);
+          print::(# <<SLOT NameDclPrint:dopart>> #);
+          printCode::(# <<SLOT NameDclPrintCode:dopart>> #);
+          observeSemAtt::(# <<SLOT NameDclObserveSemAtt:dopart>> #);
+
+          (* ----- Semantic Attributes ----- *)
+
+          decl: ^declNode;              (* Never NONE in checked pgm. *)
+          offset: @integer;
+
+          (* ----- Substance ----- *)
+
+          value: @text
+
+       enter value
+       exit value
+       #);
+
+     (**************************************************************
+      *                                                            *
+      *                        Static Types                        *
+      *                                                            *
+      **************************************************************)
+
+     staticType:
+       (* A specification of the category of syntax such as
+        * label, pattern, or repetition, along with the statically
+        * known internal structure of patterns and repetitions,
+        * and abstract information about the placement in the
+        * run-time universe (various origin path information) *)
+       (# <<SLOT StaticTypeLib:attributes>>;
+
+          selfType:< staticType;
+
+          kind:< integerValue;          (* One of ".*TypeKind" *)
+
+          init:<
+            (#
+            enter initialSyntax[]
+            <<SLOT StaticTypeInit:dopart>>
+            exit this(staticType)[]
+            #);
+
+          typename:< textValue;
+          shortTypename:< textValue;
+
+          (* ----- Methods ----- *)
+
+          printStaticType: printBase(# <<SLOT StaticTypePrint:dopart>> #);
+
+          print:< printStaticType;
+
+          printShort:< printBase;
+
+          copy:<
+            (* Deliver a copy of this static type *)
+            (# theCopy: ^selfType
+            <<SLOT StaticTypeCopy:dopart>>
+            exit theCopy[]
+            #);
+
+          equal:< booleanValue
+            (* Return true iff other is equal to this(staticType) *)
+            (# other: ^staticType
+            enter other[]
+            do INNER
+            #);
+
+          lessEqual:< booleanValue
+            (* Return true iff other is lessEqual than this(staticType) *)
+            (# other: ^staticType
+            enter other[]
+            do INNER
+            #);
+
+          knownStatically:<
+            (* Determine whether or not this static type is 
+             * completely described by the explicit, statically
+             * known structure (such as the statically known 
+             * mixins of a static pattern type); as an example
+             * of the opposite, an open virtual in an object 
+             * whose type is not completely known statically 
+             * is generally not knownStatically *)
+            booleanValue;
+          
+          hasExistingParts:<
+            (* Determine whether this static type is composed of parts 
+             * that are guaranteed to exist and be accessible in the
+             * run-time environment; this is, e.g., not the case for a 
+             * type containing a part whose origin is a computed object *)
+            booleanValue;
+          
+          lookupName:<
+            (* Lookup 'name' in the context of this static type *)
+            (# name: ^text;             (* Never NONE *)
+               usageAst: ^l2AstNode;    (* Used for diagnostics *)
+               l2ndcl: ^l2NameDcl       (* NONE means "not found" *)
+            enter (name[],usageAst[])
+            do INNER
+            exit l2ndcl[]
+            #);
+
+          adjustPaths:<
+            (* Prepend 'path' to all paths in this static type,
+             * then normalize paths; the operation does not change
+             * or consume 'path' *)
+            (# path: ^runtimePath       (* Never NONE *)
+            enter path[]
+            do INNER
+            #);
+
+          coerce:<
+            (* Produce a static type of the specified 'toKind'
+             * from this one, and deliver it in 'stype'; this
+             * coercion is only possible for certain pairs of
+             * static types.  Failure means that the coercion
+             * is guaranteed to fail at run-time, so the
+             * interpretation is rejected with a 'staticError'.
+             * Success means that the operation may succeed at
+             * run-time, but there may be errors like "Reference
+             * is NONE" *)
+            (# <<SLOT StaticTypeCoerceLib:attributes>>;
+               toKind: @integer;        (* One of ".*TypeKind" *)
+               usageAst: ^l2AstNode;    (* Used for diagnostics *)
+               stype: ^staticType       (* Never NONE *)
+            enter (toKind,usageAst[])
+            <<SLOT StaticTypeCoerce:dopart>>
+            exit stype[]
+            #);
+
+          staticInstantiate:<
+            (* Construct a piece of static substance as an
+             * "instance" of this static type; 'context'
+             * specifies the runtime context from the current
+             * analysis viewpoint, 'path' specifies where
+             * to find the substance to be created, and
+             * 'entryAst' is an ast node that points out the
+             * exact slice entered using 'path'; sometimes
+             * (e.g. for remote access to an instance of
+             * a virtual, or in general after lookup when
+             * dynamic object structure enhancement is
+             * allowed) this slice is not known at compile-time,
+             * which is specified by giving NONE for 'entryAst' *)
+            (# context: ^staticContext; (* Never NONE *)
+               path: ^runtimePath;      (* Never NONE *)
+               entryAst: ^l2AstNode;    (* NONE means "not known" *)
+               usageAst: ^l2AstNode;    (* Used for diagnostics *)
+               stsub: ^staticSubstance
+            enter (context[],path[],entryAst[],usageAst[])
+            <<SLOT StaticTypeInstantiate:dopart>>
+            exit stsub[]
+            #);
+
+          getInitialSyntax: (# exit initialSyntax[] #);
+
+          (* private *)
+          initialSyntax: ^l2AstNode
+       #);
+
+     (*************************************************************
+      *                                                           *
+      *           Classification of Static Types: Kinds           *
+      *                                                           *
+      *************************************************************)
+
+     (* Special types *)
+     labelTypeKind:             (# exit 41 #);
+     repetitionTypeKind:        (# exit 42 #);
+     commandTypeKind:           (# exit 43 #);
+     boolSourceTypeKind:        (# exit 44 #);
+     intSourceTypeKind:         (# exit 45 #);
+     intSinkTypeKind:           (# exit 46 #);
+     stringSinkTypeKind:        (# exit 47 #);
+     boolSinkSourceTypeKind:    (# exit 48 #);
+     charSinkSourceTypeKind:    (# exit 49 #);
+     intSinkSourceTypeKind:     (# exit 50 #);
+     realSinkSourceTypeKind:    (# exit 51 #);
+     stringSinkSourceTypeKind:  (# exit 52 #);
+     intSinkCharSourceTypeKind: (# exit 53 #);
+
+     (* Used with pattern types *)
+     patternTypeKind:        (# exit 61 #);
+     patternRefTypeKind:     (# exit 62 #);
+     objectTypeKind:         (# exit 63 #);
+     objectRefTypeKind:      (# exit 64 #);
+
+     (*************************************************************
+      *                                                           *
+      *                       Static Slices                       *
+      *                                                           *
+      *************************************************************)
+
+     staticSlice: linkable
+       (* Abstract superpattern; specializations used to
+        * specify the statically known structure of patterns,
+        * i.e. the involved chain of main parts and/or basic
+        * patterns *)
+       (# <<SLOT StaticSliceLib:attributes>>;
+
+          knownType::< staticSlice;
+          selfType::< staticSlice;
+
+          init::<
+            (#
+            enter initialSyntax[]
+            <<SLOT StaticSliceInit:dopart>>
+            #);
+
+          copyLink::< (# <<SLOT StaticSliceCopyLink:dopart>> #);
+
+          typename:< textValue;
+          shortTypename:< textValue(# do INNER; 'SSli'->value.puttext #);
+
+          print:< printBase
+            (* Print a textual representation of this static type
+             * on the stream 'dest' at the given 'indentation' level *)
+            (# <<SLOT StaticSlicePrint:dopart>> #);
+
+          printShort:< printBase
+            (* Print a short textual representation of this static type
+             * on the stream 'dest' at the given 'indentation' level *)
+            (# <<SLOT StaticSlicePrintShort:dopart>> #);
+
+          printCode:< printBase
+            (* Print this as part of a static pattern, "Pattern(..)" *)
+            (# <<SLOT StaticSlicePrintCode:dopart>> #);
+          
+          equal:< booleanValue
+            (# other: ^staticSlice      (* Never NONE *)
+            enter other[]
+            do INNER
+            #);
+
+          lookupName:<
+            (* Lookup 'name' in the context of this static slice *)
+            (# name: ^text;             (* To look up *)
+               l2ndcl: ^l2NameDcl       (* NONE means "not found" *)
+            enter name[]
+            do INNER
+            exit l2ndcl[]
+            #);
+
+          associated:< booleanValue
+            (* Determine whether this static slice is associated with 'l2ast',
+             * such as when it is the scope node of "my" main part, etc. *)
+            (# l2ast: ^l2AstNode        (* Never NONE *)
+            enter l2ast[]
+            do INNER
+            #);
+
+          getInitialSyntax: (# exit initialSyntax[] #);
+
+          (* private *)
+          initialSyntax: ^l2AstNode;    (* Analysis viewpoint *)
+          originPath: @runtimePath
+       #);
+
+     (************************************************************
+      *                                                          *
+      *                     Static Substance                     *
+      *                                                          *
+      ************************************************************)
+
+     staticSubstance:
+       (* Represents static knowledge about a runtime entity;
+        * the path to follow starting from the current object
+        * in order to find it is given by 'pathTo', and its
+        * structure is given in specializations; this uniquely
+        * determines a piece of runtime substance (object,
+        * component, for-stm, or rep-decl) from a given current
+        * starting point; it is used during static analysis *)
+       (# <<SLOT StaticSubstanceLib:attributes>>;
+
+          selfType:< staticSubstance;
+
+          init:<
+            (#
+            enter initialSyntax[]
+            <<SLOT StaticSubstanceInit:dopart>>
+            exit this(staticSubstance)[]
+            #);
+
+          typename:< textValue;
+          shortTypename:< textValue;
+
+          (* ----- Methods ----- *)
+
+          print:< printBase(# <<SLOT StaticSubstancePrint:dopart>> #);
+          printShort:< printBase(# <<SLOT StaticSubstancePrintShort:dopart>> #);
+
+          copy:<
+            (# theCopy: ^selfType
+            <<SLOT StaticSubstanceCopy:dopart>>
+            exit theCopy[]
+            #);
+
+          prefixWithComponent:<
+            (* Enhance the type of this static substance by merging
+             * component with this type (component goes first as far
+             * as possible); NOTE: this is a static error for some kinds
+             * of static substance, and then 'staticError' is invoked *)
+            (# usageAst: ^l2AstNode;    (* Used for diagnostics *)
+               result: ^staticSubstance
+            enter usageAst[]
+            <<SLOT StaticSubstancePWC:dopart>>
+            exit result[]
+            #);
+
+          getStaticTransientOut:<
+            (# world: ^staticContextDB; (* Never NONE *)
+               usageAst: ^l2AstNode;    (* Used for diagnostics *)
+               stran: ^staticTransient  (* Never NONE *)
+            enter (world[],usageAst[])
+            <<SLOT StaticSubstanceGetTranOut:dopart>>
+            exit stran[]
+            #);
+
+          getStaticTransientIn:<
+            (# world: ^staticContextDB; (* Never NONE *)
+               usageAst: ^l2AstNode;    (* Used for diagnostics *)
+               stran: ^staticTransient  (* Never NONE *)
+            enter (world[],usageAst[])
+            <<SLOT StaticSubstanceGetTranIn:dopart>>
+            exit stran[]
+            #);
+
+          getInitialSyntax: (# exit initialSyntax[] #);
+
+          (* ----- Compilation ----- *)
+
+          createCplr:
+            (* Exits a compiler for pure execution (no assign/eval);
+             * the 'generatingAst' denotes the AST node which uniquely
+             * identifies the temporary object which might be generated
+             * for the use of the execution being compiled here *)
+            (# world: ^staticContextDB; (* Never NONE *)
+               generatingAst: ^l2AstNode; (* Never NONE *)
+               usageAst: ^l2AstNode;    (* Used for diagnostics *)
+               ec: ^exeCompiler         (* Never NONE *)
+            enter (world[],generatingAst[],usageAst[])
+            do INNER
+            exit ec[]
+            #);
+
+          createEnterCplr:
+            (* Exits a compiler for inserting values into an enter-list;
+             * the 'generatingAst' denotes the AST node which uniquely
+             * identifies the temporary object which might be generated
+             * for the use of the execution being compiled here *)
+            (# world: ^staticContextDB; (* Never NONE *)
+               generatingAst: ^l2AstNode; (* Never NONE *)
+               usageAst: ^l2AstNode;    (* Used for diagnostics *)
+               execute: @boolean;       (* Execute the entity in 'cleanup'? *)
+               nc: ^enterCompiler       (* Never NONE *)
+            enter (world[],generatingAst[],usageAst[],execute)
+            do INNER
+            exit nc[]
+            #);
+
+          createExitCplr:
+            (* Exits a compiler for obtaining values from an exit-list;
+             * the 'generatingAst' denotes the AST node which uniquely
+             * identifies the temporary object which might be generated
+             * for the use of the execution being compiled here *)
+            (# world: ^staticContextDB; (* Never NONE *)
+               generatingAst: ^l2AstNode; (* Never NONE *)
+               usageAst: ^l2AstNode;    (* Used for diagnostics *)
+               xc: ^exitCompiler        (* Never NONE *)
+            enter (world[],generatingAst[],usageAst[])
+            do INNER
+            exit xc[]
+            #);
+
+          createEnterExitCplr:
+            (* Create both compilers *)
+            (# world: ^staticContextDB; (* Never NONE *)
+               generatingAst: ^l2AstNode; (* Never NONE *)
+               usageast: ^l2AstNode;    (* Used for diagnostics *)
+               nc: ^enterCompiler;      (* Never NONE *)
+               xc: ^exitCompiler        (* Never NONE *)
+            enter (world[],generatingAst[],usageAst[])
+            do INNER
+            exit (nc[],xc[])
+            #);
+
+          getCompiler:< createCplr
+            (# <<SLOT StaticSubstanceGetCplr:dopart>> #);
+          getEnterCompiler:< createEnterCplr
+            (# <<SLOT StaticSubstanceGetEnterCplr:dopart>> #);
+          getExitCompiler:< createExitCplr
+            (# <<SLOT StaticSubstanceGetExitCplr:dopart>> #);
+          getEnterExitCompiler:< createEnterExitCplr
+            (# <<SLOT StaticSubstanceGetEnterExitCplr:dopart>> #);
+
+          (* private *)
+          initialSyntax: ^l2AstNode;    (* Analysis viewpoint *)
+          pathTo: @runtimePath          (* Leads to this static substance *)
+       #);
+
+     staticContext: staticSubstance
+       (# <<SLOT StaticContextLib:attributes>>;
+
+          resetFocus:<
+            (* Initialize the internal notion of focus in this
+             * static context to the first slice; if there is
+             * only one slice in the type of static context
+             * in question, this has no effect *)
+            object;
+
+          setFocus:< booleanValue
+            (* Initialize the internal notion of focus in this
+             * static context to the slice associated with 'l2ast';
+             * return true iff the operation succeeded; if there is
+             * only one slice in the type of static context in
+             * question it means checking that we do ask for that
+             * particular slice; in all cases, it makes no difference
+             * what the focus was previously *)
+            (# l2ast: ^l2AstNode        (* Never NONE *)
+            enter l2ast[]
+            <<SLOT StaticContextSetFocus:dopart>>
+            #);
+
+          focusUp:< booleanValue
+            (* Search upwards from the current focus for a slice
+             * associated with the syntax 'l2ast'; return true
+             * iff the operation succeeded *)
+            (# l2ast: ^l2AstNode        (* Never NONE *)
+            enter l2ast[]
+            <<SLOT StaticContextFocusUp:dopart>>
+            #);
+
+          focusDown:< booleanValue
+            (* Search downwards from the current focus for a slice
+             * associated with the syntax 'l2ast'; return true
+             * iff the operation succeeded *)
+            (# l2ast: ^l2AstNode        (* Never NONE *)
+            enter l2ast[]
+            <<SLOT StaticContextFocusDown:dopart>>
+            #);
+
+          getEnclosing:<
+            (* Deliver a static context representing the class
+             * of enclosing objects/etc for the class of entities
+             * represented by this static context *)
+            (# world: ^staticContextDB; (* Never NONE *)
+               usageAst: ^l2AstNode;    (* Used for diagnostics *)
+               stcon: ^staticContext    (* NONE means "no such thing" *)
+            enter (world[],usageAst[])
+            <<SLOT StaticContextGetEnclosing:dopart>>
+            exit stcon[]
+            #);
+
+          getByLookup:<
+            (* Deliver a static context representing the class of
+             * objects reachable by remote access to 'name'; the
+             * lookup only considers 'focus'; if the lookup
+             * finds a non-object 'staticError' is invoked *)
+            (# name: ^text;             (* Never NONE *)
+               world: ^staticContextDB; (* Never NONE *)
+               usageAst: ^l2AstNode;    (* Used for diagnostics *)
+               stsub: ^staticSubstance  (* NONE means "no such thing" *)
+            enter (name[],world[],usageAst[])
+            <<SLOT StaticContextGetByLookup:dopart>>
+            exit stsub[]
+            #);
+
+          lookupName:<
+            (* Lookup 'name' locally, using the entire static
+             * context, thus disregarding the current focus *)
+            (# name: ^text;             (* Never NONE *)
+               usageAst: ^l2AstNode;    (* Used for diagnostics *)
+               l2ndcl: ^l2NameDcl       (* NONE means "not found" *)
+            enter (name[],usageAst[])
+            do INNER
+            exit l2ndcl[]
+            #);
+
+          isBetter:< booleanValue
+            (* Determine whether 'other' delivers a more detailed
+             * knowledge about the object structure than this
+             * static context does; if they do not describe
+             * the same object, the answer is "no" *)
+            (# other: ^staticContext    (* Never NONE *)
+            enter other[]
+            <<SLOT StaticContextIsBetter:dopart>>
+            #);
+
+          adjustPaths:<
+            (* Incorporate 'path' into all paths of this static context
+             * as the first part of the traversal (as prefix); 'path' is
+             * not affected by this operation *)
+            (# path: ^runtimePath       (* Never NONE *)
+            enter path[]
+            <<SLOT StaticContextAdjustPaths:dopart>>
+            #);
+
+          appendSuffixPathToAst:<
+            (* Append to 'path' the path from the entry point into
+             * this static context to the slice associated with
+             * 'l2ast'; this is simply nothing or a single up-step,
+             * depending on the kind of static context and on the
+             * quality of the knowledge about 'pathTo'; NOTE: it is
+             * an error if 'l2ast' is not associated with (any slice
+             * of) this static context *)
+            (# l2ast: ^l2AstNode;       (* Never NONE *)
+               path: ^runtimePath       (* Never NONE *)
+            enter (path[],l2ast[])
+            <<SLOT StaticContextAppendSPTA:dopart>>
+            exit path[]
+            #);
+
+          knownStatically:<
+            (* Determine whether or not this static context is
+             * completely described by the explicit, statically
+             * known structure (such as the statically known 
+             * mixins of a staticOCP); as an example of the 
+             * opposite, an instance of open virtual in an object
+             * whose type is not completely known statically 
+             * is generally not knownStatically *)
+            booleanValue;
+
+          getSyntax:<
+            (* Deliver the syntax which is associated with (the current
+             * focus of) this static context *)
+            (# value: ^l2AstNode        (* Never NONE *)
+            do INNER
+            exit value[]
+            #);
+       #);
+
+     staticSingleSliceContext: staticContext
+       (# <<SLOT StaticSingleSliceLib:attributes>>;
+          selfType::< staticSingleSliceContext;
+          init::< (# <<SLOT StaticSingleSliceInit:dopart>> #);
+          print::< (# <<SLOT StaticSingleSlicePrint:dopart>> #);
+          printShort::< (# <<SLOT StaticSingleSlicePrintShort:dopart>> #);
+          copy::< (# <<SLOT StaticSingleSliceCopy:dopart>> #);
+          prefixWithComponent::
+            (# <<SLOT StaticSingleSlicePWC:dopart>> #);
+          getStaticTransientOut::
+            (# <<SLOT StaticSingleSliceGetTranOut:dopart>> #);
+          getStaticTransientIn::
+            (# <<SLOT StaticSingleSliceGetTranIn:dopart>> #);
+          adjustPaths::<
+            (# <<SLOT StaticSingleSliceAdjustPaths:dopart>> #);
+          appendSuffixPathToAst::
+            (# <<SLOT StaticSingleSliceAppendSPTA:dopart>> #);
+          knownStatically::(# do true->value #);
+
+          (* private *)
+          originPath: @runtimePath
+       #);
+
+     staticContextDB:
+       (* Database used to hold the currently known
+        * object (slice) structure as seen from any
+        * particular syntactic position and assuming
+        * that this piece of syntax is currently being
+        * evaluated in the context of a current object.
+        *
+        * NB: Never create an instance dynamically! Each and every
+        * instance ("world") is created as a part object for the
+        * top level of the analysis pattern (e.g. 'bindNames' and
+        * 'localStaticType'). This ensures that every analysis
+        * has exactly one "world" which is then threaded to all
+        * sub-analyses as a parameter, and this again ensures
+        * that usage of "worlds" is disciplined and analyzable *)
+       (# <<SLOT StaticContextDBLib:attributes>>;
+          init:< (# do contents.init; INNER exit this(staticContextDB)[] #);
+          setAst: (# enter AstNode[] #);
+          getInitialSyntax:< (# l2ast: ^l2AstNode do INNER exit l2ast[] #);
+          (* private *)
+          AstNode: ^l2AstNode;          (* Analysis starting point *)
+          contents: @list(# element::staticContext #)
+       #);
+
+     (*************************************************************
+      *                                                           *
+      *                     Static Transients                     *
+      *                                                           *
+      *************************************************************)
+
+     staticTransient: linkable
+       (* A compile-time representation of a value which is extracted 
+        * from the state of an object or inserted into the state of 
+        * an object; such a value is transferred explicitly, but does 
+        * not have a name itself, e.g., in "2->x" the symbol "2" 
+        * is capable of _producing_ the integer value 2 whenever it 
+        * is evaluated and "x" is capable of _consuming_ an integer 
+        * value, but the value itself is extracted from "2" and inserted
+        * into the state of "x" without ever becoming explicit.
+        * Since such value transfers are brief transformations, these
+        * values are designated as "transient"; read about Action 
+        * Semantics for more details *)
+       (# <<SLOT StaticTransientLib:attributes>>;
+          knownType::staticTransient;
+          selfType::< staticTransient;
+          typename:< textValue;
+          shortTypename:< textValue;
+          print:< printBase(# <<SLOT StaticTransientPrint:dopart>> #);
+          printShort:< printBase;
+          equal:< booleanValue
+            (# other: ^staticTransient  (* Never NONE *)
+            enter other[]
+            <<SLOT StaticTransientEqual:dopart>>
+            #);
+          compatible:< booleanValue
+            (* Determine whether 'other' can be coerced into
+             * a transient that is equal to this one; this is
+             * always the case when the two lists are 'equal'
+             * and never the case when they have different
+             * structure; for the third situation, with same
+             * structure but some different elements, coercion
+             * is attempted elementwise *)
+            (# other: ^staticTransient; (* Never NONE *)
+               usageAst: ^l2AstNode     (* Used for diagnostics *)
+            enter (other[],usageAst[])
+            <<SLOT StaticTransientCompatible:dopart>>
+            #);
+          normalize:<
+            (* Produce from this static transient a static
+             * transient on normal form, thus guaranteeing
+             * the correctness of naive comparisons; the
+             * rule for the normal form is simple: every
+             * succession of sublist-in-sublist is reduced to
+             * one single sublist, i.e. (((x))) is reduced
+             * to (x); and a singleton list is reduced to
+             * its single element  *)
+            (# normalized: ^staticTransient
+            <<SLOT StaticTransientNormalize:dopart>>
+            exit normalized[]
+            #)
+       #);
+
+     (************************************************************
+      *                                                          *
+      *                      Run-time paths                      *
+      *                                                          *
+      ************************************************************)
+
+     executionCallback:
+       (* Used to support execution tracing *)
+       (# thrd: ^thread;                (* Current thread of execution *)
+          unwind: ##stackUnwinder;      (* Never NONE *)
+          dContext: ^substanceSlice;    (* Never NONE *)
+          before: @boolean              (* Before/after exe. of current imp? *)
+       enter (thrd[],unwind##,dContext[],before)
+       do INNER
+       #);
+
+     runtimePath: linkList
+       (# <<SLOT RuntimePathLib:attributes>>;
+          init::(# enter initialSyntax[] <<SLOT RuntimePathInit:dopart>> #);
+          selfType::runtimePath;
+          element::runtimeStep;
+          getInitialSyntax: (# exit initialSyntax[] #);
+          (* private *)
+          initialSyntax: ^l2AstNode;    (* For consistency checking *)
+          (* for copying, 'copyRTP' _must_ be used; this will cause a
+           * compile-time error if normal 'copy' is used, reminding.. *)
+          copy: (# enter false #)
+       #);
+
+     runtimeStep: linkable
+       (* Abstract superpattern; representation of a single step in
+        * the run-time lookup process for an l1Entity; useful
+        * statically when a starting 'scopeNode' is known, and
+        * also useful dynamically when a starting 'substanceSlice'
+        * is known; *)
+       (# <<SLOT RuntimeStepLib:attributes>>;
+          knownType::runtimeStep;
+          selfType::< runtimeStep;
+          print:< printBase;
+          printCode:< printBase;
+          equal:< booleanValue
+            (# other: ^runtimeStep
+            enter other[]
+            do INNER
+            #);
+          robustEqual:< booleanValue
+            (* Leading to the same entity even after state
+             * changes; looking up dynamic references makes
+             * this more strict than 'equal' *)
+            (# other: ^runtimeStep
+            enter other[]
+            do INNER
+            #);
+          performStatic:<
+            (* In the abstract static world, take the step
+             * associated with this runtimeStep; if the step
+             * could not be taken, NONE is returned; however,
+             * for lookup the error is handled in the step, and
+             * a 'staticUndefinedError' may occur; !! this mixed
+             * error handling is a mess, and should be cleared up *)
+            (# from: ^staticContext;    (* Never NONE *)
+               world: ^staticContextDB; (* Never NONE *)
+               usageAst: ^l2AstNode;    (* Used for diagnostics *)
+               to: ^staticSubstance     (* NONE means "could not do that" *)
+            enter (from[],world[],usageAst[])
+            <<SLOT RuntimeStepPerformStatic:dopart>>
+            exit to[]
+            #);
+          performDynamic:<
+            (* The run-time, "real" version of 'performStatic', 
+             * delivering a part object (typically) *)
+            (# thrd: ^thread;           (* Current thread of execution *)
+               unwind: ##stackUnwinder; (* Never NONE *)
+               from: ^substanceSlice;   (* Never NONE *)
+               to: ^substanceSlice      (* Never NONE *)
+            enter (thrd[],unwind##,from[])
+            <<SLOT RuntimeStepPerformDynamic:dopart>>
+            exit to[]
+            #);
+          performDynamicRef:<
+            (* The run-time, "real" version of 'performStatic', 
+             * delivering an l1ObjectRefEntity or an l1PatternRefEntity *)
+            (# thrd: ^thread;           (* Current thread of execution *)
+               unwind: ##stackUnwinder; (* Never NONE *)
+               from: ^substanceSlice;   (* Never NONE *)
+               to: ^l1Entity            (* Never NONE *)
+            enter (thrd[],unwind##,from[])
+            <<SLOT RuntimeStepPerformDynamicRef:dopart>>
+            exit to[]
+            #);
+          performDynamicL1:<
+            (* The run-time, "real" version of 'performStatic', 
+             * delivering an l1Entity *)
+            (# thrd: ^thread;           (* Current thread of execution *)
+               unwind: ##stackUnwinder; (* Never NONE *)
+               from: ^substanceSlice;   (* Never NONE *)
+               to: ^l1Entity            (* Never NONE *)
+            enter (thrd[],unwind##,from[])
+            <<SLOT RuntimeStepPerformDynamicL1:dopart>>
+            exit to[]
+            #);
+          isDirectlyAccessible:<
+            (* Determine whether this step can be taken at run-time
+             * and it will lead to the same entity every time; this
+             * is, e.g., not the case for an indirect lookup step;
+             * this is used to determine what denotations are 
+             * aliases for the same thing *)
+            booleanValue;
+          existingAccessible:<
+            (* Determine whether this step leads to an entity
+             * that already exists and is accessible at run-time;
+             * this is, e.g., not the case for a tmp(..) step;
+             * this is used to determine whether we must create/find
+             * intermediate entities or we may access an entity 
+             * simply by following a runtime-path *)
+            booleanValue
+       #);
+
+     (*************************************************************
+      *                                                           *
+      *                  Substance Related Slices                 *
+      *                                                           *
+      *************************************************************)
+
+     substanceSlice: linkable
+       (* All (level-1) substance consists of substance slices;
+        * most are object slices, but there are also variants
+        * used with 'l2NamedForimp' and with 'l2NamedRepetitionDecl'
+        * to hold the associated special substance *)
+       (# <<SLOT SubstanceSliceLib:attributes>>;
+
+          init::< (# enter ID do INNER #);
+          copyLink::< (# <<SLOT SubstanceSliceCopyLink:dopart>> #);
+
+          (* ----- Type Parameters ----- *)
+
+          knownType::< substanceSlice;
+          selfType::< substanceSlice;
+
+          (* ----- Introspection ----- *)
+
+          typename:< textValue(# do INNER; ' slice'->value.puttext #);
+          shortTypename:< textValue(# do INNER; 'Sli'->value.puttext #);
+          print:< printbase(# <<SLOT SubstanceSlicePrint:dopart>> #);
+          printShort:< printbase(# <<SLOT SubstanceSlicePrintShort:dopart>> #);
+          ID: @integer;
+
+          (* ----- Methods ----- *)
+
+          getSyntax:<
+            (# l2ast: ^l2AstNode        (* Never NONE *)
+            do INNER
+            exit l2ast[]
+            #);
+
+          getEnclosing:<
+            (* deliver the enslosing substance slice, i.e. the
+             * enclosing object slice, named-for-slice, or
+             * named-repdecl-slice *)
+            (# sSlice: ^substanceSlice  (* NONE means "does not exist" *)
+            do INNER
+            exit sSlice[]
+            #);
+
+          getPrefix:<
+            (* deliver the "prefix" substance slice for this
+             * substance slice, if such one exists; this is
+             * of course only the case with object slices,
+             * but even here we may have reached the top one;
+             * it there is no such slice, return NONE *)
+            (# sSlice: ^substanceSlice
+            do INNER
+            exit sSlice[]
+            #);
+
+          getSuffix:<
+            (* deliver the "suffix" substance slice for this
+             * substance slice, if such one exists; this is
+             * of course only the case with object slices,
+             * but even here we may have reached the top one;
+             * it there is no such slice, return NONE *)
+            (# sSlice: ^substanceSlice
+            do INNER
+            exit sSlice[]
+            #);
+
+          lookupName:<
+            (* search the local name space associated with this substance
+             * slice for 'name' and return its "meaning" in 'l1ent' *)
+            (# thrd: ^thread;           (* Current thread of execution *)
+               unwind: ##stackUnwinder; (* Never NONE *)
+               l2ndcl: ^l2NameDcl;      (* Never NONE *)
+               l1ent: ^l1Entity         (* NONE means "not found" *)
+            enter (thrd[],unwind##,l2ndcl[])
+            do INNER
+            exit l1ent[]
+            #);
+
+          lookupAttr:<
+            (* search the local name space associated with this substance
+             * slice for 'name' and return its mapping from the 'l2ndcl'
+             * to some run-time entity in 'attr' *)
+            (# thrd: ^thread;           (* Current thread of execution *)
+               unwind: ##stackUnwinder; (* Never NONE *)
+               l2ndcl: ^l2NameDcl;      (* Never NONE *)
+               attr: ^l1MapElement      (* NONE means "not found" *)
+            enter (thrd[],unwind##,l2ndcl[])
+            do INNER
+            exit attr[]
+            #)
+       #);
+
+     (*************************************************************
+      *                                                           *
+      *               Level One - run-time entities               *
+      *                                                           *
+      *************************************************************)
+
+     l1Entity:
+       (# <<SLOT EntityLib:attributes>>;
+
+          (* ----- Initialization ----- *)
+
+          init:< (# do INNER exit THIS(l1Entity)[] #);
+
+          (* ----- Introspection ----- *)
+
+          typename:< textValue;
+          shortTypename:< textValue;
+
+          print:< printBase
+            (# name: ^text              (* NONE means "do not print" *)
+            enter name[]
+            <<SLOT EntityPrint:dopart>>
+            #);
+
+          printShort:< printBase(# <<SLOT EntityPrintShort:dopart>> #);
+
+          (* ----- Execution ----- *)
+
+          execute:<
+            (# thrd: ^thread;           (* Current thread of execution *)
+               unwind: ##stackUnwinder  (* Never NONE *)
+            enter (thrd[],unwind##)
+            <<SLOT EntityExecute:dopart>>
+            #);
+
+          getEnterIter:< createEnterIter
+            (* Deliver an iterator to accept transients for value
+             * assignment to this entity; use it as described
+             * with 'enterIterator' *)
+            (# <<SLOT EntityGetEnterIter:dopart>> #);
+
+          getExitIter:< createExitIter
+            (* Produce an iterator to obtain transients from value
+             * evaluation of this entity; use it as described with
+             * 'exitIterator' *)
+            (# <<SLOT EntityGetExitIter:dopart>> #);
+
+          getEnterExitIter:<
+            (* Produce both iterators for value evaluations; since
+             * some iterators are associated with temporary objects,
+             * you must obtain iterators in pairs, when they are used
+             * for putting and then getting transients wrt one entity;
+             * this is the reason for having all three of 'putEnterIter',
+             * 'getExitIter', and 'bothIter'; NB: further bindings of
+             * this virtual not using 'getEnterExitIterIndependent'
+             * should set up the 'usageEntity' of the iterators *)
+            createEnterExitIter;
+
+          getEnterExitIterIndependent: createEnterExitIter
+            (* The standard implementation that works when no
+             * temporary entities can be lost: build the
+             * 'enterIter' and the 'exitIter' independently *)
+            (# <<SLOT EntityGetEnterExitIterIndependent:dopart>> #);
+       #);
+
+     l1MapElement:
+       (# <<SLOT MapElementLib:attributes>>;
+          init:< (# enter (from[],to[]) do INNER exit this(l1MapElement)[] #);
+          print:< printBase(# <<SLOT MapElementPrint:dopart>> #);
+          context:< (# oSlice: ^objectSlice do INNER exit oSlice[] #);
+          from: ^l2NameDcl;
+          to: ^l1Entity
+       #);
+
+     objectSlice: substanceSlice
+       (* Every object is built from object slices;
+        * each object slice is created according to
+        * one pattern slice; it contains substance and
+        * has an associated enter/exit and do-part
+        * semantics *)
+       (# <<SLOT ObjectSliceLib:attributes>>;
+          knownType::objectSlice;
+          selfType::< objectSlice;
+          typename::< (# do INNER; ' object'->value.puttext #);
+          shortTypename::< (# do INNER; 'O'->value.puttext #);
+          copyLink::< (# <<SLOT ObjectSliceCopyLink:dopart>> #);
+
+          init::< (# enter oid[] do INNER #);
+
+          (* ----- Execution ----- *)
+
+          identity: (# exit oid[] #); (* The object this slice is a part of *)
+
+          fillInAttributes:<
+            (# thrd: ^thread;           (* Current thread of execution *)
+               unwind: ##stackUnwinder  (* Never NONE *)
+            enter (thrd[],unwind##)
+            do INNER
+            #);
+
+          execute:<
+            (# thrd: ^thread;           (* Current thread of execution *)
+               unwind: ##stackUnwinder  (* Never NONE *)
+            enter (thrd[],unwind##)
+            <<SLOT ObjectSliceExecute:dopart>>
+            #);
+
+          getEnterIter:<
+            (* Deliver an iterator to accept transients for value
+             * assignment to this object slice; use it as described
+             * with 'enterIterator' *)
+            createEnterIter;
+
+          getExitIter:<
+            (* Produce an iterator to obtain transients from value
+             * evaluation of this object slice; use it as described
+             * with 'exitIterator' *)
+            createExitIter;
+
+          getEnterExitIter:<
+            (* Produce both iterators for value evaluations; since
+             * some iterators are associated with temporary objects,
+             * you must obtain iterators in pairs, when they are used
+             * for putting and then getting transients wrt one slice;
+             * this is the reason for having all three of 'putEnterIter',
+             * 'getExitIter', and 'bothIter' *)
+            createEnterExitIter;
+
+          getEnterExitIterIndependent: createEnterExitIter
+            (* The standard implementation that works when no
+             * temporary entities can be lost: build the
+             * 'enterIter' and the 'exitIter' independently *)
+            (# <<SLOT ObjectSliceGetEnterExitIterIndependent:dopart>> #);
+
+          exploit:<
+            (* Destructively take over the structure and contents of
+             * 'other', which must be of same type as this object slice *)
+            (# thrd: ^thread;           (* Current thread of execution *)
+               unwind: ##stackUnwinder; (* Never NONE *)
+               other: ^objectSlice      (* Never NONE *)
+            enter (thrd[],unwind##,other[])
+            do INNER
+            #);
+          
+          (* private *)
+          oidType:< l1Entity;
+          oid: ^oidType
+       #);
+
+     (*************************************************************
+      *                                                           *
+      *               Reporting Status of Execution               *
+      *                                                           *
+      *************************************************************)
+
+     normalExit:       (# exit 0 #);
+     restartingExit:   (# exit 1 #);
+     leavingExit:      (# exit 2 #);
+     killExit:         (# exit 3 #);
+     errorExit:        (# exit 4 #);
+
+     exitCode: integerValue
+       (# init:< (# do INNER exit this(exitCode)[] #);
+       do INNER
+       #);
+     targetedExitCode: exitCode
+       (# init::(# enter target[] #);
+          target: ^substanceSlice
+       do INNER
+       #);
+     msgExitCode: exitCode
+       (# init::(# enter msg[] #);
+          msg: ^text
+       do INNER
+       #);
+
+     exitRestart: targetedExitCode(# do restartingExit->value #);
+     exitLeave: targetedExitCode(# do leavingExit->value #);
+     exitKill: exitCode(# do killExit->value #);
+     exitError: msgExitCode(# do errorExit->value #);
+
+     (**************************************************************
+      *                                                            *
+      *                      Stack Management                      *
+      *                                                            *
+      **************************************************************)
+
+     thread:
+       (* A thread is the "CPU resource" which is available
+        * for a component and which is brought into play by
+        * the 'fork' primitive; when 'fork'ing, create a new
+        * 'thread' and give the 'fork'ed componentSlice as
+        * an argument to 'init'; since creation of threads
+        * is an internal action for the interpreter, 'init'
+        * and other methods are hidden in basicinterplib;
+        * almost anybody should recognize threads, but
+        * only 'component.fork' should create threads *)
+       (# <<SLOT ThreadLib:attributes>>;
+          (* The interaction handler which lets the user single-step etc. *)
+          callback: ^executionCallback; (* NONE means "ignore it" *)
+          private: @<<SLOT ThreadPrivate:descriptor>>
+       #);
+
+     stackUnwinder:
+       (* Execute an instance of this to unwind the stack until the
+        * nearest dynamically enclosing 'unwindBarrier'; set up 'ec'
+        * to tell the caller returned to how we got there, either
+        * NONE (meaning normal execution flow), an instance of
+        * 'exitLeave' (meaning that we are looking for a label
+        * or declared name that designates the scope to leave),
+        * or an instance of 'exitRestart' (looking for a scope
+        * to restart the execution of) *)
+       (# ec: ^exitCode
+       enter ec[]
+       <<SLOT StackUnwinder:dopart>>
+       #);
+
+     (*************************************************************
+      *                                                           *
+      *                  Level Zero - Transients                  *
+      *                                                           *
+      *************************************************************)
+
+     l0Transient:
+       (* Transient values are realized as specializations of
+        * l0Transient; they are produced as a result of evaluation
+        * and they are the only values that "can be transferred
+        * along an evaluation arrow, ->".  They correspond to the
+        * action semantics notion of transient values *)
+       (# <<SLOT TransientLib:attributes>>;
+
+          (* ----- Introspection ----- *)
+
+          typename:< textValue(# do INNER; ' value'->value.puttext #);
+          shortTypename:< textValue(# do INNER; 'Val'->value.puttext #);
+          print:< printBase(# <<SLOT TransientPrint:dopart>> #);
+          printShort:< printBase(# <<SLOT TransientPrintShort:dopart>> #);
+
+          (* ----- Comparisons ----- *)
+
+          (* When the transients compared are incompatible (e.g.
+           * comparing a boolean with a real or a pattern reference),
+           * these operations will raise an 'incomparableError' *)
+
+          ordered:< booleanValue;
+          cmpBase: booleanValue
+            (# thrd: ^thread;
+               unwind: ##stackUnwinder;
+               other: ^l0Transient; le,ge: @boolean
+            enter (thrd[],unwind##,other[])
+            do INNER
+            #);
+          cmpErrBase: cmpBase
+            (#
+            do (if not ordered then
+                   ('Comparing non-ordered values',thrd[],unwind##)
+                     ->incomparableError
+               if);
+               (thrd[],unwind##,other[])->compareUnEq->(le,ge);
+               INNER
+            #);
+
+          equal: cmpBase(# do (thrd[],unwind##,other[])->compareEq->value #);
+          unequal: cmpBase
+            (# do (not ((thrd[],unwind##,other[])->compareEq))->value #);
+          less: cmpErrBase(# do (le and (not ge))->value #);
+          greater: cmpErrBase(# do ((not le) and ge)->value #);
+          lessequal: cmpErrBase(# do le->value #);
+          greaterequal: cmpErrBase(# do ge->value #);
+
+          (* private *)
+
+          compareEq:<
+            (* Implements comparisons for equality or non-equality *)
+            (# thrd: ^thread;
+               unwind: ##stackUnwinder;
+               other: ^l0Transient;
+               eq: @boolean             (* equal *)
+            enter (thrd[],unwind##,other[])
+            do INNER
+            exit eq
+            #);
+
+          compareUnEq:<
+            (* implements comparisons for inequalities, e.g. "less-than" *)
+            (# thrd: ^thread;
+               unwind: ##stackUnwinder;
+               other: ^l0Transient;
+               le,ge: @boolean          (* less-equal, greater-equal *)
+            enter (thrd[],unwind##,other[])
+            do INNER
+            exit (le,ge)
+            #);
+
+          usageAst: ^l2AstNode          (* Supports observation *)
+       #);
+
+     (*************************************************************
+      *                                                           *
+      *               Enter- and Exit-list Traversal              *
+      *                                                           *
+      *************************************************************)
+
+     iteratorBase:
+       (* Used to specialize into iterators for enter-
+        * and exit-lists; used by the following protocol:
+        * obtain an instance; execute 'prepare'; while
+        * 'more', execute the iterator to put or get the
+        * next transient element; finally execute
+        * 'cleanup'.
+        *
+        * In case of errors, the process will be stopped
+        * as soon as possible; this means that composite
+        * iterators will raise errors without retrieving
+        * any remaining transients from their sub-iterators,
+        * and without executing 'cleanup' first; error
+        * handling does not support recovery--restart the
+        * interpretation from somewhere else!
+        *
+        * The 'usageEntity' attribute should be set up by
+        * the providing entity, to support observation of
+        * the evaluation process, and similarly the
+        * "providing" syntax should be registered in
+        * 'usageAst' when creating new iterators *)
+       (# <<SLOT IteratorBaseLib:attributes>>;
+          typename:< textValue(# do INNER; ' iterator'->value.puttext #);
+          shortTypename:< textValue(# do INNER; 'I'->value.puttext #);
+          print:< printBase(# <<SLOT IteratorBasePrint:dopart>> #);
+          printShort:< printBase(# <<SLOT IteratorBasePrintShort:dopart>> #);
+          prepare:< object;
+          more:< booleanValue;
+          cleanup:< object;
+          l0tr: ^l0Transient;           (* Never NONE *)
+          (* Observation Support *)
+          usageAst: ^l2AstNode;
+          usageEntity: ^l1Entity
+       do INNER
+       #);
+
+     enterIterator: iteratorBase
+       (* Obtain an instance of this; execute 'prepare';
+        * while 'more', supply the next transient element
+        * to the (flattened) enter list; then execute
+        * 'cleanup'; execution of the entity which
+        * values are being entered into takes place
+        * during cleanup iff 'execute' is true *)
+       (# <<SLOT EnterIteratorLib:attributes>>;
+          typename::(# <<SLOT EnterIteratorTypename:dopart>> #);
+          shortTypename::(# <<SLOT EnterIteratorShortTypename:dopart>> #);
+          prepare::< (# <<SLOT EnterIteratorPrepare:dopart>> #);
+          cleanup::< (# <<SLOT EnterIteratorCleanup:dopart>> #);
+          execute: @boolean
+       enter l0tr[]
+       <<SLOT EnterIterator:dopart>>
+       #);
+
+     exitIterator: iteratorBase
+       (* Obtain an instance of this; execute 'prepare' (will
+        * execute relevant doparts); while 'more', execute it
+        * to obtain the next transient element from the
+        * (flattened) exit list; finally execute 'cleanup' *)
+       (# <<SLOT ExitIteratorLib:attributes>>;
+          typename::(# do 'exit'->value[] #);
+          shortTypename::(# do 'X'->value[] #);
+          prepare::< (# <<SLOT ExitIteratorPrepare:dopart>> #);
+          cleanup::< (# <<SLOT ExitIteratorCleanup:dopart>> #)
+       <<SLOT ExitIterator:dopart>>
+       exit l0tr[]
+       #);
+
+     createEnterIter:
+       (* Exits an iterator for inserting an enter-list;
+        * used at level 1, i.e. with run-time entities *)
+       (# thrd: ^thread;                (* Current thread of execution *)
+          unwind: ##stackUnwinder;      (* Never NONE *)
+          stsub: ^staticSubstance;      (* Never NONE *)
+          world: ^staticContextDB;      (* Never NONE *)
+          usageAst: ^l2AstNode;         (* Used for diagnostics *)
+          execute: @boolean;            (* Execute the entity in 'cleanup'? *)
+          ni: ^enterIterator            (* Never NONE *)
+       enter (thrd[],unwind##,stsub[],world[],usageAst[],execute)
+       do INNER
+       exit ni[]
+       #);
+
+     createExitIter:
+       (* Exits an iterator for obtaining the exit-list,
+        * used at level 1, i.e. with run-time entities *)
+       (# thrd: ^thread;                (* Current thread of execution *)
+          unwind: ##stackUnwinder;      (* Never NONE *)
+          stsub: ^staticSubstance;      (* Never NONE *)
+          world: ^staticContextDB;      (* Never NONE *)
+          usageAst: ^l2AstNode;         (* Used for diagnostics *)
+          xi: ^exitIterator             (* Never NONE *)
+       enter (thrd[],unwind##,stsub[],world[],usageAst[])
+       do INNER
+       exit xi[]
+       #);
+
+     createEnterExitIter:
+       (* create both iterators; used at level 1,
+        * i.e. with run-time entities *)
+       (# thrd: ^thread;                (* Current thread of execution *)
+          unwind: ##stackUnwinder;      (* Never NONE *)
+          stsub: ^staticSubstance;      (* Never NONE *)
+          world: ^staticContextDB;      (* Never NONE *)
+          usageAst: ^l2AstNode;         (* Used for diagnostics *)
+          ni: ^enterIterator;           (* Never NONE *)
+          xi: ^exitIterator             (* Never NONE *)
+       enter (thrd[],unwind##,stsub[],world[],usageAst[])
+       do INNER
+       exit (ni[],xi[])
+       #);
+
+     syntaxCreateEnterIter: createEnterIter
+       (* A piece of syntax needs the dynamic context to be
+        * able to construct an iterator *)
+       (# dContext: ^substanceSlice     (* Never NONE *)
+       enter dContext[]
+       do INNER
+       #);
+
+     syntaxCreateExitIter: createExitIter
+       (* A piece of syntax needs the dynamic context to be
+        * able to construct an iterator *)
+       (# dContext: ^substanceSlice     (* Never NONE *)
+       enter dContext[]
+       do INNER
+       #);
+
+     syntaxCreateEnterExitIter: createEnterExitIter
+       (* A piece of syntax needs the dynamic context to be
+        * able to construct an iterator *)
+       (# dContext: ^substanceSlice     (* Never NONE *)
+       enter dContext[]
+       do INNER
+       #);
+
+     (************************************************************
+      *                                                          *
+      *                   Byte Code Generation                   *
+      *                                                          *
+      ************************************************************)
+
+     betaByteCode: linkable
+       (# <<SLOT BetaByteCodeLib:attributes>>;
+
+          init::< (# enter comment[] do INNER #);
+          copyLink::< (# <<SLOT BetaByteCodeCopyLink:dopart>> #);
+
+          (* ----- Type Parameters ----- *)
+
+          knownType::betaByteCode;
+          selfType::< betaByteCode;
+
+          (* ----- Introspection ----- *)
+
+          typename:< textValue(# do ; ''->value[]; INNER #);
+          shortTypename:< textvalue(# do ''->value[]; INNER #);
+          print:< printBase(# <<SLOT BetaByteCodePrint:dopart>> #);
+          printShort:< printBase(# <<SLOT BetaByteCodePrintShort:dopart>> #);
+          printCode:< printBase(# <<SLOT BetaByteCodePrintCode:dopart>> #);
+          printStaticPattern:< 
+            printBase(# <<SLOT BetaByteCodePrintStaticPattern:dopart>> #);
+
+          (* ----- Methods ----- *)
+
+          execute:<
+            (# thrd: ^thread;           (* Current thread of execution *)
+               unwind: ##stackUnwinder; (* Never NONE *)
+               dContext: ^substanceSlice (* Never NONE *)
+            enter (thrd[],unwind##,dContext[])
+            do INNER
+            #);
+
+          (* ----- Diagnostics ----- *)
+
+          comment: ^text                (* E.g. who generated this bytecode *)
+       #);
+
+     betaByteCodeList: linkList
+       (# <<SLOT BetaByteCodeListLib:attributes>>;
+          selfType::betaByteCodeList;
+          element::betaByteCode;
+          print: printBase
+            (# withEach: (# current: ^betaByteCode enter current[] do INNER #);
+               before:< object;
+               beforeEach:< withEach;
+               afterEach:< withEach;
+               after:< object;
+               element_nl: @boolean     (* per-element 'nl' *)
+            enter element_nl
+            <<SLOT BetaByteCodeListPrint:dopart>>
+            #);
+          printCode: printBase
+            (# withEach: (# current: ^betaByteCode enter current[] do INNER #);
+               before:< object;
+               beforeEach:< withEach;
+               afterEach:< withEach;
+               after:< object;
+               element_nl: @boolean     (* per-element 'nl' *)
+            enter element_nl
+            <<SLOT BetaByteCodeListPrintCode:dopart>>
+            #)
+       #);
+
+     compileInfo:
+       (* Packet of information about the current global state
+        * of a byte code compilation process; used to "allocate"
+        * space for temporary objects etc. *)
+       (# allocateTmp: (# exit tmpLevel+1->tmpLevel #);
+          (* private *)
+          tmpLevel: @integer;           (* Last allocated temp. slot *)
+       #);
+
+     unknownStackPos:
+       (* During static analysis we need to describe some objects on
+        * unknown positions of the temporary object stack in the BETA
+        * Virtual Machine.  This is done by using this (negative) value
+        * for the stack index.  Hence, positive values mean "exactly
+        * at this position", and a negative value means "somewhere" (we
+        * do not know exactly where before code generation).  The AST
+        * node for the "generating syntax" (e.g. the inserted item that
+        * causes the generation of a temporary) is used to recognize
+        * when two temp. objects are the same -- see the decl. of
+        * 'runtimeTmpStep' for more details about this *)
+       (# exit -1 #);
+
+     generateBase:
+       (* Signature for methods that generate byte code; the
+        * generated code will be appended to the 'program' and
+        * it will depend of the given 'cInfo'; delivers the
+        * byte code kind specifying what kind of transient
+        * will be pushed or popped by the generated code *)
+       (# program: ^betaByteCodeList;
+          cInfo: ^compileInfo
+       enter (program[],cInfo[])
+       do INNER
+       #);
+
+     exeCompiler:
+       (* Used to specialize into compilers for execution, with
+        * no associated assignment or value extraction; simply
+        * invoke 'generate' to obtain the byte code *)
+       (# <<SLOT ExeCompilerLib:attributes>>;
+          typename:< textValue(# do 'compiler'->value.puttext #);
+          shortTypename:< textValue(# do 'Cplr'->value.puttext #);
+          print:< printBase(# <<SLOT ExeCompilerPrint:dopart>> #);
+          printShort:< printBase(# <<SLOT ExeCompilerPrintShort:dopart>> #);
+          generate:< generateBase;
+          usageAst: ^l2AstNode          (* Used for diagnostics *)
+       #);
+
+     compilerBase:
+       (* Used to specialize into compilers for enter-
+        * and exit-lists; used by the following protocol:
+        * obtain an instance; execute 'prepare'; while
+        * 'more', execute 'generate' to generate byte codes
+        * which will put or get the next transient element;
+        * finally execute 'cleanup' *)
+       (# <<SLOT CompilerBaseLib:attributes>>;
+          typename:< textValue(# do INNER; ' compiler'->value.puttext #);
+          shortTypename:< textValue(# do INNER; 'Cplr'->value.puttext #);
+          print:< printBase(# <<SLOT CompilerBasePrint:dopart>> #);
+          printShort:< printBase(# <<SLOT CompilerBasePrintShort:dopart>> #);
+          prepare:< generateBase;
+          more:< booleanValue;
+          generate:< generateBase
+            (* Generate code as described above and report the
+             * kind of value produced or consumed in 'stran' *)
+            (# stran: ^staticTransient	(* Never NONE *)
+            do INNER
+            exit stran[]
+            #);
+          cleanup:< generateBase;
+          usageAst: ^l2AstNode          (* Used for diagnostics *)
+       #);
+
+     enterCompiler: compilerBase
+       (* Obtain an instance of this; execute 'prepare' to
+        * generate byte code which will set up temps. etc;
+        * while 'more', 'generate' byte code to supply the
+        * next transient element to the (flattened) enter
+        * list; then execute 'cleanup'; code for execution
+        * of the entity into which values are being entered
+        * is generated during cleanup iff 'execute' is true *)
+       (# <<SLOT EnterCompilerLib:attributes>>;
+          typename::(# <<SLOT EnterCompilerTypename:dopart>> #);
+          shortTypename::(# <<SLOT EnterCompilerShortTypename:dopart>> #);
+          prepare::< (# <<SLOT EnterCompilerPrepare:dopart>> #);
+          generate::< (# <<SLOT EnterCompilerGenerate:dopart>> #);
+          cleanup::< (# <<SLOT EnterCompilerCleanup:dopart>> #);
+          execute: @boolean
+       #);
+
+     exitCompiler: compilerBase
+       (* Obtain an instance of this; execute 'prepare' to
+        * generate byte code which will set up temps. etc;
+        * (the code will execute relevant doparts); while
+        * 'more', 'generate' byte code to obtain the next
+        * transient element from the (flattened) exit list;
+        * finally execute 'cleanup' *)
+       (# <<SLOT ExitCompilerLib:attributes>>;
+          typename::(# do 'exit'->value[] #);
+          shortTypename::(# do 'X'->value[] #);
+          prepare::< (# <<SLOT ExitCompilerPrepare:dopart>> #);
+          generate::< (# <<SLOT ExitCompilerGenerate:dopart>> #);
+          cleanup::< (# <<SLOT ExitCompilerCleanup:dopart>> #)
+       #);
+
+     syntaxCreateCplr:
+       (* Exits a compiler for pure execution (no assign/eval);
+        * used by syntax nodes, hence needs 'context' to describe
+        * the static analysis knowledge about the environment *)
+       (# context: ^staticContext;      (* Never NONE *)
+          world: ^staticContextDB;      (* Never NONE *)
+          usageAst: ^l2AstNode;         (* Used for diagnostics *)
+          ec: ^exeCompiler              (* Never NONE *)
+       enter (context[],world[],usageAst[])
+       do INNER
+       exit ec[]
+       #);
+
+     syntaxCreateEnterCplr:
+       (* Exits a compiler for inserting an enter-list;
+        * used by syntax nodes, hence needs 'context' to describe
+        * the static analysis knowledge about the environment *)
+       (# context: ^staticContext;      (* Never NONE *)
+          world: ^staticContextDB;      (* Never NONE *)
+          usageAst: ^l2AstNode;         (* Used for diagnostics *)
+          execute: @boolean;            (* Execute the entity in 'cleanup'? *)
+          nc: ^enterCompiler            (* Never NONE *)
+       enter (context[],world[],usageAst[],execute)
+       do INNER
+       exit nc[]
+       #);
+
+     syntaxCreateExitCplr:
+       (* Exits a compiler for obtaining the exit-list;
+        * used by syntax nodes, hence needs 'context' to describe
+        * the static analysis knowledge about the environment *)
+       (# context: ^staticContext;      (* Never NONE *)
+          world: ^staticContextDB;      (* Never NONE *)
+          usageAst: ^l2AstNode;         (* Used for diagnostics *)
+          xc: ^exitCompiler             (* Never NONE *)
+       enter (context[],world[],usageAst[])
+       do INNER
+       exit xc[]
+       #);
+
+     syntaxCreateEnterExitCplr:
+       (* Create both compilers; used by syntax nodes, hence needs
+        * 'context' to describe the static analysis knowledge about
+        * the environment *)
+       (# context: ^staticContext;      (* Never NONE *)
+          world: ^staticContextDB;      (* Never NONE *)
+          usageAst: ^l2AstNode;         (* Used for diagnostics *)
+          nc: ^enterCompiler;           (* Never NONE *)
+          xc: ^exitCompiler             (* Never NONE *)
+       enter (context[],world[],usageAst[])
+       do INNER
+       exit (nc[],xc[])
+       #);
+
+     (*************************************************************
+      *                                                           *
+      *                Interpreter Init. and State                *
+      *                                                           *
+      *************************************************************)
+
+     init:<
+       (#
+       enter betaGroupName[]
+       <<SLOT InterpreterBaseInit:dopart>>
+       #);
+
+     (* ----- Source ----- *)
+
+     betaGroupName: ^text;
+
+     (* ----- Outermost Scope ----- *)
+
+     predefinedSyntax: @l2AstNode
+       (# init::(# <<SLOT PredefinedSyntaxInit:dopart>> #);
+          print::(# <<SLOT PredefinedSyntaxPrint:dopart>> #);
+          predefinedNames: @scopeNode
+            (# init::(# <<SLOT PredefinedNamesInit:dopart>> #);
+               kind::(# do predefinedScopeKind->value #);
+               getInitialContext::(# <<SLOT PredefinedNamesGetIC:dopart>> #);
+               findNameDcl::(# <<SLOT PredefinedNamesFind:dopart>> #);
+               location::(# <<SLOT PredefinedNamesLocation:dopart>> #);
+               private: @<<SLOT PredefinedNamesPrivate:descriptor>>
+            #)
+       #);
+
+     predefinedStaticSubstance: staticSingleSliceContext
+       (# <<SLOT PredefinedStaticSubstanceLib:attributes>>;
+          selfType::predefinedStaticSubstance;
+          init::(# <<SLOT PredefinedStaticSubstanceInit:dopart>> #);
+          typename::(# do 'predefined'->value[] #);
+          shortTypename::(# do 'Pre'->value[] #);
+          print::(# (* no action *) #);
+          printShort::(# (* no action *) #);
+          setFocus::(# <<SLOT PredefinedStaticSetFocus:dopart>> #);
+          focusUp::(# <<SLOT PredefinedStaticFocusUp:dopart>> #);
+          focusDown::(# <<SLOT PredefinedStaticFocusDown:dopart>> #);
+          getEnclosing::(# <<SLOT PredefinedStaticGetEnclosing:dopart>> #);
+          getByLookup::(# <<SLOT PredefinedStaticGetByLookup:dopart>> #);
+          lookupName::(# <<SLOT PredefinedStaticLookupName:dopart>> #);
+          getSyntax::(# do predefinedSyntax[]->value[] #)
+       #);
+
+     predefinedSubstance: @substanceSlice
+       (# <<SLOT PredefinedSubstanceLib:attributes>>;
+          init::(# <<SLOT PredefinedSubstanceInit:dopart>> #);
+          typename::(# do 'predefined'->value[] #);
+          shortTypename::(# do 'PRE'->value[] #);
+          print::(# (* no action *) #);
+          printShort::(# (* no action *) #);
+          getSyntax::(# <<SLOT PredefinedSubstanceGetSyntax:dopart>> #);
+          getEnclosing::(# do NONE->sSlice[] #);
+          getPrefix::(# do NONE->sSlice[] #);
+          getSuffix::(# do NONE->sSlice[] #);
+          lookupName::(# <<SLOT PredefinedSubstanceLookupName:dopart>> #);
+          private: @<<SLOT PredefinedSubstancePrivate:descriptor>>
+       #);
+
+     (* ----- Warnings ----- *)
+
+     warningBase:
+       (# l2ast: ^l2AstNode
+       enter l2ast[]
+       <<SLOT InterpreterWarningBase:dopart>>
+       #);
+
+     refNoneWarning:< warningBase;
+     instantiateWarning:< warningBase;
+     notComponentWarning:< warningBase;
+
+     intToBoolWarning:< warningBase;
+     boolToIntWarning:< warningBase;
+     ambiguousWarning:< warningBase;
+     quaWarning:< warningBase
+       (# msg: ^text;
+          src: ^staticType;
+          dst: ^staticTransient;
+       enter (msg[],src[],dst[])
+       do INNER
+       #);
+     dynMergeWarning:< warningBase
+       (# l,r: ^staticType enter (l[],r[]) do INNER #);
+     dynMergeDupMainPartWarning:< warningBase
+       (# l,r: ^staticType enter (l[],r[]) do INNER #);
+     dynSpecWarning:< warningBase
+       (# msg: ^text enter msg[] do INNER #);
+
+     noAstWarningBase: (# msg: ^text enter msg[] do INNER #);
+
+     a2sWarning:< noAstWarningBase;
+
+     (* ----- Error Handling ----- *)
+
+     interpreterError:< exception
+       (# tc: @integer
+       enter (msg,tc)
+       <<SLOT InterpreterError:dopart>>
+       #);
+
+     interpError:
+       (# <<SLOT InterpErrorLib:attributes>>;
+          msg: ^text;
+          termCode: @integer
+       enter msg[]
+       <<SLOT InterpError:dopart>>
+       #);
+
+     interpDynError: interpError
+       (# <<SLOT InterpDynErrorLib:attributes>>;
+          thrd: ^thread;
+          unwind: ##stackUnwinder
+       enter (thrd[],unwind##)
+       do INNER
+       #);
+
+     interpAstError: interpError
+       (# solution: ^text;              (* Hints at a solution *)
+          l2ast: ^l2AstNode             (* Error detected at this node *)
+       enter (solution[],l2ast[])
+       do INNER
+       #);
+
+     startupError:< interpError;        (* "source file not found" etc. *)
+     fragmentError:< interpError;       (* "no fragment named BETAENV" etc. *)
+     astError:< interpError
+       (# mpsAst: ^astInterface.ast
+       enter mpsAst[]
+       <<SLOT AstError:dopart>>
+       #);
+
+     (* ----- Error Handlers ----- *) 
+
+     staticErrorHandlerType:
+       (* Complain and terminate the current action (be it an
+        * entire interpretation run, or an interactive command) *)
+       (# msg,solution: ^text
+       enter (msg[],solution[])
+       do INNER
+       #);
+
+     dynamicErrorFormatterType:
+       (* Output a description of the problem on 'dest',
+        * using 'msg' which describes the specific error *)
+       (# dest: ^stream;                (* Never NONE *)
+          thrd: ^thread;                (* Never NONE *)
+          msg: ^text                    (* NONE means "ignore" *)
+       enter (dest[],thrd[],msg[])
+       do INNER
+       #);
+
+     (* should unwind the stack; NONE means "do nothing" - not recommended! *)
+     staticErrorHandler: ##staticErrorHandlerType;
+     (* should only print a message; NONE means "ignore the message" *)
+     dynamicErrorFormatter: ##dynamicErrorFormatterType;
+
+     (* -- Static Errors -- *)
+
+     staticErrorTermCode: @integer;     (* normal/failure/failureTrace *)
+     staticErrorBase: interpAstError(# <<SLOT StaticErrorBase:dopart>> #);
+     staticUndefinedError:
+       (# l2ast: ^l2AstNode             (* Error detected at this node *)
+       enter l2ast[]
+       <<SLOT StaticUndefinedError:dopart>>
+       #);
+     staticError:< staticErrorBase;
+
+     (* -- Quasi-static Errors -- *)
+
+     (* actually static analysis bugs, unless
+      * encountered in a "lazy analysis" run *)
+     listLengthError:< interpDynError(# do INNER #);
+     incomparableError:< interpDynError(# do INNER #);
+     cannotAssignError:< interpDynError(# do INNER #);
+     kindError:< interpDynError(# do INNER #);
+
+     (* -- Genuine, Dynamic Errors -- *)
+
+     qualificationError:< interpDynError(# do INNER #);
+     badFinalError:< interpDynError(# do INNER #);
+     mathError:< interpDynError(# do INNER #);
+     refNoneError:< interpDynError(# do INNER #);
+     patternMergeError:< interpDynError(# do INNER #);
+     unwindError:< interpDynError(# do INNER #);
+     indexError:< interpDynError(# do INNER #);
+     cycleError:< interpDynError(# do INNER #);
+     componentDoubleExecuteError:< interpDynError(# do INNER #);
+     nonSpecializableError:< interpDynError(# do INNER #);
+     lowerBoundError:< interpDynError(# do INNER #);
+
+     (* -- Bugs -- *)
+
+     internalError:< interpError(# <<SLOT InternalError:dopart>> #);
+
+     (* -- Misc -- *)
+     
+     handleDoubleDecl:< 
+       (* sometimes a 'staticError' but sometimes we want to accept it *)
+       (# l2ast1,l2ast2: ^l2AstNode
+       enter (l2ast1[],l2ast2[])
+       do INNER
+       #);
+     
+     (* ----- Semantic Options ----- *)
+
+     doByteCode: @boolean; (* if not: do old, slow, closure based execution *)
+     
+     (* ----- Code generation options ----- *)
+     
+     staticPushPatternFlag: @boolean;
+     staticPredefinedPatternFlag: @boolean;
+     staticCreateObjectFlag: @boolean;
+     staticInstallPatternFlag: @boolean;
+     staticInstallObjectFlag: @boolean;
+     staticInstallQuaFlag: @boolean;
+     lazyInitFlag: @boolean;
+     
+     (* when using static patterns, use this to give each one an ID *)
+     staticPatternMark: @integerValue(# do value+1->value #);
+     staticByteCode: @list(# element::betaByteCode #);
+
+     (* ----- Observation ----- *)
+
+     printSemanticAttributes:< booleanValue;
+
+     setObserveStream:
+       (# str: ^stream
+       enter str[]
+       <<SLOT InterpreterSetObserveStream:dopart>>
+       #);
+     doObserve:
+       (# ch: @char enter ch <<SLOT InterpreterDoObserve:dopart>> #);
+     dontObserve:
+       (# ch: @char enter ch <<SLOT InterpreterDontObserve:dopart>> #);
+     doShowNumber:
+       (* Print MPS ast index for the category specified by 'ch' *)
+       (# ch: @char enter ch <<SLOT InterpreterDoShowNumber:dopart>> #);
+
+     dontShowNumber:
+       (* Do not print MPS ast index for the category specified by 'ch' *)
+       (# ch: @char enter ch <<SLOT InterpreterDontShowNumber:dopart>> #);
+     doTrace:
+       (* Trace the category of runtime events specified by 'ch' *)
+       (# ch: @char enter ch <<SLOT InterpreterDoTrace:dopart>> #);
+
+     dontTrace:
+       (* Do not trace the category of runtime events specified by 'ch' *)
+       (# ch: @char enter ch <<SLOT InterpreterDontTrace:dopart>> #);
+
+     (* ----- Fragment Graph ----- *)
+
+     fragmentVisible:< booleanValue
+       (# fromGroup,toGroup: ^astInterface.fragmentGroup
+       enter (fromGroup[],toGroup[])
+       do INNER
+       #);
+
+     private: @<<SLOT InterpreterBasePrivate:descriptor>>
+  do
+     INNER
+  #)
+
+(*
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

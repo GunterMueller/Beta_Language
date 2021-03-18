@@ -1,0 +1,59 @@
+ORIGIN 'decl';
+INCLUDE '../namebitch';
+INCLUDE '../nametable';
+INCLUDE '../objectdesc';
+INCLUDE '../ad/bitch';
+(* handling of virtuals *)
+--- VirtualPrefixDenotationResolve: DoPart ---
+do
+   (if att.att[]=NONE then
+      this(VirtualDecl).encl[]->od[];
+      loop:
+	(#
+	do
+	   od.resolvePrefix;
+	   (if (od.private.super[]->od[])=NONE then
+	      'Trying to virtually bind a nonexistent object'->names.ptr.error;
+	      leave loop;
+	   if);
+	   (names.ptr.str[],od[])->nameTable.findName
+	     (#
+	     do
+		fnd.encl.resolve;
+		(if false
+		  // fnd.encl.ispattern then
+		     'Virtual bindings can only be applied to patterns!'
+		       ->names.ptr.error;
+		  // fnd.encl.isvirtual then
+		     'Trying to virtual bind a non-virtual pattern!'
+		       ->names.ptr.error
+		  else
+		     fnd.encl[]->att.att[];
+		if);
+		leave loop;
+	     #);
+	   restart loop;
+	#);
+   if);
+
+
+--- VirtualPrefixDenotationTryResolve: DoPart ---
+do
+   (if att.att[]=NONE then
+      names.ptr.encl.encl[]->od[];
+      loop:
+	(#
+	do
+	   (if (od.private.super[]->od[])=NONE then leave loop; if);
+	   (names.ptr.str[],od[])->nameTable.findName
+	     (#
+	     do
+		fnd.encl.resolve;
+		(if fnd.encl.ispattern and fnd.encl.isvirtual then
+		   fnd.encl[]->att.att[];
+		if);
+		leave loop;
+	     #);
+	   restart loop;
+	#);
+   if);

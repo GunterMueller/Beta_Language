@@ -1,0 +1,22 @@
+ORIGIN 'betaenv';
+BODY 'observerlibbody'
+
+-- lib:attributes --
+
+sh: string(# do '/bin/sh\n-c\n'->value #);
+display: string(# do 'xterm -geometry 30x4 -font 12x24 -e display '->value #);
+
+osdisplay: 
+  (# msg: @string 
+  enter msg
+  do (&|(# do sh+display+'"'+msg+'"'->ossystem->string #)[]).fork
+  #);
+
+set: 
+  (# element:< object; 
+     insert: (# e: ^element enter e[] <<SLOT SetInsert:dopart>> #);
+     delete: (# e: ^element enter e[] do (* ... *) #);
+     scan: (# current: ^element; <<SLOT SetScan:dopart>> #);
+     <<SLOT setPrivate:attributes>>
+  #)
+

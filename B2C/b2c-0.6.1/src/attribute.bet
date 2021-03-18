@@ -1,0 +1,89 @@
+ORIGIN 'bfile';
+INCLUDE 'attden';
+BODY 'attributebody';
+BODY 'namebitch';
+--- CompilerLib: Attributes ---
+NamePtrExt: <<SLOT NamePtrExt: ObjectDescriptor>>;
+
+Attribute: BETAlist
+  (#
+     listtype:: Attribute;
+     encltype:: ObjectDescriptor;
+
+     checked: @Integer;
+     os: ^ObjectSpecification;
+     od: ^ObjectDescriptor;
+     names: @NamePtrExt;
+
+     print::< (# printos:< BooleanValue <<SLOT AttributePrint: DoPart>> #);
+     checkName:< (# <<SLOT AttributeCheckName: DoPart>> #);
+     resolve:< (# ad: ^AttributeDenotation <<SLOT AttributeResolve: DoPart>> #);
+     checkFollow::< (# <<SLOT AttributeCheckFollow: DoPart>> #);
+     checkComplete::< (# <<SLOT AttributeCheckComplete: DoPart>> #);
+     getcdecl:<
+       (# t: @text; super: ^ObjectDescriptor
+       enter super[]
+       <<SLOT AttributeGetcdecl: DoPart>>
+       exit t[]
+       #);
+
+     (* JO Virtual method for creating mark function call *)
+     getmdef:<
+       (# t: @text; super: ^ObjectDescriptor
+       enter super[]
+       <<SLOT AttributeGetmdef: DoPart>>
+       exit t[]
+       #);
+     getisrefel:<
+       (# super: ^ObjectDescriptor; elisref: @Boolean;
+       enter super[]
+       <<SLOT AttributeGetisrefel: DoPart>>
+       exit elisref
+       #);
+     (* JO *)
+
+     getcexpr:<
+        (# t,mapname: ^text; ctype: @integer
+	enter (t[],mapname[])
+	do INNER
+	exit ctype
+	#);
+     DoInit:<
+       (# ad: ^AttributeDenotation; ev: ^Evaluation
+       enter ad[]
+       do INNER
+       exit ev[]
+       #);
+     ispattern:< BooleanValue;
+     ispvariable:< BooleanValue;
+     isvirtual:< BooleanValue;
+     isref:< BooleanValue;
+     isrep:< BooleanValue;
+     getRepEl:< (# att: ^Attribute do INNER exit att[] #);
+     maybesubpattern:< BooleanValue;
+     maybenone:< BooleanValue;
+  enter (names, os[])
+  <<SLOT AttributeDoPart: DoPart>>
+  exit this(Attribute)[]
+  #);
+
+
+AttributePtr: BETAlistPtr
+  (#
+     <<SLOT AtributePtrLib: AttributeDecl>>;
+     listtype:: Attribute;
+     print::
+       (#
+          nlev:: (# do (3,'')->s.newlevel #);
+	  sep2:: (# do '; '->t[] #);
+          blev:: (# do s.backlevel #);
+	  nline:: (# do s.newline #);
+       #);
+     checkName: iterate (# do el.checkName #);
+     checkFollow: iterate
+       (# value: @Boolean
+       <<SLOT AttributePtrCheckFollow: DoPart>>
+       exit value
+       #);
+     checkComplete: <<SLOT AttributePtrCheckComplete: Descriptor>>;
+  #);

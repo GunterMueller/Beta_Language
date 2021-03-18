@@ -1,0 +1,10 @@
+ORIGIN '../basiclib/v1.4/betaenv';
+--- program: ObjectDescriptor ---
+(#
+   a:< (# a1: @Integer; a2: @Integer do a1->a2 #);
+   b: (# b1: @Integer; b2: @Integer do b1->b2 #);
+   mya: @a;
+   myb: @b
+do
+   mya; myb; a; b;
+#)

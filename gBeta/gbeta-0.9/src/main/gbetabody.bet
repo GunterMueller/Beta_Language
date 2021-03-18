@@ -1,0 +1,741 @@
+(* FILE "./main/gbetabody.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: gbetabody.bet,v 1.56 2001/07/02 01:38:09 eernst Exp $
+ *)
+
+ORIGIN 'gbeta';
+INCLUDE '~beta/basiclib/file';
+INCLUDE '~beta/basiclib/betaenvold';
+INCLUDE '~beta/sysutils/envstring';
+INCLUDE '../private/basicinterplib';
+INCLUDE '../private/interplib';
+INCLUDE '../private/interpbody';        (* To see interpreterprivate! *)
+INCLUDE '../private/ibetaCommonlib';
+INCLUDE '../private/ibetaSlicelib';
+INCLUDE 'gbetalib';
+BODY 'gbetabody1body';
+BODY 'gbetabody2body';
+BODY 'gbetabody3body';
+BODY 'gbetabody4body';
+MDBODY default 'gbeta_rlbody' sgi 'gbeta_glbody' nti 'gbeta_glbody'
+
+-- GbetaMainLib:attributes --
+
+rcs_identification: 
+  (# 
+  exit '$Id: gbetabody.bet,v 1.56 2001/07/02 01:38:09 eernst Exp $' 
+  #);
+
+version: (# exit '0.9.0' #);
+
+startupMessage:
+  (* Print copyright etc. *)
+  (# <<SLOT StartupMessage:dopart>> #);
+
+reportUsage:
+  (* Tell a few basic things about how to use gbeta *)
+  (# msgdest: ^stream;                  (* Where to direct messages *)
+     continue: @boolean                 (* Continuing program execution? *)
+  enter (msgdest[],continue)
+  <<SLOT ReportUsage:dopart>>
+  #);
+
+useOptions: 
+  (* Parse 't' as a string of command 
+   * line options and execute them *)
+  (# t: ^text;
+     msgdest: ^stream;
+     continue: @boolean                 (* Continue in case of error? *)
+  enter (t[],msgdest[],continue)
+  <<SLOT UseOptions:dopart>> 
+  #);
+
+explain:
+  (* Use selector to complete the explanation given 
+   * in 'msg'; NB: this process will update 'msg',
+   * which is then returned for a convenient usage *)
+  (# msg: ^text;
+     selector: @char
+  enter (msg[],selector)
+  do INNER
+  exit msg[]
+  #);
+
+(* Print explanatory messages about some command line options *)
+showNumberExplain: explain(# <<SLOT GbetaShowNumberExplain:dopart>> #);
+observeExplain: explain(# <<SLOT GbetaObserveExplain:dopart>> #);
+traceExplain: explain(# <<SLOT GbetaTraceExplain:dopart>> #);
+colorExplain: explain(# <<SLOT GbetaColorExplain:dopart>> #);
+
+obtainLine:
+  (* Read a line of user input; on some platforms this will use 
+   * the GNU readline library (thus supporting nice line editing 
+   * and history etc); on other platforms it is just a stupid 
+   * 'getline' *)
+  (# prompt: ^text;
+     line: ^text
+  enter prompt[]
+  <<SLOT GbetaObtainLine:dopart>>
+  exit line[]
+  #)
+
+-- GbetaInterpLib:attributes --
+
+defaultDynErrFormatter: dynamicErrorFormatterType
+  (* Print the message that a run-time error occurred 
+   * and the thread that tried to do something bad 
+   * was brutally killed *)
+  (# <<SLOT GbetaDefaultDynErrFormatter:dopart>> #);
+
+setupColors: 
+  (* Initialize the state of the source code 
+   * coloring support to one of the variants 
+   * available: Mono (only bold, underline)
+   * ANSI (a handful of color combinations, 
+   * foreground/background, and bold) and 
+   * NoColor (using extra characters, like 
+   * emphasizing with _underscore_ etc) *)
+  (# ch: @char
+  enter ch
+  <<SLOT GbetaSetupColors:dopart>> 
+  #);
+
+setCodegenFlag:
+  (# ch: @char;
+     value: @boolean;
+     msg: ^text
+  enter (ch,value)
+  <<SLOT GbetaSetCodegenFlag:dopart>>
+  exit msg[]
+  #);
+
+getEnvironment: 
+  (* Read various operating system level environment 
+   * variables that can be used to customize certain 
+   * aspects of the gbeta behavior (see the implementation 
+   * for details)  *)
+  (# <<SLOT GbetaGetEnvironment:dopart>> #);
+
+setupInteractionCallback: 
+  (* Create and install the interaction callbacks which 
+   * are the corner stones of the interaction; they are
+   * henceforth available as 'primaryStoppedCallback' 
+   * and 'primaryRunCallback' (NB: global var side effect) *)
+  (# <<SLOT GbetaSetupInteractionCallback:dopart>> #);
+
+setupCommands: 
+  (* Initialize and install all the commands available 
+   * for interactive use (such as 'print', 'step', ..) *)
+  (# <<SLOT GbetaSetupCommands:dopart>> #);
+
+showWarning: warningBase
+  (* Print the inherited AST argument 'l2ast' and then 
+   * the given message 'msg', formatted as a warning *)
+  (# msg: ^text
+  enter msg[]
+  <<SLOT GbetaShowWarning:dopart>>
+  #);
+
+showNoAstWarning: 
+  (* Print the inherited argument 'msg', formatted as a warning *)
+  noAstWarningBase(# <<SLOT GbetaShowNoAstWarning:dopart>> #); 
+
+display: 
+  (* Sending output to 'dest', print the AST 'l2ast', 
+   * surrounding it by lines of '=========' *)
+  (# dest: ^stream;
+     l2ast: ^l2AstNode;
+     attrvis: ^attributeVisualizer
+  enter (dest[],l2ast[])
+  <<SLOT GbetaDisplay:dopart>>
+  #);
+
+displayPos:
+  (* Output a specially formatted string that is recognized 
+   * by the GUD debugging framework in Emacs and which makes
+   * Emacs set the current secondary selection to the area
+   * in the source code that was parsed to produre the 
+   * AST 'l2ast' (so this means "tell Emacs to set the 
+   * secondary selection to the code for 'l2ast'") *)
+  (# dest: ^stream;
+     l2ast: ^l2AstNode
+  enter (dest[],l2ast[])
+  <<SLOT GbetaDisplayPos:dopart>> 
+  #);
+
+displayNoPos:
+  (* Output a specially formatted string that is recognized 
+   * by the GUD debugging framework in Emacs and which makes
+   * Emacs set the current secondary selection to nothing 
+   * (so this means "tell Emacs that there is no current 
+   * selection") *)
+  (# dest: ^stream;
+     l2ast: ^l2AstNode
+  enter (dest[],l2ast[])
+  <<SLOT GbetaDisplayNoPos:dopart>>
+  #);
+
+setAttributeVisualizerAndInform:
+  (* Install an attributeVisualizer and print out the 
+   * information that comes with it; if the argument 
+   * is NONE then it is ensured that no attributeVisualizers
+   * are installed, and a message about that is printed *)
+  (# attrvis: ^attributeVisualizer
+  enter attrvis[]
+  <<SLOT GbetaSetAttributeVisualizerAndInform:dopart>>
+  #);
+
+getTheNode:
+  (* Search for an AST node in a fragment group which
+   * has the Mjolner MPS AST index 'index'; the fragment
+   * group is 'fg', unless that is NONE; is 'fg' is NONE
+   * then the fragment group is the one that contains
+   * 'root'; if no such node exists, 'notFound' is invoked,
+   * otherwise the node is returned *)
+  (# notFound:< exception;
+     root: ^l2AstNode;
+     index: @integer;
+     fg: ^this(interpreterBase).private.betaAstHandler.fragmentgroup;
+     l2ast: ^l2AstNode
+  enter (root[],index,fg[])
+  <<SLOT GbetaGetTheNode:dopart>>
+  exit l2ast[]
+  #);
+
+rangeGetTheNode:
+  (* Search for an AST node in a fragment group whose
+   * syntax includes the charpos range fromPos..toPos; 
+   * the fragment group is 'fg', unless that is NONE; 
+   * if 'fg' is NONE then the fragment group is the 
+   * one that contains 'root'; if no such node exists, 
+   * 'notFound' is invoked, otherwise the node is returned *)
+  (# notFound:< exception;
+     root: ^l2AstNode;
+     fromPos,toPos: @integer;
+     fg: ^this(interpreterBase).private.betaAstHandler.fragmentgroup;
+     l2ast: ^l2AstNode
+  enter (root[],fromPos,toPos,fg[])
+  <<SLOT GbetaRangeGetTheNode:dopart>>
+  exit l2ast[]
+  #);
+
+doNode:
+  (* With output to 'dest', and using the AST whose root 
+   * is 'root' as the universe of interest, print some 
+   * information about the given AST node 'l2ast'; this 
+   * is the old, low level way to get info about an AST
+   * node, and the more friendly 'getFromNode' which 
+   * parses a string is probably better to use now *)
+  (# dest: ^stream;
+     root,l2ast: ^l2AstNode
+  enter (dest[],root[],l2ast[])
+  <<SLOT GbetaDoNode:dopart>>
+  #);
+
+show: 
+  (* Recognize one of the available 'show' commands by 
+   * reading in 't' starting from the beginning and 
+   * ignoring the rest when something has been recognized.
+   * This color coding stuff could be nice to have, but the
+   * current implementation only allows for printing the 
+   * program as a whole, and it uses ANSI color escapes,
+   * so it is basically just a reminder that this kind 
+   * of information is there, and could be presented quite 
+   * nicely using colors etc. to support people who are 
+   * trying to read source code.
+   * 
+   * The commands are:
+   * 
+   *   breakpoints: print a list of all current breakpoints
+   * 
+   *   deref: (most useful in the console) print the program
+   *   with color coding which shows whether each name 
+   *   application denotes an object/pattern or a variable 
+   *   ditto; the naming derives from the fact that variable
+   *   entities happen to be accessed by dereferencing a 
+   *   pointer in the implementation
+   * 
+   *   goinhere: print a list of all pieces of source code 
+   *   where single-stepping is forced to mean running
+   * 
+   *   growable: (most useful in the console) show for each 
+   *   name application whether or not its type is a
+   *   compile time constant
+   * 
+   *   kind: (most useful in the console) print the program
+   *   with color coding which shows what kind of entity
+   *   each name application denotes (pattern, object, ..)
+   * 
+   *   repeat: (most useful in the console) print the program
+   *   with color coding which shows whether each name 
+   *   application denotes a single attribute or it denotes 
+   *   a repetition
+   *)
+  (# t: ^text;
+     doDisplay: @boolean
+  enter t[]
+  <<SLOT GbetaShow:dopart>>
+  exit doDisplay
+  #);
+
+getFromNode:
+  (* In the abstract syntax tree rooted by 'root', search a node
+   * as described in 't'.  Various default information is used to
+   * enhance the information in 't' if that is incomplete:
+   * 
+   * If 't' contains a colon then it is expected to contain a
+   * specification of a fragment group before the colon.  The
+   * substring G of 't' before the colon will be matched against
+   * the Mjolner MPS 'name', 'diskFileName', and 'textFileName'
+   * of each fragment group in the program in some order, and
+   * the first such name that ends in G will match.  The
+   * corresponding fragment group will be selected and the rest
+   * ignored. Otherwise, if 't' does not contain a colon and
+   * if 'defaultPos' is not NONE then the fragment of 'defaultPos'
+   * is used.  Otherwise an error message is printed and the
+   * operation aborted.
+   * 
+   * After the colon (or, if there is no colon: at the beginning
+   * of 't') there should be one or two integer numbers (if two:
+   * separated by '-', no white space) which is/are character
+   * positions in the source code of the requested AST node
+   * in the selected fragment group FG.  Such a node is searched
+   * in FG, and the node deepest in the AST that has a source 
+   * code range that includes the given position(s) will be 
+   * selected.   If there is no such node then 'notFound' is
+   * executed.  Otherwise INNER is executed in an environment 
+   * where 'l2ast' is the selected AST node
+   *)
+  (# notFound:< object;
+     root: ^l2AstNode;
+     t: ^text;
+     defaultPos: ^l2AstNode;
+     l2ast: ^l2AstNode
+  enter (root[],t[],defaultPos[])
+  <<SLOT GbetaGetFromNode:dopart>>
+  #);
+
+getCode: 
+  (* Print the list of bytecodes associated with the AST 
+   * node specified by 'root', 't', and 'defaultPos'; 
+   * for the meaning of the argument, see 'findPosition' *)
+  (# root: ^l2AstNode;
+     t: ^text;
+     defaultPos: ^l2AstNode
+  enter (root[],t[],defaultPos[])
+  <<SLOT GbetaGetCode:dopart>> 
+  #);
+
+getLocalType: 
+  (* Print the locally known static type associated with
+   * the AST node specified by 'root', 't', and 'defaultPos'; 
+   * for the meaning of the argument, see 'findPosition' *)
+  (# root: ^l2AstNode;
+     t: ^text;
+     defaultPos: ^l2AstNode;
+     doDisplay: @boolean
+  enter (root[],t[],defaultPos[])
+  <<SLOT GbetaGetLocalType:dopart>> 
+  exit doDisplay
+  #);
+
+getLocalSubstance:
+  (* Print the locally known static substance associated with
+   * the AST node specified by 'root', 't', and 'defaultPos'; 
+   * for the meaning of the argument, see 'findPosition' *)
+  (# root: ^l2AstNode;
+     t: ^text;
+     defaultPos: ^l2AstNode;
+     doDisplay: @boolean
+  enter (root[],t[],defaultPos[])
+  <<SLOT GbetaGetLocalSubstance:dopart>>
+  exit doDisplay
+  #);
+
+getStaticTransientBase:
+  (* Base method to print the locally known static 
+   * input/output type (i.e. the static info about the 
+   * enter/exit lists) associated with the AST node
+   * specified by 'root', 't', and 'defaultPos'; for
+   * the meaning of the arguments, see 'findPosition' *)
+  (# root: ^l2AstNode;
+     t: ^text;
+     defaultPos: ^l2AstNode;
+     l2eval: ^interp.l2Evaluation;
+     stran: ^interp.staticTransient
+  enter (root[],t[],defaultPos[])
+  <<SLOT GbetaGetStaticTransientBase:dopart>>
+  #);
+
+getStaticTransientOut: getStaticTransientBase
+  (* Prints output type; see 'getStaticTransientBase' *)
+  (# <<SLOT GbetaGetStaticTransientOut:dopart>>  #);
+
+getStaticTransientIn: getStaticTransientBase
+  (* Prints input type; see 'getStaticTransientBase' *)
+  (# <<SLOT GbetaGetStaticTransientIn:dopart>> #);
+
+findPosition:
+  (* Search in the program for an ast node whose type is at 
+   * least 'qualification' in the requested fragment group 
+   * and on the requested char-position in the text file; 
+   * group and char-pos is specified in 't' using the 
+   * format "<groupname>:<charpos>" where the string 
+   * <groupname> is a suffix of the fragment group name 
+   * and <charpos> is an integer which specifies a
+   * character position included in the syntax of the
+   * requested ast node in the source code file.
+   *   
+   * If the requested ast node is found, INNER is executed
+   * with 'target' referring to that ast node *)
+  (# qualification:< l2AstNode;
+     root: ^l2AstNode;
+     t: ^text;
+     defaultPos: ^l2AstNode;
+     current: ^qualification
+  enter (root[],t[],defaultPos[])
+  <<SLOT GbetaFindPosition:dopart>>
+  #);
+
+setBreakPointImpl:
+  (* Set a breakpoint at the nearest top-level 
+   * imperative which encloses the AST node 
+   * specified by 'root', 't', and 'defaultPos'; for 
+   * the meaning of the arguments, see 'findPosition' *)
+  (# root: ^l2AstNode;
+     t: ^text;
+     before: @boolean;
+     once: @boolean;
+     defaultPos: ^l2AstNode
+  enter (root[],t[],before,once,defaultPos[])
+  <<SLOT GbetaSetBreakPoint:dopart>>
+  #);
+
+setBreakPoint:
+  (# root: ^l2AstNode;
+     t: ^text;
+     defaultPos: ^l2AstNode
+  enter (root[],t[],defaultPos[])
+  do (root[],t[],true,false,defaultPos[])->setBreakPointImpl
+  #);
+
+setBreakPointAfter:
+  (# root: ^l2AstNode;
+     t: ^text;
+     defaultPos: ^l2AstNode
+  enter (root[],t[],defaultPos[])
+  do (root[],t[],false,false,defaultPos[])->setBreakPointImpl
+  #);
+
+setOnceBreakPoint:
+  (# root: ^l2AstNode;
+     t: ^text;
+     defaultPos: ^l2AstNode
+  enter (root[],t[],defaultPos[])
+  do (root[],t[],true,true,defaultPos[])->setBreakPointImpl
+  #);
+
+setOnceBreakPointAfter:
+  (# root: ^l2AstNode;
+     t: ^text;
+     defaultPos: ^l2AstNode
+  enter (root[],t[],defaultPos[])
+  do (root[],t[],false,true,defaultPos[])->setBreakPointImpl
+  #);
+
+resetBreakPoint:
+  (* Reset (delete) a breakpoint at the AST node 
+   * specified by 'root', 't', and 'defaultPos'; for 
+   * the meaning of the arguments, see 'findPosition' *)
+  (# root: ^l2AstNode;
+     t: ^text;
+     defaultPos: ^l2AstNode
+  enter (root[],t[],defaultPos[])
+  <<SLOT GbetaResetBreakPoint:dopart>>
+  #);
+
+setGoInHere:
+  (* Mark the surrounding main part as a do-not-step area *)
+  (# root: ^l2AstNode;
+     t: ^text;
+     defaultPos: ^l2AstNode;
+     value: @boolean
+  enter (root[],t[],defaultPos[],value)
+  <<SLOT GbetaSetGoInHere:dopart>>
+  #);
+
+showBreakPoints:
+  (* Print the list of currently installed breakpoints *)
+  (# <<SLOT GbetaShowBreakPoints:dopart>> #);
+
+showGoInHere:
+  (# <<SLOT GbetaShowGoInHere:dopart>> #);
+
+cmdHelp:
+  (* Print the name and explanation (which are expected to be the 
+   * name and explanation associated with one of the interactive 
+   * commands like 'print', 'step',..) in a standardized format *)
+  (# indent: (# exit 20 #);
+     name,explanation: ^text;
+     msg: ^text
+  enter (name[],explanation[])
+  <<SLOT GbetaCmdHelp:dopart>>
+  #);
+
+help:
+  (* Print a list of available interactive commands 
+   * and a short explanation of each command *)
+  (# msg: ^text
+  enter msg[]
+  <<SLOT GbetaHelp:dopart>>
+  #);
+
+shortHelp:
+  (* Print the msg (which is expected to be a 'shortHelp' of 
+   * one of the interactive commands like 'print', 'step',..) 
+   * in a standardized format *)
+  (# msg: ^text
+  enter msg[]
+  <<SLOT GbetaShortHelp:dopart>>
+  #);
+
+executeCommand: 
+  (* Used for interaction during an interpretation *)
+  (# thrd: ^thread;
+     unwind: ##stackUnwinder;
+     root: ^l2AstNode
+  enter (thrd[],unwind##,root[])
+  <<SLOT GbetaExecuteCommand:dopart>>
+  #);
+
+executeCommandStopped: 
+  (* Used for interaction after the termination of the 
+   * entire program, i.e. all threads; return true iff
+   * you wish to interpret the program again *)
+  (# root: ^l2AstNode;
+     rerun: @boolean
+  enter root[]
+  <<SLOT GbetaExecuteCommandStopped:dopart>>
+  exit rerun
+  #);
+
+parseAndInterpretAtCurImp:
+  (* Parse the 'imp' as a gbeta imperative and analyze, 
+   * bytecode-compile, and execute it in context of 
+   * the given thread 'thrd' (i.e. as if it had been 
+   * the next imperative in the program) *)
+  (# thrd: ^thread;
+     imp: ^text
+  enter (thrd[],imp[])
+  <<SLOT GbetaParseAndInterpret:dopart>>
+  #);
+
+lookupAndPrintAden:
+  (* Parse the 'aden' as a gbeta attribute denotation,
+   * analyze it and look up the denoted entity (as if 
+   * it had been used at the current point in the 
+   * program), and print it *)
+  (# thrd: ^thread; 
+     aden: ^text
+  enter (thrd[],aden[])
+  <<SLOT GbetaLookupAndPrintAden:dopart>>
+  #);
+
+lookupAndPrintAdenStatic:
+  (* Parse the 'aden' as a gbeta attribute denotation,
+   * analyze it, and print the static information about 
+   * it obtained by that analysis; the thread 'thrd' 
+   * is only used to find the current imperative, such 
+   * that the analysis has a context to start from *)
+  (# thrd: ^thread;
+     aden: ^text
+  enter (thrd[],aden[])
+  <<SLOT GbetaLookupAndPrintAdenStatic:dopart>>
+  #);
+
+lookupAndPrintAdenStaticEval:
+  (* Parse the 'aden' as a gbeta attribute denotation,
+   * analyze it, and print the static information about 
+   * its exit list properties obtained by that analysis; 
+   * the thread 'thrd' is only used to find the current 
+   * imperative, such that the analysis has a context 
+   * to start from *)
+  (# thrd: ^thread;
+     eval: ^text
+  enter (thrd[],eval[])
+  <<SLOT GbetaLookupAndPrintAdenStaticEval:dopart>>
+  #);
+
+lookupAndPrintAdenStaticAssign:
+  (* Parse the 'aden' as a gbeta attribute denotation,
+   * analyze it, and print the static information about 
+   * its enter list properties obtained by that analysis; 
+   * the thread 'thrd' is only used to find the current 
+   * imperative, such that the analysis has a context 
+   * to start from *)
+  (# thrd: ^thread;
+     transact: ^text
+  enter (thrd[],transact[])
+  <<SLOT GbetaLookupAndPrintAdenStaticAssign:dopart>>
+  #);
+
+killThisThread:
+  (* Kill 'thrd', which is expected to be a running thread *)
+  (# thrd: ^thread;
+     unwind: ##stackUnwinder
+  enter (thrd[],unwind##)
+  <<SLOT GbetaKillThisThread:dopart>>
+  #)
+
+-- textLib:attributes --
+
+olddelete:
+  (* 'delete' was changed; did not bother to change all the usages, 
+   * so this is just there to provide the old 'delete' behavior *)
+  (# i,j,oldpos: @integer
+  enter (i,j)
+  do pos->oldpos;
+     (i,j)->delete;
+     oldpos->setpos
+  exit THIS(text)[]
+  #);
+
+cleanUpBackSpaces:
+  (* If this text contains backspaces, "interpret" them *)
+  (# inx: @integer
+  do 1->inx;
+     L: (if inx<lgth then 
+            (if ((inx+1)->inxget)
+             // '\010' then 
+                (inx,inx+1)->olddelete
+             else
+                inx+1->inx
+            if);
+            restart L
+        if)
+  #);
+
+removeLeadingWhiteSpace:
+  (# inx: @integer
+  do L: (if lgth>0 then 
+            (if 1->inxget->ascii.isSpace then (1,1)->olddelete; restart L if)
+        if)
+  #);
+
+eatWordIfMatch: booleanValue
+  (* Side-effects this text to remove (a non-empty prefix of) 'cmd' 
+   * if such a string is present as the first word of this text *)
+  (# cmd: ^text;
+     word: ^text;
+     inx,from,to: @integer
+  enter cmd[]
+  do (if lgth=0 then false->value else
+         1->inx->from->to;
+         (* first skip white space *)
+         L: (if inx>lgth then false->value else
+                (if inx->inxget->ascii.isSpace then 
+                    inx+1->inx;
+                    restart L
+                if);
+                (* inx now points after the last ws char *)
+                inx->from; 
+                (* scan letters *)
+                M: (if inx<=lgth then
+                       (if inx->inxget->ascii.isLetter then 
+                           inx+1->inx;
+                           restart M
+                       if)
+                   if);
+                (* inx now points after last char in word *)
+                inx-1->to;
+                (* extract and test word for prefixness of 'cmd' *)
+                (if (to>lgth) or (from>to) then false->value else
+                    (if (to-from)>=cmd.lgth then false->value else
+                        (* the word we found is non-empty and 
+                         * short enough to be a prefix of 'cmd' *)
+                        (from,to)->sub->word[];
+                        (if (1,word.lgth)->cmd.sub->word.equalNCS then
+                            (* YES *)
+                            (1,to)->olddelete;
+                            true->value
+                         else
+                            false->value
+                        if)
+                    if)
+                if)
+            if)
+     if)
+  #);
+
+hasDigit: booleanValue
+  (# 
+  do (for i:lgth repeat (if T[i]->ascii.isDigit then true->value if)for)
+  #);
+
+eatCommand:
+  (# cmd: ^text
+  do removeLeadingWhiteSpace;
+     L: (# 
+        do ';'->findCh
+           (# 
+           do (1,inx-1)->sub->cmd[];
+              (1,inx)->olddelete;
+              removeLeadingWhiteSpace;
+              leave L
+           #);
+           (* not found *)
+           copy->cmd[];
+           clear
+        #)
+  exit cmd[]
+  #);
+
+eatInteger: integerObject
+  (* enter the default value *)
+  (# failed:< object
+  do removeLeadingWhiteSpace;
+     (if lgth>0 then
+         reset;
+         getint(# syntaxError::(# do failed #)#)->value;
+         (1,pos)->olddelete
+      (* else: keep the default *)
+     if)
+  #)
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

@@ -1,0 +1,28 @@
+(* FILE ex6.gb *)
+-- betaenv:descriptor --
+(# 
+   puttext: (# enter stdio do INNER #);
+   putline: puttext(# do '\n'->stdio #);
+   container: 
+     (# element:< object;
+        capacity:< integer;
+        storage: [capacity] ^element;
+        top: @integer;
+        insert: (# enter storage[top+1->top][] #);
+        scan:
+          (# current: ^element;
+          do (for i:top repeat storage[i][]->current[]; INNER for)
+          #)
+     #);
+   myStrings: @container
+     (# element::string; 
+        capacity::(# do 10->value #);
+        add: (# s: ^element enter &s do s[]->insert #);
+        print: scan(# do current->puttext; ' '->puttext #)
+     #);
+do 
+   'once'->myStrings.add; 'upon'->myStrings.add; 'a'->myStrings.add; 
+   'time'->myStrings.add; '...'->myStrings.add;
+   myStrings.print;
+   putline
+#) 

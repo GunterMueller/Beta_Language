@@ -1,0 +1,44 @@
+ORIGIN 'betaenv';
+INCLUDE 'observer';
+
+-- lib:attributes --
+
+waitForChange: (# do sh+'./waitforchange'->ossystem->string #);
+
+showChanged: 
+  (# title: @string
+  enter title
+  do (&|(# do sh+'./displaydir "'+title+'"'->ossystem->string #)[]).fork 
+  #)
+
+-- program:merge --
+(#
+   ODPstring: @ObserverDesignPattern
+     (# Subject::string(# enter (# do notify #)#);
+     #);
+   observedString: @ODPstring.Subject; 
+   stringObserver1: @ODPstring.Observer
+     (# update::(# do theSubject->showChanged #)#);
+   stringObserver2: @ODPstring.Observer
+     (# update::(# do 'Changes! ('+theSubject+')\n'->stdio #)#);
+   
+   ODPdir: @ObserverDesignPattern
+     (# init: (# do 'A'->ch #);
+        Subject::(# run: (# do waitForChange; notify; restart run #)#);
+        Observer::(# update::(# do ch+1->ch->observedString #)#);
+        ch: @char;
+     #);
+   observedDir: @ODPdir.Subject;
+   dirObserver: @ODPdir.Observer
+do 
+   'Try to change the current directory, e.g. "touch dummy"'->putline;
+   (* init, watch the string, and watch the directory *)
+   ODPdir.init;
+   stringObserver1[]->observedString.attach;
+   stringObserver2[]->observedString.attach;
+   dirObserver[]->observedDir.attach;
+   
+   (* start the observation *)
+   (&|(# do observedDir.run #)[]).fork
+#) 
+

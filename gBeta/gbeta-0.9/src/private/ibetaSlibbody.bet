@@ -1,0 +1,118 @@
+(* FILE "./private/ibetaSlibbody.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaSlibbody.bet,v 1.27 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN 'ibetaStaticlib';
+INCLUDE 'ibetaCommonlib';
+INCLUDE 'ibetaSlicelib'
+
+-- setupFatherLinks:dopart --
+do 
+   (* setup initial scope, 'curScope', and static level *)
+   initialFather[]->curFather[];
+   initialScope[]->curScope[];
+   
+   (* traverse the entire syntax tree *)
+   initialFather[]->curFather[];
+   l2ast.rawScanPrePost
+   (# (* Invariant: at the beginning of each pre-visit and at the end 
+       * of each post-visit, 'curFather' is the father of 'current', 
+       * and 'curScope' is the scope of 'current'; note; 'preVisit' and 
+       * 'postVisit' must cancel each other out wrt the values of 
+       * 'curScope' and 'curFather' *)
+      preVisit::
+        (# newScope: ^scopeNode
+        do 
+           (* setup father and scope *)
+           curFather[]->current.father[]; 
+           curScope[]->current.scope[];
+           
+           (* check for finals *)
+           (if true 
+            // current##<=l2BindingDecl## then
+               (# l2mpar: ^l2MainPart
+               do current.scope.location->l2mpar[];
+                  true->l2mpar.private.hasSpecDecls
+               #)
+            // current##<=l2FinalDecl## then
+               (# l2mpar: ^l2MainPart
+               do current.scope.location->l2mpar[];
+                  true
+                    ->l2mpar.private.hasFinalPtns
+                    ->l2mpar.private.hasSpecDecls
+               #)
+            // current##<=l2FinalStaticItem## then
+               (# l2mpar: ^l2MainPart
+               do current.scope.location->l2mpar[];
+                  true->l2mpar.private.hasFinalObjs
+               #)
+           if);
+           
+           (* possibly descend to next scope *)
+           (if (current.getScopeNode->newScope[])<>NONE then
+               (* opening a new scope *)
+               curScope[]->newScope.enclosing[];
+               (* since the predefined scope encloses all syntax,
+                * 'curScope' should never be NONE *)
+               curScope.staticLevel+1->newScope.staticLevel;
+               newScope[]->curScope[]
+           if);
+           
+           (* descend to next father *)
+           current[]->curFather[]
+        #);
+      postVisit::
+        (# leaveScope: ^scopeNode
+        do 
+           (* return to previous father *)
+           current.father[]->curFather[];
+           
+           (* possibly return to previous scope *)
+           (if (current.getScopeNode->leaveScope[])<>NONE then
+               leaveScope.enclosing[]->curScope[]
+           if)
+        #)
+   #)
+
+-- setupSemLinksAndSTypes:dopart --
+do 
+   l2ast.rawScanPre(# do current.localCheck #)
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

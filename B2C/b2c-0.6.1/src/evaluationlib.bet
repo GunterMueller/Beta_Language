@@ -1,0 +1,548 @@
+ORIGIN 'evaluation';
+INCLUDE 'attden';
+BODY 'ev/assignment';
+BODY 'ev/basic';
+BODY 'ev/misc';
+BODY 'ev/object';
+BODY 'ev/reference';
+BODY 'ev/repslice';
+BODY 'ev/strucref';
+BODY 'ev/string';
+--- CompilerLib: Attributes ---
+AssignmentEvaluation: Evaluation
+  (#
+     ls: ^Evaluation;
+     rs: ^Transaction;
+     print:: (# do s[]->ls.print; '->'->s.append; s[]->rs.print #);
+     reduce::
+       (# doit: @<<SLOT AssignmentEvaluationReduce: ObjectDescriptor>>
+       do doit
+       #);
+     DoDo::
+       (# od: ^ObjectDescriptor; oref: ^ObjectReference
+       <<SLOT AssignmentEvaluationDoDo: DoPart>>
+       #);
+     checkFollow:: (# do ls.checkFollow; rs.checkFollow #);
+     checkComplete:: (# do ls.checkComplete; rs.checkComplete #);
+     errorobject:<
+       (# ev: ^Evaluation do this(AssignmentEvaluation)[]->ev[]; INNER exit ev[]
+       #);
+  enter (ls[],rs[])
+  do
+     this(AssignmentEvaluation)[]->ls.encl[];
+     this(AssignmentEvaluation)[]->rs.encl[];
+     INNER
+  exit this(AssignmentEvaluation)[]
+  #);
+
+Expression: Evaluation (# do INNER #);
+
+BinaryExp: Expression
+  (#
+     (* The GRAMMAR says, that ls[] and rs[] are references to Expression
+      * and not Evaluation.  However, the reduction phase will strip
+      * the EvalList type, and after that has been done, it can happen,
+      * that an AssignmentEvaluation will be directly used as part of
+      * a BinaryExp.
+      *)
+     ls: ^Evaluation;
+     rs: ^Evaluation;
+     print::< (# do s[]->ls.print; INNER; s[]->rs.print #);
+     errorDest:<
+       (# ev: ^Evaluation; t: ^text
+       enter t[]
+       do this(BinaryExp)[]->ev[]; INNER; t[]->ev.error
+       #);
+     DoCexpr::<
+       (#
+	  lcast:< Object;
+	  rcast:< Object;
+	  intcast: (# do '(int) '->c_file.cstream.puttext #);
+       do
+	  '('->c_file.cstream.put;
+	  lcast;
+	  ls.DoCexpr;
+	  INNER;
+	  rcast;
+	  rs.DoCexpr;
+	  ')'->c_file.cstream.put;
+       #);
+     reduce::<
+       (#
+	  <<SLOT BinaryExpReduceLib: Attributes>>;
+	  reducetype:< ReduceExit;
+	  lred,rred: @reducetype;
+	  ltype,rtype: @integer;
+	  lev,rev: ^evaluation;
+       <<SLOT BinaryExpReduce: DoPart>>
+       #);
+     checkFollow:: (# do ls.checkFollow; rs.checkFollow #);
+     checkComplete:: (# do ls.checkComplete; rs.checkComplete #);
+  enter (ls[],rs[])
+  do this(BinaryExp)[]->ls.encl[]->rs.encl[]; INNER
+  exit this(BinaryExp)[]
+  #);
+
+RelationalExp: BinaryExp
+  (#
+     type:: (# <<SLOT RelationalExpType: DoPart>> #);
+     mytype:< RelationalExp;
+  #);
+EqualOrNotEqualExp: RelationalExp
+  (#
+     reduce::
+       (# log: ^LogicalExp; new: ^Evaluation; lc,rc: ^IntegerConst
+       <<SLOT EqualOrNotEqualExpReduce: DoPart>>
+       #);
+     jointype:< LogicalExp;
+  #);
+LessOrGreaterThanExp: RelationalExp
+  (#
+     reduce::
+       (# reducetype:: ReduceExitSingle
+       <<SLOT LessOrGreaterThanExpReduce: DoPart>>
+       #);
+  #);
+EqExp: EqualOrNotEqualExp
+  (#
+     print:: (# do '='->s.append #);
+     DoCexpr:: (# do '=='->c_file.cstream.puttext #);
+     jointype:: AndExp;
+     mytype:: EqExp;
+  #);
+NeExp: EqualOrNotEqualExp
+  (#
+     print:: (# do '<>'->s.append #);
+     DoCexpr:: (# do '!='->c_file.cstream.puttext #);
+     jointype:: OrExp;
+     mytype:: NeExp;
+  #);
+LtExp: LessOrGreaterThanExp
+  (#
+     print:: (# do '<'->s.append #);
+     DoCexpr:: (# do '<'->c_file.cstream.put #);
+     mytype:: LtExp;
+  #);
+LeExp: LessOrGreaterThanExp
+  (#
+     print:: (# do '<='->s.append #);
+     DoCexpr:: (# do '<='->c_file.cstream.puttext #);
+     mytype:: LeExp;
+  #);
+GtExp: LessOrGreaterThanExp
+  (#
+     print:: (# do '>'->s.append #);
+     DoCexpr:: (# do '>'->c_file.cstream.put #);
+     mytype:: GtExp;
+  #);
+GeExp: LessOrGreaterThanExp
+  (#
+     print:: (# do '>='->s.append #);
+     DoCexpr:: (# do '>='->c_file.cstream.puttext #);
+     mytype:: GeExp;
+  #);
+
+
+ArithExp: BinaryExp
+  (#
+     reduce::<
+       (# reducetype:: ReduceExitSingle <<SLOT ArithExpReduce: DoPart>> #);
+     type::< (# <<SLOT ArithExpType: DoPart>> #);
+     mytype:< ArithExp;
+  #);
+PlusExp: ArithExp
+  (#
+     print:: (# do '+'->s.append #);
+     DoCexpr:: (# do '+'->c_file.cstream.put #);
+     mytype:: PlusExp;
+  #);
+MinusExp: ArithExp
+  (#
+     print:: (# do '-'->s.append #);
+     DoCexpr:: (# do '-'->c_file.cstream.put #);
+     mytype:: MinusExp;
+  #);
+TimesExp: ArithExp
+  (#
+     print:: (# do '*'->s.append #);
+     DoCexpr:: (# do '*'->c_file.cstream.put #);
+     mytype:: TimesExp;
+  #);
+RealDivExp: ArithExp
+  (#
+     print:: (# do '/'->s.append #);
+     DoCexpr::
+       (# lcast:: (# do '(double) '->c_file.cstream.puttext #);
+       do '/'->c_file.cstream.put
+       #);
+     mytype:: RealDivExp;
+     type:: (# <<SLOT RealDivExpType: DoPart>> #);
+  #);
+IntegerArithExp: ArithExp
+  (# reduce:: (# <<SLOT IntegerArithExpReduce: DoPart>> #) #);
+IntDivExp: IntegerArithExp
+  (#
+     print:: (# do ' div '->s.append #);
+     DoCexpr::
+       (# lcast:: intcast; rcast:: intcast; do '/'->c_file.cstream.put #);
+     mytype:: IntDivExp;
+  #);
+ModExp: IntegerArithExp
+  (#
+     print:: (# do ' mod '->s.append #);
+     DoCexpr::
+       (# lcast:: intcast; rcast:: intcast; do '%'->c_file.cstream.put #);
+     mytype:: ModExp;
+  #);
+
+
+LogicalExp: BinaryExp
+  (#
+     isboolean: @Boolean;
+     reduce::
+       (# reducetype:: ReduceExitSingle; new: ^LogicalExp
+       <<SLOT LogicalExpReduce: DoPart>>
+       #);
+     type:: (# <<SLOT LogicalExpType: DoPart>> #);
+     DoCexpr::<
+       (#
+          logical:< Object;
+	  lcast::
+	    (#
+	    do (if not isboolean then '(int) '->c_file.cstream.puttext if)
+	    #);
+	  rcast::
+	    (#
+	    do (if not isboolean then '(int) '->c_file.cstream.puttext if)
+	    #);
+       do (if isboolean then logical else INNER if)
+       #);
+     mytype:< LogicalExp;
+  #);
+AndExp: LogicalExp
+  (#
+     print:: (# do ' and '->s.append #);
+     DoCexpr::
+       (# logical:: (# do '&&'->c_file.cstream.puttext #)
+       do '&'->c_file.cstream.puttext
+       #);
+     mytype:: AndExp;
+  #);
+OrExp: LogicalExp
+  (#
+     print:: (# do ' or '->s.append #);
+     DoCexpr::
+       (# logical:: (# do '||'->c_file.cstream.puttext #)
+       do '|'->c_file.cstream.puttext
+       #);
+     mytype:: OrExp;
+  #);
+XorExp: LogicalExp
+  (#
+     print:: (# do ' xor '->s.append #);
+     DoCexpr::
+       (# logical:: (# do '^'->c_file.cstream.puttext #)
+       do '^'->c_file.cstream.puttext
+       #);
+     mytype:: XorExp;
+  #);
+
+
+UnaryExp: Expression
+  (#
+     ev: ^Evaluation;
+     reduce::
+       (# red: @ReduceExitSingle; type: @integer; newev: ^evaluation;
+       <<SLOT UnaryExpReduce: DoPart>>
+       #);
+     type:: (# <<SLOT UnaryExpType: DoPart>> #);
+     mytype:< UnaryExp;
+     DoCexpr::< (# do INNER; ev.DoCexpr #);
+     checkFollow:: (# do ev.checkFollow #);
+     checkComplete:: (# do ev.checkComplete #);
+     print::< (# do INNER; s[]->ev.print #);
+  enter ev[]
+  do this(UnaryExp)[]->ev.encl[]
+  exit this(UnaryExp)[]
+  #);
+UnaryPlusExp: UnaryExp
+  (#
+     print:: (# do '+'->s.append #);
+     mytype:: UnaryPlusExp;
+  #);
+UnaryMinusExp: UnaryExp
+  (#
+     print:: (# do '-'->s.append #);
+     DoCexpr:: (# do '-'->c_file.cstream.put #);
+     mytype:: UnaryMinusExp;
+  #);
+
+
+(* The GETAD virtual does not work for all subpatterns of FACTOR,
+ * but it is well defined for denotations and references like
+ * ObjectEvaluation or RepetitionSlice.
+ *)
+Factor: Expression
+  (#
+     getad:< (# thisad: ^AttributeDenotation do INNER exit thisad[] #);
+     DoCexpr::< (# exp: @integer enter exp do INNER #);
+  do INNER
+  #);
+NotExp: Factor
+  (#
+     ev: ^Evaluation;
+     reduce::
+       (# red: @ReduceExitSingle; type: @integer; newev: ^evaluation;
+       <<SLOT NotExpReduce: DoPart>>
+       #);
+     type:: (# <<SLOT NotExpType: DoPart>> #);
+     print:: (# do 'not '->s.append; s[]->ev.print #);
+     DoCexpr:: (# do '!'->c_file.cstream.put; ev.DoCexpr #);
+     checkFollow:: (# do ev.checkFollow #);
+     checkComplete:: (# do ev.checkComplete #);
+  enter ev[]
+  do this(NotExp)[]->ev.encl[]
+  exit this(NotExp)[]
+  #);
+(* Internal use only.  In a BETA program, character constants are
+ * specified as 1-character strings. *)
+CharConst: Factor
+  (#
+     value: @integer;
+     DoCexpr:: (# do value->c_file.cstream.putint #);
+     reduce:: (# do value->&IntegerConst->exitopt[] #);
+     type:: (# <<SLOT CharConstType: DoPart>> #);
+     isconst:: (# do true->value #);
+  enter value
+  exit this(CharConst)[]
+  #);
+IntegerConst: Factor
+  (#
+     value: @integer;
+     print::
+       (# t: @text
+       do
+          (if value=-2147483648 then
+	     '2147483648'->s.append
+	  else
+	     value->t.putint; t[]->s.append
+	  if)
+       #);
+     DoCexpr::
+       (#
+       do
+          (if value=-2147483648 then
+	     '2147483648'->c_file.cstream.puttext
+	  else
+	     value->c_file.cstream.putint
+	  if)
+       #);
+     reduce:: (# do value->&IntegerConst->exitopt[] #);
+     type:: (# <<SLOT IntegerConstType: DoPart>> #);
+     isconst:: (# do true->value #);
+  enter value
+  exit this(IntegerConst)[]
+  #);
+StringConst: Factor
+  (#
+     <<SLOT StringConstLib: Attributes>>;
+     str: @text;
+     getInteger:
+       (# ev: ^Evaluation; t: @translate
+       <<SLOT StringConstGetInteger: DoPart>>
+       exit ev[]
+       #);
+     translate:
+       (# t: @text; inx,len,dig: @integer; c: @char
+       <<SLOT StringConstTranslate: DoPart>>
+       exit t
+       #);
+     print:: (# t: @text do str[]->s.append #);
+     reduce:: (# do str->&StringConst->exitopt[] #);
+     type::< (# <<SLOT StringConstType: DoPart>> #);
+     isconst:: (# do true->value #);
+  enter str
+  do INNER
+  exit this(StringConst)[]
+  #);
+BooleanConst: Factor
+  (#
+     value: @Boolean;
+     DoCexpr::
+       (#
+       do
+          (if value=true then '1'->c_file.cstream.put
+	  else '0'->c_file.cstream.put
+	  if)
+       #);
+     reduce:: (# do value->&BooleanConst->exitopt[] #);
+     type:: (# <<SLOT BooleanConstType: DoPart>> #);
+     isconst:: (# do true->value #);
+  enter value
+  exit this(BooleanConst)[]
+  #);
+RealConst: Factor
+  (#
+     value: @text;
+     print:: (# do value[]->s.append #);
+     DoCexpr:: (# do value[]->c_file.cstream.puttext #);
+     reduce:: (# do value->&RealConst->exitopt[] #);
+     type:: (# <<SLOT RealConstType: DoPart>> #);
+     isconst:: (# do true->value #);
+  enter value
+  exit this(RealConst)[]
+  #);
+RepetitionSlice: Factor
+  (#
+     from,to: ^Evaluation;
+     ad,fromvar,tovar: ^AttributeDenotation;
+     getad:: (# do ad[]->thisad[] #);
+     print::
+       (#
+       do
+          '['->s.append;
+	  s[]->from.print;
+	  ':'->s.append;
+	  s[]->to.print;
+	  ']'->s.append;
+       #);
+     type:: (# <<SLOT RepetitionSliceType: DoPart>> #);
+     reduce::
+       (#
+	  ass: ^AssignmentEvaluation;
+	  bef2: ^Evaluation;
+	  red: ^ReduceFunction;
+	  rsl: ^RepetitionSlice;
+       <<SLOT RepetitionSliceReduce: DoPart>>
+       #);
+     checkFollow:: (# do ad.checkFollow; from.checkFollow; to.checkFollow #);
+     checkComplete:: (# <<SLOT RepetitionSliceCheckComplete: DoPart>> #);
+     DoCexpr:: (# do exp->ad.putcexpr #);
+  enter (ad[],from[],to[])
+  do
+     this(RepetitionSlice)[]->ad.encl[];
+     this(RepetitionSlice)[]->from.encl[];
+     this(RepetitionSlice)[]->to.encl[];
+     NONE->fromvar[]->tovar[];
+     INNER;
+  exit this(RepetitionSlice)[]
+  #);
+NoneExp: Factor
+  (#
+     reduce:: (# do &NoneExp->exitopt[] #);
+     type:: (# <<SLOT NoneExpType: DoPart>> #);
+     print:: (# do 'NONE'->s.append #);
+     DoCexpr:: (# do '0'->c_file.cstream.put #);
+     getod:: (# do objectPattern[]->od[] #);
+  exit this(NoneExp)[]
+  #);
+AddressExp: Factor
+  (#
+     ad: ^AttributeDenotation;
+     print:: (# do '@@'->s.append; s[]->ad.print #);
+     DoCexpr:: (# <<SLOT AddressExpDoCexpr: DoPart>> #);
+     reduce:: (# ad2: ^AttributeDenotation <<SLOT AddressExpReduce: DoPart>> #);
+     type:: (# <<SLOT AddressExpType: DoPart>> #);
+     isconst:: (# do true->value #);
+     checkComplete:: (# <<SLOT AddressExpCheckComplete: DoPart>> #);
+  enter ad[]
+  do this(AddressExp)[]->ad.encl[]
+  exit this(AddressExp)[]
+  #);
+
+
+
+Transaction: Factor (# do INNER #);
+EvalList: Transaction
+  (#
+     ev: @EvaluationPtr;
+     print:: (# do '('->s.append; s[]->ev.print; ')'->s.append #);
+     checkFollow:: (# do ev.checkFollow #);
+     checkComplete:: (# do ev.checkComplete #);
+     reduce:: (# red: ^ReduceFunction <<SLOT EvalListReduce: DoPart>> #);
+     type:: (# <<SLOT EvalListType: DoPart>> #);
+     assignable:: (# do ev.assignable->value #);
+  enter ev
+  do this(EvalList)[]->ev.encl
+  exit this(EvalList)[]
+  #);
+ObjectReference: Transaction
+  (#
+     oe: ^ObjectEvaluation;
+     getad:: (# do oe.ad[]->thisad[] #);
+     checkComplete::
+       (# od: ^ObjectDescriptor
+       <<SLOT ObjectReferenceCheckComplete: DoPart>>
+       #);
+     reduce::
+       (# doit: @<<SLOT ObjectReferenceReduce: ObjectDescriptor>> do doit #);
+     DoCexpr:: (# <<SLOT ObjectReferenceDoCexpr: DoPart>> #);
+     assignable:: (# <<SLOT ObjectReferenceAssignable: DoPart>> #);
+     print:: (# do s[]->oe.print; '[]'->s.append #);
+     type:: (# <<SLOT ObjectReferenceType: DoPart>> #);
+  enter oe[]
+  do this(ObjectReference)[]->oe.encl[]; INNER
+  exit this(ObjectReference)[]
+  #);
+StructureReference: Transaction
+  (#
+     ad: ^AttributeDenotation;
+     getad:: (# do ad[]->thisad[] #);
+     checkComplete::
+       (# od: ^ObjectDescriptor
+       <<SLOT StructureReferenceCheckComplete: DoPart>>
+       #);
+     reduce::
+       (# resad: ^AttributeDenotation; before2: ^Evaluation
+       <<SLOT StructureReferenceReduce: DoPart>>
+       #);
+     DoCexpr:: (# <<SLOT StructureReferenceDoCexpr: DoPart>> #);
+     assignable:: (# <<SLOT StructureReferenceAssignable: DoPart>> #);
+     print:: (# do s[]->ad.print; '##'->s.append #);
+     type:: (# <<SLOT StructureReferenceType: DoPart>> #);
+  enter ad[]
+  do this(StructureReference)[]->ad.encl[]; INNER
+  exit this(StructureReference)[]
+  #);
+
+
+AnyDenotation: Transaction
+  (#
+     ad: ^AttributeDenotation;
+     getad:: (# do ad[]->thisad[] #);
+     getod:: (# do ad.getpatt->od[] #);
+     DoCexpr::<
+       (# doneininner: @boolean;
+       do INNER; (if not doneininner then exp->ad.putcexpr if);
+       #);
+  do INNER
+  #);
+ObjectEvaluation: AnyDenotation
+  (#
+     <<SLOT ObjectEvaluationLib: Attributes>>;
+     obj: ^ObjectSpecification;
+     dynamic: @Integer;
+     (* 0: normal ObjectEvaluation;
+        1: DynamicItemGeneration;
+	2: DynamicComponentGeneration *)
+
+     checkType:
+       (# od: ^ObjectDescriptor
+       <<SLOT ObjectEvaluationCheckType: DoPart>>
+       #);
+     checkFollow:: (# do (if dynamic=0 then obj.checkFollow->value if) #);
+     checkComplete:: (# <<SLOT ObjectEvaluationCheckComplete: DoPart>> #);
+     reduce::
+       (# doit: <<SLOT ObjectEvaluationReduce: ObjectDescriptor>> do doit #);
+     inenter, inexit: @Boolean;
+     print::
+       (#
+       do
+	  (if dynamic>0 then '&'->s.append if);
+	  (if dynamic>1 then '|'->s.append if);
+	  s[]->obj.print
+       #);
+  enter (obj[],dynamic)
+  <<SLOT ObjectEvaluationDoPart: DoPart>>
+  exit this(ObjectEvaluation)[]
+  #);

@@ -1,0 +1,31 @@
+ORIGIN 'compiler';
+INCLUDE 'filelist';
+INCLUDE 'bfile';
+INCLUDE 'option';
+INCLUDE 'repetition';
+--- CompilerInit: ObjectDescriptor ---
+(#
+do
+   fl.init;
+   sl.init;
+   ol.init;
+   tl.init;
+   fc.init;
+   opt.init;
+   NONE->mainorigin[];
+   nameTable;
+   cintf;
+   0->odserial;
+   &ErrorScreen[]->errstream[];
+   NONE->slotlist;
+   NONE->ObjectPattern[];
+   NONE->IntegerPattern[];
+   NONE->Repetition.pattern[];
+   NONE->Repetition.new[];
+   NONE->Repetition.extend[];
+   NONE->Repetition.size[];
+   NONE->Repetition.alsize[];
+   NONE->Repetition.elsize[];
+   
+   slotbind; (* JS initialize *)
+#)

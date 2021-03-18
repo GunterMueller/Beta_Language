@@ -1,0 +1,23 @@
+ORIGIN '../objectdesc';
+BODY 'forw';
+BODY 'strucdecl';
+BODY 'strucdef';
+
+(* JO Body for creation of definition of marking function *)
+BODY 'markdef';
+(* JO *)
+
+--- ObjectDescriptorPrivateLib: Attributes ---
+DoCstrucForw:
+  (# od: ^ObjectDescriptor <<SLOT ObjectDescriptorDoCstrucForw: DoPart>> #);
+DoCfuncForw: (# <<SLOT ObjectDescriptorDoCfuncForw: DoPart>> #);
+
+(* JO Calling creation of marking function declaration*)
+DoCmarkForw: (# <<SLOT ObjectDescriptorDoCmarkForw: DoPart>> #);
+(* Calling creation of marking function definition*)
+DoMark: (# <<SLOT ObjectDescriptorDoMarkDef: DoPart>> #);
+(* JO *)
+
+DoCstrucDecl: (# <<SLOT ObjectDescriptorDoCstrucDecl: DoPart>> #);
+DoCstrucDef:
+  (# isrep: @boolean <<SLOT ObjectDescriptorDoCstrucDef: DoPart>> #);

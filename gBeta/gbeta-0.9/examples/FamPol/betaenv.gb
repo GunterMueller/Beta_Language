@@ -1,0 +1,50 @@
+-- betaenv:descriptor --
+(#
+   <<SLOT lib:attributes>>;
+   newline: (# do '\n'->stdio #);
+   puttext: (# enter stdio do INNER #);
+   putline: puttext(# do '\n'->stdio #);
+   putint: 
+     (# n,i: @integer; c: @char; w: [12]@char
+     enter n
+     do (if n<0 then '-'->stdio; -n->n if);
+        L:
+          (if n=0 then
+              (if i=0 then '0'->stdio else
+                  (for j:i repeat w[i-j+1]+'0'->c->stdio for)
+              if)
+           else
+              n mod 10 -> w[i+1->i];
+              n div 10 -> n;
+              restart L
+          if)
+     #);
+   int2str:
+     (# n,i: @integer; w: [12]@char; neg: @boolean; result: @string
+     enter n
+     do (if n<0 then true->neg; -n->n else false->neg if);
+        L:
+          (if n=0 then
+              (if i=0 then '0'->result else
+                  (# wres: [i] @char
+                  do (for j:i repeat w[i-j+1]+'0'->wres[j] for);
+                     wres->result
+                  #)
+              if)
+           else
+              n mod 10 -> w[i+1->i];
+              n div 10 -> n;
+              restart L
+          if);
+        (if neg then '-'+result->result if)
+     exit result
+     #);
+
+   cycle: (# do INNER; restart cycle #);
+   max: (# i,j: @integer enter (i,j) do (if i<j then j->i if) exit i #);
+   min: (# i,j: @integer enter (i,j) do (if i>j then j->i if) exit i #);
+   theProgram: @<<SLOT program:merge>>;
+do
+   theProgram
+#)
+

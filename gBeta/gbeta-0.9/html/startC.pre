@@ -1,0 +1,8 @@
+include(startstd.m4)dnl
+_deflr(`',`')dnl
+define(`_start_toc_entry',
+  `_startref(define(`inx',incr(inx))inx,<LI>$1</LI>)')dnl
+define(`inx',`0')dnl
+begin_start(`Contents')
+
+<OL>

@@ -1,0 +1,14 @@
+ORIGIN 'bfile';
+--- SpecialDescriptor: ObjectDescriptor ---
+(#
+   ctype: @text;
+   isboolean,isexternal,fromexternal,toexternal: @Boolean;
+   isrepetition: @Boolean;
+   externaltype: @Integer
+enter (ctype,isboolean,isexternal)
+exit this(SpecialDescriptor)[]
+#)
+
+
+--- CompilerLib: Attributes ---
+ExternalC: (# exit 0 #);

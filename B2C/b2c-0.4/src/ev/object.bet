@@ -1,0 +1,98 @@
+ORIGIN '../evaluationlib.bet';
+INCLUDE 'basic';
+INCLUDE 'type';
+INCLUDE '../eelib';
+INCLUDE '../objectdesc';
+INCLUDE '../specialdesc';
+INCLUDE '../att/fakepdecl';
+--- ObjectEvaluationDoPart: DoPart ---
+do
+   this(ObjectEvaluation)[]->obj.encl[];
+   false->inenter->inexit;
+   (if obj##<=AttributeDenotation## then
+      obj[]->ad[]
+   else
+      (# od: ^ObjectDescriptor do obj[]->od[]; '*'->od.private.nme[] #)
+   if);
+   INNER;
+
+
+
+--- ObjectEvaluationCheckComplete: DoPart ---
+do
+   (if ad[]=NONE then obj[]->fakePatternDecl->ad[] if);
+   (if dynamic<>0 then obj.checkFollow; if);
+   obj.checkComplete;
+   checkType##->c_file.todoReduce;
+
+
+--- ObjectEvaluationCheckType: DoPart ---
+do
+   (if (dynamic<>0) and not obj.ispattern then
+      'This should be a pattern!'->error
+   if);
+   (if (obj.getpatt->od[])<>NONE then
+      (if od.isbasic and obj.ispattern then
+         (if not od.private.sd.toexternal then
+	    'You cannot use a basic item (like Integer, Boolean, etc.) here!'
+	       ->error;
+	 if)
+      if)
+   if);
+
+
+--- ObjectEvaluationReduce: ObjectDescriptor ---
+(#
+   od: ^ObjectDescriptor;
+   before2: ^Evaluation;
+   newad: ^AttributeDenotation;
+   hasDoPart: @Boolean;
+   ce: ^CallExternal;
+do
+   (if toadd[]=NONE then ad[]->newad[] else toadd[]->ad.copy->newad[] if);
+
+   (* DEBUG
+   (# t: @text;
+   do
+      'Entry to ObjectEvaluationReduce:'->putline;
+      'toadd: '->t;
+      (if toadd[]<>NONE then t[]->toadd.getcexpr else 'NONE'->t.append if);
+      t[]->putline;
+      'ad: '->t;
+      (if ad[]<>NONE then t[]->ad.getcexpr else 'NONE'->t.append if);
+      t[]->putline;
+      'newad: '->t;
+      (if newad[]<>NONE then t[]->newad.getcexpr else 'NONE'->t.append if);
+      t[]->putline;
+   #);
+   *)
+
+   newad.reduce->before[];
+   (if (newad.getpatt->od[])<>NONE then
+      (if od.isbasic then
+	 (if od.private.sd.isexternal then
+	    (if not od.private.sd.toexternal then
+	       'Cannot call this external!'->error;
+	    else
+	       (ad[],newad[])->&CallExternal->ce[]->enteropt[];
+	       ce.MainPart[]->main[];
+	       ce.ExitExternal[]->exitopt[];
+	    if);
+	 else
+	    newad[]->&EnterExitSimple->enteropt[];
+	    newad[]->&EnterExitSimple->exitopt[];
+	 if)
+      else
+	 ((od.private.funcname[]<>NONE) or
+	  ((od.private.innerVirtual>=0) and ad.maybesubpattern))->hasDoPart;
+	 (if newad.ispattern and (hasDoPart or not od.private.noAtts) then
+	    (newad[],(dynamic<>0)or ad.isvirtual or ad.ispvariable)->ee.item
+	      ->(newad[],before2[]);
+	    (before[],before2[])->EvaluationJoin->before[];
+	 if);
+	 (if not od.isrep and hasDoPart then newad[]->&CallPattern->main[] if);
+	 (newad[],true)->&EnterExitComplex->enteropt[];
+	 (newad[],false)->&EnterExitComplex->exitopt[];
+      if);
+   if);
+#)

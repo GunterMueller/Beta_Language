@@ -1,0 +1,13 @@
+ORIGIN 'attden';
+INCLUDE 'ctype';
+--- GetcexprLib: Attributes ---
+denote:
+  (#
+  do
+     (if ctype
+       // ctype_none then 'th->'->t.append
+       // ctype_objectptr then '->'->t.append
+       // ctype_object then '.'->t.append
+       // ctype_immediate then (* do nothing *)
+     if)
+  #);

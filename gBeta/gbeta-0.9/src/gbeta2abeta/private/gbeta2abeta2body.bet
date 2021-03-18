@@ -1,0 +1,505 @@
+(* FILE "./gbeta2abeta/private/gbeta2abeta3body.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: gbeta2abeta2body.bet,v 1.6 2001/07/01 21:44:10 eernst Exp $
+ *)
+
+ORIGIN 'gbeta2abetaAutogen';
+INCLUDE '~beta/basiclib/numberio';
+INCLUDE '../../beta2abeta/private/betaastbody';
+INCLUDE '../../utils';
+INCLUDE 'gbeta2abeta1body'
+
+-- gBeta2abetaLib:attributes --
+
+gDescriptorFormCase: gBeta2abetaPrefix
+  (# name::(# do 'DescriptorForm'->value[] #);
+     node: ^DescriptorForm
+  do mpsAst[]->node[];
+     (focus[],node.getObjectDescriptor)
+       ->descriptorOrSlotToLevelTwo
+       ->l2ast[]
+  #);
+
+gAttributesFormCase: gBeta2abetaPrefix
+  (# name::(# do 'AttributesForm'->value[] #);
+     node: ^AttributesForm;
+     l2attr: ^interpreterbase.l2AttributesForm
+  do mpsAst[]->node[];
+
+     (* create new level-2 node *)
+     (&ib.l2AttributesForm[]).init->l2attr[];
+     
+     (* transform and collect attributes *)
+     (focus[],node.getAttributes,l2attr.Attributes[])
+       ->attributesOrSlotToLevelTwo;
+     
+     (* deliver result *)
+     l2attr[]->l2ast[]
+  #);
+
+gObjectDescriptorCase: gBeta2abetaPrefix
+  (# name::(# do 'ObjectDescriptor'->value[] #);
+     node: ^ObjectDescriptor;
+     maybePrefix: ^ast;
+     theMainPart: ^MainPart;
+     ignoreDclNode: ^fragmentGraph.node;
+     l2desc: ^interpreterbase.l2ObjectDescriptor
+       
+  do mpsAst[]->node[];
+
+     (* create new level-2 node *)
+     (&ib.l2ObjectDescriptor[]).init->l2desc[];
+
+     (* transform prefix *)
+     node.getPrefixOpt->maybePrefix[];
+     (if maybePrefix.symbol
+      // SimplePrefix then
+         (# theSPrefix: ^SimplePrefix;
+         do maybePrefix[]->theSPrefix[];
+            (focus[],theSPrefix.getAttributeDenotation,AttributeDenotation##)
+              ->astOrSlotToLevelTwo
+              ->l2desc.Prefix.append
+         #)
+      // CompositePrefix then 
+         (# theMerge: ^Merge;
+            theCPrefix: ^CompositePrefix
+         do maybePrefix[]->theCPrefix[];
+            theCPrefix.getMerge->theMerge[];
+            (focus[],theMerge[],l2desc.Prefix[]
+            ,Merge##,ObjectSpecification##)
+              ->astlistOrSlotsToLevelTwo;
+            theMerge[]->l2desc.Prefix.Identity.mpsAst[]
+         #)
+     if);
+     
+     (* transform main-part *)
+     (focus[],node.getMainPart,MainPart##)
+       ->astOrSlotToLevelTwo
+       ->l2desc.MainPart[];
+     
+     (* deliver result *)
+     l2desc[]->l2ast[]
+  #);
+
+gLongMainPartCase: gBeta2abetaPrefix
+  (# name::(# do 'LongMainPart'->value[] #);
+     node: ^LongMainPart;
+     ActionPartOrSlot: ^ast;
+     unexpan: ^unexpanded;
+     slot: ^slotDesc;
+     ff: ^fragmentForm;
+     dclNode,enterDclNode,doDclNode,exitDclNode: ^fragmentGraph.node;
+     theActionPart: ^ActionPart;
+     theEnterPart: ^EnterPart;
+     theDopart: ^Dopart;
+     theExitPart: ^ExitPart;
+     l2mpart: ^interpreterbase.l2MainPart
+       
+  do (* !!! combine/compact LongMainPart/ShortMainPart: almost the same *)
+     mpsAst[]->node[];
+
+     (* create new level-2 node *)
+     (&ib.l2MainPart[]).init->l2mpart[];
+
+     (* transform and collect attributes *)
+     (focus[],node.getAttributes,l2mpart.Attributes[])
+       ->attributesOrSlotToLevelTwo;
+
+     (* extract action part *)
+     (focus[],node.getActionPart,ActionPart##)
+       ->astOrSlotToAst
+       ->(dclNode[],theActionPart[]);
+     (if theActionPart[]<>NONE then
+         (dclNode[],theActionPart.getEnterPartOpt,EnterPart##)
+           ->astOrSlotOrMissingToAst
+           ->(enterDclNode[],theEnterPart[]);
+         (dclNode[],theActionPart.getDoPartOpt,DoPart##)
+           ->astOrSlotOrMissingToAst
+           ->(doDclNode[],theDoPart[]);
+         (dclNode[],theActionPart.getExitPartOpt,ExitPart##)
+           ->astOrSlotOrMissingToAst
+           ->(exitDclNode[],theExitPart[])
+     if);
+     
+     (* transform enter-part *)
+     (if theEnterPart[]<>NONE then
+         (enterDclNode[],theEnterPart.getEvaluation,Evaluation##)
+           ->astOrSlotToLevelTwo
+           ->l2mpart.EnterPartOpt[]
+     if);
+
+     (* transform and collect imperatives from do-part *)
+     (if theDoPart[]<>NONE then
+         (doDclNode[],theDoPart.getImperatives,l2mpart.DoPartOpt[],
+         Imperatives##,Imp##)
+           ->astListOrOneSlotToLevelTwo
+     if);
+
+     (* transform exit-part *)
+     (if theExitPart[]<>NONE then
+         (exitDclNode[],theExitPart.getEvaluation,Evaluation##)
+           ->astOrSlotToLevelTwo
+           ->l2mpart.ExitPartOpt[]
+     if);
+
+     (* deliver result *)
+     l2mpart[]->l2ast[]
+  #);
+
+gShortMainPartCase: gBeta2abetaPrefix
+  (# name::(# do 'ShortMainPart'->value[] #);
+     node: ^ShortMainPart;
+     ActionPartOrSlot: ^ast;
+     unexpan: ^unexpanded;
+     slot: ^slotDesc;
+     ff: ^fragmentForm;
+     dclNode,enterDclNode,doDclNode,exitDclNode: ^fragmentGraph.node;
+     theActionPart: ^ActionPart;
+     theEnterPart: ^EnterPart;
+     theDopart: ^Dopart;
+     theExitPart: ^ExitPart;
+     l2mpart: ^interpreterbase.l2MainPart
+
+  do (* !!! combine/compact LongMainPart/ShortMainPart: almost the same *)
+     mpsAst[]->node[];
+
+     (* create new level-2 node *)
+     (&ib.l2MainPart[]).init->l2mpart[];
+
+     (* transform and collect attributes *)
+     (focus[],node.getAttributes,l2mpart.Attributes[])
+       ->attributesOrSlotToLevelTwo;
+
+     (* extract action part *)
+     (focus[],node.getActionPart,ActionPart##)
+       ->astOrSlotToAst
+       ->(dclNode[],theActionPart[]);
+     (dclNode[],theActionPart.getEnterPartOpt,EnterPart##)
+       ->astOrSlotOrMissingToAst
+       ->(enterDclNode[],theEnterPart[]);
+     (dclNode[],theActionPart.getDoPartOpt,DoPart##)
+       ->astOrSlotOrMissingToAst
+       ->(doDclNode[],theDoPart[]);
+     (dclNode[],theActionPart.getExitPartOpt,ExitPart##)
+       ->astOrSlotOrMissingToAst
+       ->(exitDclNode[],theExitPart[]);
+
+     (* transform enter-part *)
+     (if theEnterPart[]<>NONE then
+         (enterDclNode[],theEnterPart.getEvaluation,Evaluation##)
+           ->astOrSlotToLevelTwo
+           ->l2mpart.EnterPartOpt[]
+     if);
+
+     (* transform and collect imperatives from do-part *)
+     (if theDoPart[]<>NONE then
+         (doDclNode[],theDoPart.getImperatives,l2mpart.DoPartOpt[],
+         Imperatives##,Imp##)
+           ->astListOrOneSlotToLevelTwo
+     if);
+
+     (* transform exit-part *)
+     (if theExitPart[]<>NONE then
+         (exitDclNode[],theExitPart.getEvaluation,Evaluation##)
+           ->astOrSlotToLevelTwo
+           ->l2mpart.ExitPartOpt[]
+     if);
+
+     (* deliver result *)
+     l2mpart[]->l2ast[]
+  #);
+
+gAttributesCase: gBeta2abetaPrefix
+  (# name::(# do 'Attributes'->value[] #);
+     node: ^Attributes
+  do 'Attributes'->unexpected
+     (* done in Long/Short-MainPart and AttributesForm *)
+  #);
+
+gPatternDeclCase: gBeta2abetaPrefix
+  (# name::(# do 'PatternDecl'->value[] #);
+     msg::(# do l2pdecl.Names[]->NamesAsText->value[] #);
+     node: ^PatternDecl;
+     theNames: ^Names;
+     theMerge: ^Merge;
+     l2pdecl: ^interpreterbase.l2PatternDecl
+
+  do mpsAst[]->node[];
+
+     (* create new level-2 node *)
+     (&ib.l2PatternDecl[]).init->l2pdecl[];
+
+     (* extract names from node *)
+     node.getNames->theNames[];
+     (theNames[],l2pdecl.Names[],l2pdecl.theDeclNode[])
+       ->fill_l2NameDclList;
+     
+     (* extract object specifications from node *)
+     node.getMerge->theMerge[];
+     (focus[],theMerge[],l2pdecl.ObjectSpecifications[]
+     ,Merge##,ObjectSpecification##)
+       ->astlistOrSlotsToLevelTwo;
+     theMerge[]->l2pdecl.ObjectSpecifications.Identity.mpsAst[];
+
+     (* deliver result *)
+     l2pdecl[]->l2ast[]
+  #);
+
+gSimpleDeclCase: gBeta2abetaPrefix
+  (# name::(# do 'SimpleDecl'->value[] #);
+     node: ^SimpleDecl;
+     theNames: ^Names;
+     l2sdecl: ^interpreterbase.l2SimpleDecl
+
+  do mpsAst[]->node[];
+
+     (* create new level-2 node *)
+     (&ib.l2SimpleDecl[]).init->l2sdecl[];
+
+     (* transform names *)
+     node.getNames->theNames[];
+     (theNames[],l2sdecl.Names[],l2sdecl.theDeclNode[])
+       ->fill_l2NameDclList;
+     
+     (* transform rhs *)
+     (focus[],node.getReferenceSpecification,ReferenceSpecification##)
+       ->astOrSlotToLevelTwo
+       ->l2sdecl.ReferenceSpecification[];
+
+     (* deliver result *)
+     l2sdecl[]->l2ast[]
+  #);
+
+gRepetitionDeclCase: gBeta2abetaPrefix
+  (# name::(# do 'RepetitionDecl'->value[] #);
+     node: ^RepetitionDecl;
+     theNames: ^Names;
+     theL2Index: ^interpreterbase.l2AstNode;
+     theL2Names: ^interpreterbase.l2NameDclList
+
+  do mpsAst[]->node[];
+     
+     (* extract sub-nodes from node *)
+     node.getNames->theNames[];
+     
+     (focus[],node.getIndex,Index##)
+       ->astOrSlotToLevelTwo
+       ->theL2Index[];
+     
+     (* check which kind of index we got *)
+     (if true 
+      // theL2Index##<=ib.l2SimpleIndex## then
+         (# l2rdecl: ^interpreterbase.l2RepetitionDecl
+         do (* create new level-2 node *)
+            (&ib.l2RepetitionDecl[]).init->l2rdecl[];
+
+            (* transform *)
+            (theNames[],l2rdecl.Names[],l2rdecl.theDeclNode[])
+              ->fill_l2NameDclList;
+            l2rdecl.Names[]->theL2Names[]; (* to enable 'msg' *)
+            theL2Index[]->l2rdecl.SimpleIndex[];
+            (focus[],node.getReferenceSpecification,ReferenceSpecification##)
+              ->astOrSlotToLevelTwo
+              ->l2rdecl.ReferenceSpecification[];
+            
+            (* deliver result *)
+            l2rdecl[]->l2ast[]
+         #)
+         
+      // theL2Index##<=ib.l2NamedIndex## then
+         (# l2nrdcl: ^interpreterbase.l2NamedRepetitionDecl;
+            l2rsco: ^interpreterbase.l2RepetitionScope
+         do (* create new level-2 nodes, connect them *)
+            (&ib.l2NamedRepetitionDecl[]).init->l2nrdcl[];
+            (&ib.l2RepetitionScope[]).init->l2rsco[];
+            mpsAst[]->l2rsco.mpsAst[]; (* !! any better choice? *)
+            l2rsco[]->l2nrdcl.RepetitionScope[];
+            
+            (* transform *)
+            (theNames[],l2nrdcl.Names[],l2nrdcl.theDeclNode[])
+              ->fill_l2NameDclList;
+            l2nrdcl.Names[]->theL2Names[]; (* to enable 'msg' *)
+            theL2Index[]->l2rsco.NamedIndex[];
+            (focus[],node.getReferenceSpecification,ReferenceSpecification##)
+              ->astOrSlotToLevelTwo
+              ->l2rsco.ReferenceSpecification[];
+            
+            (* deliver result *)
+            l2nrdcl[]->l2ast[]
+         #);
+      else
+         node.getIndex->badAst
+     if)
+  #);
+
+vdeclCase:
+  (# inDeclType:< AttributeDecl;
+     outDeclType:< ib.l2VDecl;
+     finish:< object;                   (* invoked last *)
+     focus: ^fragmentGraph.node;
+     node: ^inDeclType;
+     theNames: ^Names;
+     theOSpecNode: ^ast;
+     l2decl: ^outDeclType
+
+  enter (focus[],node[])
+
+  do (*test-focus (focus[],node[])->checkFocus;*)
+
+     (* "extract sub-nodes from node" does not typecheck when
+      * placed here, so we must put it in all specializations. *)
+     INNER;
+
+     (* create new level-2 node *)
+     (&outDeclType[]).init->l2decl[];
+
+     (* transform *)
+     (theNames[],l2decl.Names[],l2decl.theDeclNode[])
+       ->fill_l2NameDclList;
+     (focus[],theOSpecNode[],l2decl.ObjectSpecifications[]
+     ,Merge##,ObjectSpecification##)
+       ->astListOrSlotsToLevelTwo;
+     theOSpecNode[]->l2decl.ObjectSpecifications.Identity.mpsAst[];
+
+     (* let the specialization do more, if needed *)
+     finish;
+
+  exit l2decl[]
+  #);
+
+gVirtualDeclCase: gBeta2abetaPrefix
+  (# name::(# do 'VirtualDecl'->value[] #)
+  do (focus[],mpsAst[])->vdeclCase
+     (# inDeclType::VirtualDecl;
+        outDeclType::ib.l2VirtualDecl;
+        finish::
+          (# theRestrictionPart: ^RestrictionPart;
+             ignoreDclNode: ^fragmentGraph.node;
+             maybeDisown: ^ast
+          do (* transform restrictions *)
+             (focus[],node.getRestrictionOpt,RestrictionPart##)
+               ->astOrSlotOrMissingToAst
+               ->(ignoreDclNode[],theRestrictionPart[]);
+             (if theRestrictionPart[]<>NONE then
+                 (focus[],theRestrictionPart.getRestrictions
+                 ,l2decl.Restrictions[],Restrictions##
+                 ,Restriction##)->astListOrOneSlotToLevelTwo
+             if);
+             (focus[],node.getDisownOpt,Disown##)
+               ->astOrSlotOrMissingToAst
+               ->(ignoreDclNode[],maybeDisown[]);
+             (maybeDisown[]<>NONE)->l2decl.Disown
+          #)
+     do (* extract sub-nodes from node *)
+        node.getNames->theNames[];
+        node.getMerge->theOSpecNode[]
+        (* let super set up the l2ast, then 'finish' *)
+     #)->l2ast[]
+  #);
+
+gRestrictionCase: gBeta2abetaPrefix
+  (# name::(# do 'Restriction'->value[] #);
+     node: ^Restriction;
+     l2rest: ^interpreterbase.l2Restriction
+  do mpsAst[]->node[];
+     (&ib.l2Restriction[]).init->l2rest[];
+     (focus[],node.getAttributeDenotation,AttributeDenotation##)
+       ->astOrSlotToLevelTwo
+       ->l2rest.AttributeDenotation[];
+     l2rest[]->l2ast[]
+  #);
+
+gBindingDeclCase: gBeta2abetaPrefix
+  (# name::(# do 'BindingDecl'->value[] #)
+  do (focus[],mpsAst[])->vdeclCase
+     (# inDeclType::BindingDecl;
+        outDeclType::ib.l2BindingDecl;
+        finish::
+          (* because of type diffs. we have to do most of this 
+           * separately but just like in 'gVirtualCase'; the 
+           * trade-off is that by moving 'Restrictions' to 'l2VDecl' 
+           * we would avoid this duplication, but then we would have 
+           * to check that 'l2FinalDecl' does not have restrictions *)
+          (# theRestrictionPart: ^RestrictionPart;
+             ignoreDclNode: ^fragmentGraph.node;
+             maybeDisown,maybeSwap: ^ast
+          do (* transform restrictions *)
+             (focus[],node.getRestrictionOpt,RestrictionPart##)
+               ->astOrSlotOrMissingToAst
+               ->(ignoreDclNode[],theRestrictionPart[]);
+             (if theRestrictionPart[]<>NONE then
+                 (focus[],theRestrictionPart.getRestrictions
+                 ,l2decl.Restrictions[],Restrictions##
+                 ,Restriction##)->astListOrOneSlotToLevelTwo
+             if);
+             (focus[],node.getDisownOpt,Disown##)
+               ->astOrSlotOrMissingToAst
+               ->(ignoreDclNode[],maybeDisown[]);
+             (maybeDisown[]<>NONE)->l2decl.Disown;
+             (focus[],node.getSwapOpt,Swap##)
+               ->astOrSlotOrMissingToAst
+               ->(ignoreDclNode[],maybeSwap[]);
+             (maybeSwap[]<>NONE)->l2decl.Swap
+          #)
+     do (* extract sub-nodes from node *)
+        node.getNames->theNames[];
+        node.getMerge->theOSpecNode[]
+     #)->l2ast[]
+  #);
+
+gFinalDeclCase: gBeta2abetaPrefix
+  (# name::(# do 'FinalDecl'->value[] #)
+  do (focus[],mpsAst[])->vdeclCase
+     (# inDeclType::FinalDecl;
+        outDeclType::ib.l2FinalDecl;
+        finish::
+          (# ignoreDclNode: ^fragmentGraph.node;
+             maybeSwap: ^ast
+          do (focus[],node.getSwapOpt,Swap##)
+               ->astOrSlotOrMissingToAst
+               ->(ignoreDclNode[],maybeSwap[]);
+             (maybeSwap[]<>NONE)->l2decl.Swap
+          #)
+     do (* extract sub-nodes from node *)
+        node.getNames->theNames[];
+        node.getMerge->theOSpecNode[]
+     #)->l2ast[]
+  #)
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

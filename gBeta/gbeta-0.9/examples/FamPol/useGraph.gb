@@ -1,0 +1,18 @@
+ORIGIN 'betaenv';
+INCLUDE 'graph'
+
+-- program:merge --
+(# 
+   build:
+     (# g:< @Graph; n: ^g.Node; e: ^g.Edge; b: @boolean
+     enter (n[],e[],b)
+     do n->e.n1[]->e.n2[]; 
+        (if (e->n.touches)=b then 'OK\n'->stdio if)
+     #);
+   g1: @Graph; g2: @OnOffGraph
+do
+   (g1.Node,g1.Edge,true)->build(# g::@g1 #);
+   (g2.Node,g2.Edge,false)->build(# g::@g2 #);
+   (* (g2.Node,g1.Edge,false)->build(# g::@g1 #); type error *)
+   (* (g2.Node,g1.Edge,false)->build(# g::@g2 #); type error *)
+#)

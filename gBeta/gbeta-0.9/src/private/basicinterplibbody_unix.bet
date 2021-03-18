@@ -1,0 +1,122 @@
+(* FILE "./private/basicinterplibbody_unix.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: basicinterplibbody_unix.bet,v 1.17 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN 'basicinterplib1body';
+INCLUDE '~beta/process/processmanager';
+INCLUDE '~beta/process/commpipe';
+INCLUDE '~beta/process/private/sysFdStream_unix';
+INCLUDE '~beta/sysutils/iostate'
+
+-- OSSystemEntityGetEnterIter:dopart --
+do
+   &enterOnce
+   (# l0trs: ^l0TransientString;
+      child: @process
+   do (thrd[],unwind##,l0tr[])->transient_many2string->l0trs[];
+      (l0trs).reset;
+      (l0trs).getline->child.init;
+      L: (if not (l0trs).eos then 
+             (l0trs).getline->child.argument.append;
+             restart L
+         if);
+      child.start;
+      (* !! this stops the global progress, so we would like to remove it,
+       * but then the output of different tasks would get mixed up.. *)
+      child.awaitstopped
+   #)[]->ni[]
+
+-- OSSystemEntityGetEnterExitIter:dopart --
+do
+   (# child: @process;
+      output: @pipe; (* to this interpreter from the child stdout *)
+   do 
+      &enterOnce
+      (# l0trs: ^l0TransientString
+      do (thrd[],unwind##,l0tr[])->transient_many2string->l0trs[];
+         (l0trs).reset;
+         (l0trs).getline->child.init;
+         (* retrieve and set up arguments to the child process *)
+         L: (if not (l0trs).eos then 
+                (l0trs).getline->child.argument.append;
+                restart L
+            if);
+         (* set up connection that delivers child process output to us *)
+         output.init;
+         output.writeEnd[]->child.redirectToChannel;
+         (* start the child process *)
+         child.start;
+      #)[]->ni[];
+      osSystemEntity[]->ni.usageEntity[];
+      
+      (* create an exitIter which delivers the resulting output *)
+      &exitOnce
+      (# l0trs: ^l0TransientString;
+         stdout: ^text
+      do &l0TransientString[]->l0trs[]->l0tr[];
+         NONE->l0tr.usageAst[];
+         false->l0trs.singleton;
+         (* retrieve output produced by the child process *)
+         &text[]->stdout[];
+         L: (if not output.readend.eos then
+                output.readend.get->stdout.put;
+                restart L
+            if);
+         (* finish the child process *)
+         output.readend.close;
+         (* !!! used to do 'child.awaitStopped' here, but that blocks this 
+          * process, seemingly forever; so now we just let gbeta handle
+          * SIGCHLD in a signal handler that always does 'wait' and
+          * drops the status info from that child process; this means that
+          * we enforce a global don`t-care policy wrt. child process
+          * success/failure, but the alternatives do not seem to work..
+          *)
+         (* remove the EOF "-1" char at the end of the output, if present *)
+         (if (not stdout.empty) and
+             ((stdout.length->stdout.inxget)='\377') then
+             stdout.lgth-1->stdout.lgth
+         if);
+         (* deliver 'stdout' as the result *)
+         stdout[]->l0trs.value[]
+      #)[]->xi[];
+      osSystemEntity[]->xi.usageEntity[]
+   #)
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

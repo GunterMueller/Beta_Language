@@ -1,0 +1,24 @@
+(* A "computed object evaluation" is an expression that ends in a '!'.
+ * The meaning of 'x!' is: evaluate 'x' (which must deliver exactly 
+ * one object reference) then use the resulting object.  So the 
+ * expressions below will operate on the string 's'.  In the last
+ * case we use 6 '!' operators, every one of them operating on the same 
+ * object, namely the temporary instance of the main part (# .. #) in
+ * the last three lines of the do-part.  Finally, the [] operator 
+ * retrieves a reference to that same object, and the computed remote,
+ * '(...).test' performs a lookup operation on that object.  That 
+ * lookup finds the method 'test' and invokes it, and that method 
+ * prints "test object ref. case" *)
+-- betaenv:descriptor --
+(#
+do 'test computed object evaluation\n'
+     ->(# s: @string do INNER exit s[] #)!
+     ->stdio;
+   'test dynamic variant\n'
+     ->(# s: ^string do &s exit s[] #)!
+     ->stdio;
+   ((# test: (# do 'test object ref. case\n'->stdio #);
+    do 'hi, '->stdio;
+    exit this(object)[] 
+    #)!!!!!![]).test
+#)

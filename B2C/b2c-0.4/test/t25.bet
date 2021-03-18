@@ -1,0 +1,21 @@
+ORIGIN '../basiclib/v1.4/betaenv';
+--- Program: ObjectDescriptor ---
+(* check computed remotes *)
+(#
+   t: @text;
+   gtype: (# one: (# do 'one'->putline #) #);
+   gt: ^gtype;
+   v: (# r: @type; type:< gtype exit r[] #);
+   vv: @v;
+   w: v (# type::< (# two: (# do 'two'->putline #) #) #);
+   ww: @w;
+
+   MkText: (# t: @text enter t exit t[] #);
+do
+   '1234'->t;
+   '5'->(t[]).append->putline;
+   '6'->(t.copy).append->putline;
+   'D'->('ABC'->&MkText).append->putline;
+   (v).one;
+   (w).two;
+#)

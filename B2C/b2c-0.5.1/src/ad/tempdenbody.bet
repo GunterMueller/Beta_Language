@@ -1,0 +1,20 @@
+ORIGIN 'tempden';
+INCLUDE 'backlevel';
+INCLUDE 'bitch';
+INCLUDE '../ctype';
+INCLUDE '../namebitch';
+INCLUDE '../objectdesc';
+--- TemporaryDenotationDoPart: DoPart ---
+do
+   att.att.names.ptr[]->nme[];
+   nme.str->str;
+   (if att.att.encl[]=NONE then
+      'TemporaryDenotation: att.att.encl is empty!'->putline
+   else
+      false->att.att.encl.private.noAtts
+   if);
+   (att.att.encl[],0)->&DirectBacklevel->prec[];
+
+
+--- TemporaryDenotationNoPrec: DoPart ---
+do (if local then true->value; ctype_immediate->ctype if)

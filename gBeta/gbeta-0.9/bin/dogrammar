@@ -1,0 +1,29 @@
+#!/bin/sh
+
+GBETA_VERSION=0.9
+
+do_one () {
+    # expected args: grammarname dir
+    olddir=`pwd`
+    cd $2
+    touch *.gram
+    dogram $1
+    cd $olddir
+}
+
+cd ${GBETA_ROOT:-$HOME/gbeta-${GBETA_VERSION}}/grammars
+do_one gbeta gbeta
+
+cd metagram
+srcdir=${BETALIB:-/usr/local/lib/beta}/grammars/metagram
+cp -f $srcdir/metagrammar-meta.ast* .
+cp -f $srcdir/metagrammar-parser.btab* .
+cp -f $srcdir/metagrammar.ast* .
+cd ..
+
+cd beta
+srcdir=${BETALIB:-/usr/local/lib/beta}/grammars/beta
+cp -f $srcdir/beta-meta.ast* .
+cp -f $srcdir/beta-parser.btab* .
+cp -f $srcdir/beta.ast* .
+cd ..

@@ -1,0 +1,40 @@
+ORIGIN 'compiler';
+INCLUDE 'getopt';
+INCLUDE 'machine';
+--- CompilerOptions: ObjectDescriptor ---
+(#
+   warnQua: @Boolean;		(* warn about qualification checks *)
+   genSlotMap: @Boolean;	(* generate .sb and .fm files with slot maps *)
+   recompile: @Boolean;		(* force recompilation *)
+
+   defaults:
+     (# do true->warnQua; false->genSlotMap->recompile #);
+   init: defaults (# #);
+
+   (* process command line options *)
+   commandLine:
+     (#
+	firstfilearg: @integer;
+	forceAnsi: @boolean;
+	forceGCC: @boolean;
+	cnt: @integer;
+     do
+	'fmqAG'->getopt
+	  (#
+	  do
+	     (if opt
+	     // 'f' then true->recompile
+	     // 'm' then true->genSlotMap
+	     // 'q' then false->warnQua
+	     // 'A' then true->forceAnsi
+	     // 'G' then true->forceGCC
+	     if)
+	  #)->firstfilearg;
+	(if forceGCC then mi.gcc if);
+	(if forceAnsi then
+	   mi.ansi.range->cnt->mi.copt.extend;
+	   (for i:cnt repeat mi.ansi[i][]->mi.copt[mi.copt.range-cnt+i][] for);
+	if);
+     exit firstfilearg
+     #);
+#)

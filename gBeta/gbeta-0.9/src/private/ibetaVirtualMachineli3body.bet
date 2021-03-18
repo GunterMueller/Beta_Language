@@ -1,0 +1,1169 @@
+(* FILE "./private/ibetaVirtualMachineli3body.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaVirtualMachineli3body.bet,v 1.28 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN 'ibetaVirtualMachinelib';
+INCLUDE 'basicinterplib';
+INCLUDE 'ibetaCommonlib';
+INCLUDE 'ibetaOnelib';
+INCLUDE 'ibetaVirtualMachineliblib'
+
+-- IndexedAccessCodePrint:dopart --
+do
+   (dest[],indentation,false)->where.print;
+   ', index '->output;
+   (dest[],indentation,false)->l2eval.print;
+   ', eval '->output;
+   (dest[],indentation,false)->evalWhere.print;
+   INNER
+
+-- IndexedAccessCodePrintShort:dopart --
+do
+   shorttypename->output;
+   (dest[],indentation,false)->where.print;
+   '/'->output;
+   (dest[],indentation,false)->l2eval.print;
+   INNER
+
+-- IndexedAccessCodePrintCode:dopart --
+do
+   ' '->output;
+   (dest[],indentation,false)->where.printCode;
+   ', index '->output;
+   (dest[],indentation,false)->l2eval.print;
+   INNER
+
+-- IndexedAccessCodeExecute:dopart --
+do
+   (* No matter what kind of access to a repetition 
+    * entry, we must look up the repetition *)
+   (thrd[],unwind##,dContext[])
+     ->where.performDynamicButOne(# impossible::(# do where[]->walkFail #)#)
+     ->targetContext[];
+   
+   (* We could check this (but BETA will detect it and it would be 
+    * an internal error anyway):
+    * 
+    *   (if where.empty then
+    *       'IndexedAccessCodeExecute: Repetition seems to be current context'
+    *         ->internalError
+    *   if);
+    * 
+    * So we may assume that where is not empty here
+    *)
+   
+   (thrd[],unwind##,targetContext[])
+     ->where.lastlink.performDynamicL1
+     ->targetRep[];
+   
+   (* !!! For thread-safeness we ought to lock the repetition now,
+    * so that the length will not change during this access *)
+   
+   (* .. and the requested index, and check it *)
+   (thrd[],unwind##,dContext[])
+     ->evalWhere.performDynamic(# impossible::(# do evalWhere[]->walkFail #)#)
+     ->evalContext[];
+   (thrd[],unwind##,evalContext[])
+     ->l2eval.exitExecuteInternal;
+   thrd.private.bvm.integers.pop
+     ->targetInx;
+   (targetRep[],targetInx,thrd[],unwind##)->boundsCheck;
+
+   (* then get hold of the object/pattern or whatever *)
+   INNER
+
+-- IndexedGetTmpCodePrint:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+   ' '->output;
+   tmpLevel->outputInteger
+
+-- IndexedGetTmpCodePrintShort:dopart --
+do
+   (* (dest[],indentation,false)->sptype.printShort *)
+
+-- IndexedGetTmpCodePrintCode:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+   ' '->output;
+   tmpLevel->outputInteger
+   
+-- IndexedGetTmpCodeExecute:dopart --
+do
+   (thrd[],unwind##,targetInx)
+     ->targetRep.get
+     ->thrd.private.bvm.tmpObjs.push
+
+-- IndexedGetTmpRefCodePrint:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+   ' '->output;
+   tmpLevel->outputInteger
+
+-- IndexedGetTmpRefCodePrintShort:dopart --
+do
+   (* (dest[],indentation,false)->sptype.printShort *)
+
+-- IndexedGetTmpRefCodePrintCode:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+   ' '->output;
+   tmpLevel->outputInteger
+
+-- IndexedGetTmpRefCodeExecute:dopart --
+do
+   (thrd[],unwind##,targetInx)
+     ->targetRep.get
+     ->l1oref[];
+   (if l1oref.value[]<>NONE then
+       l1oref.value[]->thrd.private.bvm.tmpObjs.push    
+    else
+       ('Trying to access object via NONE-reference found in repetition'
+       ,thrd[],unwind##)->refNoneError
+       
+   if)
+
+-- IndexedGetObjectCodePrint:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- IndexedGetObjectCodePrintShort:dopart --
+do
+   (* (dest[],indentation,false)->sptype.printShort *)
+
+-- IndexedGetObjectCodePrintCode:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- IndexedGetObjectCodeExecute:dopart --
+do
+   (thrd[],unwind##,targetInx)
+     ->targetRep.get
+     ->thrd.private.bvm.objRefs.push
+
+-- IndexedGetObjectRefCodePrint:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- IndexedGetObjectRefCodePrintShort:dopart --
+do
+   (* (dest[],indentation,false)->sptype.printShort *)
+
+-- IndexedGetObjectRefCodePrintCode:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- IndexedGetObjectRefCodeExecute:dopart --
+do
+   (thrd[],unwind##,targetInx)
+     ->targetRep.get
+     ->l1oref[];
+   l1oref.value[]->thrd.private.bvm.objRefs.push
+
+-- IndexedGetQualificationCodePrint:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- IndexedGetQualificationCodePrintShort:dopart --
+do
+   (* (dest[],indentation,false)->sptype.printShort *)
+
+-- IndexedGetQualificationCodePrintCode:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- IndexedGetQualificationCodeExecute:dopart --
+do
+   targetRep.qual[]->thrd.private.bvm.patterns.push
+
+-- IndexedGetPatternCodePrint:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- IndexedGetPatternCodePrintShort:dopart --
+do
+   (* (dest[],indentation,false)->sptype.printShort *)
+
+-- IndexedGetPatternCodePrintCode:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- IndexedGetPatternCodeExecute:dopart --
+do
+   (thrd[],unwind##,targetInx)
+     ->targetRep.get
+     ->thrd.private.bvm.patterns.push
+
+-- IndexedGetPatternRefCodePrint:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- IndexedGetPatternRefCodePrintShort:dopart --
+do
+   (* (dest[],indentation,false)->sptype.printShort *)
+
+-- IndexedGetPatternRefCodePrintCode:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- IndexedGetPatternRefCodeExecute:dopart --
+do
+   (thrd[],unwind##,targetInx)
+     ->targetRep.get
+     ->l1pref[];
+   l1pref.value[]
+     ->thrd.private.bvm.patterns.push
+
+-- CheckIndexedObjectQualificationCodeExecute:dopart --
+do
+   (* find the object reference that is to be assigned *)
+   (thrd[],unwind##,targetInx)
+     ->targetRep.get
+     ->l1oref[];
+   (* the qualification is in that object reference *)
+   l1oref.qual[]->l1pat_qua[];
+   (* look at the object being assigned to it *)
+   thrd.private.bvm.objRefs.peek->l1obj[];
+   (if l1obj[]<>NONE then
+       l1obj.private.pattern[]->l1pat_candidate[];
+       (* check whether that object is qualified *)
+       (if exact then
+           (if not (l1pat_candidate[]->l1pat_qua.equal) then
+               (# msg: ^text
+               do 'Qualification error in exact object reference assignment'
+                    ->msg[];
+                  '\nExpected type: '->msg.puttext;
+                  (msg[],15,false,NONE)->l1pat_qua.print;
+                  '\nActual type:   '->msg.puttext;
+                  (msg[],15,false,NONE)->l1pat_candidate.print;
+                  (msg[],thrd[],unwind##)->qualificationError
+               #)
+           if)
+        else
+           (if not (l1pat_candidate[]->l1pat_qua.lessEqual) then
+               (# msg: ^text
+               do 'Qualification error in object reference assignment'->msg[];
+                  '\nExpected type: '->msg.puttext;
+                  (msg[],15,false,NONE)->l1pat_qua.print;
+                  '\nActual type:   '->msg.puttext;
+                  (msg[],15,false,NONE)->l1pat_candidate.print;
+                  (msg[],thrd[],unwind##)->qualificationError
+               #)
+           if)
+       if)
+    (*else*)
+       (* l1oref.value[]=NONE: always OK *)
+   if)
+
+-- IndexedPutObjectRefCodePrint:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- IndexedPutObjectRefCodePrintShort:dopart --
+do
+   (* ' '->output;
+   (dest[],indentation,false)->sptype.printShort *)
+
+-- IndexedPutObjectRefCodePrintCode:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- IndexedPutObjectRefCodeExecute:dopart --
+do
+   (thrd[],unwind##,targetInx)
+     ->targetRep.get
+     ->l1oref[];
+   thrd.private.bvm.objRefs.pop->l1obj[];
+   
+   (* Paranoid qua-checking (whether statically safe or not):
+    * 
+    * (if l1obj[]<>NONE then
+    *     {* !!! check the qualification every time, to
+    *      * check the soundness of the static analysis *}
+    *
+    *     (if l1oref.exact then
+    *         (if not (l1obj.private.pattern[]->l1oref.qual.equal) then
+    *             fail
+    *         if)
+    *      else
+    *         (if not (l1obj.private.pattern[]->l1oref.qual.lessEqual) then
+    *             fail
+    *         if)
+    *     if)
+    * if);
+    *)
+   
+   l1obj[]->l1oref.value[]
+
+-- IndexedPutKeepObjectRefCodePrint:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- IndexedPutKeepObjectRefCodePrintShort:dopart --
+do
+   (* ' '->output;
+   (dest[],indentation,false)->sptype.printShort *)
+
+-- IndexedPutKeepObjectRefCodePrintCode:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- IndexedPutKeepObjectRefCodeExecute:dopart --
+do
+   (thrd[],unwind##,targetInx)
+     ->targetRep.get
+     ->l1oref[];
+   thrd.private.bvm.objRefs.peek->l1obj[];
+   (if l1obj[]<>NONE then
+       (* !!! check the qualification every time, to
+        * check the soundness of the static analysis *)
+       (if l1oref.exact then
+           (if not (l1obj.private.pattern[]->l1oref.qual.equal) then
+               fail
+           if)
+        else
+           (if not (l1obj.private.pattern[]->l1oref.qual.lessEqual) then
+               fail
+           if)
+       if)
+   if);
+   l1obj[]->l1oref.value[]
+
+-- IndexedPutKeepTmpRefCodePrint:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+   ' '->output;
+   tmpLevel->outputInteger
+
+-- IndexedPutKeepTmpRefCodePrintShort:dopart --
+do
+   (* ' '->output;
+   (dest[],indentation,false)->sptype.printShort *)
+
+-- IndexedPutKeepTmpRefCodePrintCode:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+   ' '->output;
+   tmpLevel->outputInteger
+
+-- IndexedPutKeepTmpRefCodeExecute:dopart --
+do
+   (thrd[],unwind##,targetInx)
+     ->targetRep.get
+     ->l1oref[];
+   thrd.private.bvm.tmpObjs.peek->l1obj[];
+   (if l1obj[]<>NONE then
+       (* !!! check the qualification every time, to
+        * check the soundness of the static analysis *)
+       (if l1oref.exact then
+           (if not (l1obj.private.pattern[]->l1oref.qual.equal) then
+               fail
+           if)
+        else
+           (if not (l1obj.private.pattern[]->l1oref.qual.lessEqual) then
+               fail
+           if)
+       if)
+   if);
+   l1obj[]->l1oref.value[]
+
+-- CheckIndexedPatternQualificationCodeExecute:dopart --
+do
+   (* find the pattern reference that is to be assigned *)
+   (thrd[],unwind##,targetInx)
+     ->targetRep.get
+     ->l1pref[];
+   (* the qualification is in that pattern reference *)
+   l1pref.qual[]->l1pat_qua[];
+   (* look at the object being assigned to it *)
+   thrd.private.bvm.patterns.peek->l1pat[];
+   (if l1pat[]<>NONE then
+       l1pat[]->l1pat_candidate[];
+       (* check whether that object is qualified *)
+       (if not (l1pat_candidate[]->l1pat_qua.lessEqual) then
+           (# msg: ^text
+           do 'Qualification error in variable pattern assignment'->msg[];
+              '\nExpected type: '->msg.puttext;
+              (msg[],15,false,NONE)->l1pat_qua.print;
+              '\nActual type:   '->msg.puttext;
+              (msg[],15,false,NONE)->l1pat_candidate.print;
+              (msg[],thrd[],unwind##)->qualificationError
+           #)
+       if)
+    (*else*)
+       (* l1pref.value[]=NONE: always OK *)
+   if)
+   
+
+-- IndexedPutPatternCodePrint:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- IndexedPutPatternCodePrintShort:dopart --
+do
+   (* ' '->output;
+   (dest[],indentation,false)->sptype.printShort *)
+
+-- IndexedPutPatternCodePrintCode:dopart --
+do
+   (* (dest[],indentation+indent_delta,true)->sptype.print *)
+
+-- IndexedPutPatternCodeExecute:dopart --
+do
+   (thrd[],unwind##,targetInx)
+     ->targetRep.get
+     ->l1pref[];
+   thrd.private.bvm.patterns.pop->l1pat[];
+   
+   (* Paranoid qua-checking (whether statically safe or not):
+    * 
+    * (if l1pat[]<>NONE then
+    *     {* !!! for now we just check the qualification every time *}
+    *     (if not (l1pat[]->l1pref.qual.lessEqual) then
+    *         ('Qualification error in indexed pattern variable assignment'
+    *         ,thrd[],unwind##)->qualificationError
+    *     if)
+    * if);
+    *)
+
+   l1pat[]->l1pref.value[]
+
+-- AccessRepCodePrint:dopart --
+do
+   (*(dest[],indentation,false)->l2rdecl.print;*)
+   (dest[],indentation,false)->where.print;
+   INNER
+
+-- AccessRepCodePrintShort:dopart --
+do
+   shorttypename->output;
+   (dest[],indentation,false)->l2rdecl.print;
+   '/'->output;
+   (dest[],indentation,false)->where.print;
+   INNER
+
+-- AccessRepCodePrintCode:dopart --
+do
+   (*(dest[],indentation,false)->l2rdecl.print;*)
+   ' '->output;
+   (dest[],indentation,false)->where.printCode;
+   INNER
+
+-- AccessRepCodeExecute:dopart --
+do
+   (* get hold of the repetition *)
+   (thrd[],unwind##,dContext[])
+     ->where.performDynamicButOne(# impossible::(# do where[]->walkFail #)#)
+     ->targetContext[];
+   
+   (* We could check this (but BETA will detect it and it would be 
+    * an internal error anyway):
+    * 
+    *   (if where.empty then
+    *       'IndexedAccessCodeExecute: Repetition seems to be current context'
+    *         ->internalError
+    *   if);
+    * 
+    * So we may assume that where is not empty here
+    *)
+   
+   (thrd[],unwind##,targetContext[])
+     ->where.lastlink.performDynamicL1
+     ->targetRep[];
+   
+   (* then execute the repetition entries, or whatever *)
+   INNER
+
+-- CallRepCodePrint:dopart --
+do
+   ', of '->output;
+   typeKind->typekindName->output;
+   ' kind'->output
+   
+-- CallRepCodePrintCode:dopart --
+do
+   ', of '->output;
+   typeKind->typekindName->output;
+   ' kind'->output
+   
+-- CallRepCodeExecute:dopart --
+do
+   (if typeKind
+    // objectTypeKind then
+       (for inx:targetRep.value.range repeat
+            (thrd[],unwind##)->targetRep.value[inx].execute
+       for)
+    // objectRefTypeKind then
+       (for inx:targetRep.value.range repeat
+            targetRep.value[inx][]->l1oref[];
+            (if l1oref.value[]<>NONE then
+                (thrd[],unwind##)->l1oref.value.execute
+             else
+                ('Entry in reference repetition is NONE!'
+                ,thrd[],unwind##)->refNoneError
+            if)
+       for)
+    // patternTypeKind then
+       'Repetition of patterns not supported'
+         ->internalError;
+    // patternRefTypeKind then
+       (for inx:targetRep.value.range repeat
+            targetRep.value[inx][]->l1pref[];
+            (if l1pref.value[]<>NONE then
+                (thrd[],unwind##,NONE(*no attr*))
+                  ->l1pref.value.instantiate
+                  ->l1obj[];
+                (thrd[],unwind##)->l1obj.execute
+             else
+                ('Entry in pattern variable repetition is NONE!'
+                ,thrd[],unwind##)->refNoneError
+            if)
+       for)
+
+    else
+       'Unexpected type kind for repetition execution'
+         ->internalError
+   if)
+
+-- CallRepSliceCodePrint:dopart --
+do
+   ', of '->output;
+   typeKind->typekindName->output;
+   ' kind, from entry "'->output;
+   (dest[],indentation,false)->lo.print;
+   '" to "'->output;
+   (dest[],indentation,false)->hi.print;
+   '"'->output
+
+-- CallRepSliceCodePrintCode:dopart --
+do
+   ', of '->output;
+   typeKind->typekindName->output;
+   ' kind, from entry "'->output;
+   (dest[],indentation,false)->lo.print;
+   '" to "'->output;
+   (dest[],indentation,false)->hi.print;
+   '"'->output
+
+-- CallRepSliceCodeExecute:dopart --
+do
+   (* get boundaries *)
+   (thrd[],unwind##,dContext[])->lo.exitExecute;
+   (thrd.private.bvm.integers.pop-1)->offset;
+   (thrd[],unwind##,dContext[])->hi.exitExecute;
+   thrd.private.bvm.integers.pop->last;
+   
+   (* adjust boundaries to fit within the given rep *)
+   (if offset<0 then 0->offset if);
+   (if last>targetRep.value.range then targetRep.value.range->last if);
+   
+   (* execution of entries *)
+   (if typeKind
+    // objectTypeKind then
+       (for inx:(last-offset) repeat
+            (thrd[],unwind##)->targetRep.value[offset+inx].execute
+       for)
+    // objectRefTypeKind then
+       (for inx:(last-offset) repeat
+            targetRep.value[offset+inx][]->l1oref[];
+            (if l1oref.value[]<>NONE then
+                (thrd[],unwind##)->l1oref.value.execute
+             else
+                ('Entry in reference repetition is NONE!'
+                ,thrd[],unwind##)->refNoneError
+            if)
+       for)
+    // patternRefTypeKind then
+       (for inx:(last-offset) repeat
+            targetRep.value[offset+inx][]->l1pref[];
+            (if l1pref.value[]<>NONE then
+                (thrd[],unwind##,NONE(*no attr*))
+                  ->l1pref.value.instantiate
+                  ->l1obj[];
+                (thrd[],unwind##)->l1obj.execute
+             else
+                ('Entry in pattern variable repetition is NONE!'
+                ,thrd[],unwind##)->refNoneError
+            if)
+       for)
+    // patternTypeKind then
+       'Repetition of patterns not supported'
+         ->internalError
+    else
+       'Unexpected type kind for repetition slice execution'
+         ->internalError
+   if)
+
+-- GetsizeRepCodeExecute:dopart --
+do
+   targetRep.value.range->thrd.private.bvm.integers.push
+
+-- ResizeRepCodeExecute:dopart --
+do
+   thrd.private.bvm.integers.pop->count;
+   (if true 
+    // count>targetRep.value.range then 
+       (* create some new receiving entries *)
+       targetRep.value.range->oldrange;
+       (count-oldrange)->targetRep.value.extend;
+       (thrd[],unwind##,oldrange+1,targetRep.value.range)
+         ->targetRep.renewEntries
+       
+    // count<targetRep.value.range then 
+       (* more entries than requested, remove the extras *)
+       (# tmp: [count]^l1Entity;
+       do (* save the old entities *)
+          (for i:count repeat targetRep.value[i][]->tmp[i][] for);
+          (* reduce the length of 'value' *)
+          count->targetRep.value.new;
+          (* restore the old entities *)
+          (for i:count repeat tmp[i][]->targetRep.value[i][] for)
+       #)
+   if)
+
+-- NewRepCodeExecute:dopart --
+do
+   thrd.private.bvm.integers.pop->count;
+   count->targetRep.value.new;
+   (thrd[],unwind##,1,count)->targetRep.renewEntries
+
+-- ExtendRepCodeExecute:dopart --
+do
+   thrd.private.bvm.integers.pop->count;
+   (thrd[],unwind##,targetRep.value.range+count)->targetRep.adjustLength
+   
+-- TransferRepCodePrint:dopart --
+do
+   (*(dest[],indentation,false)->from_rdecl.print;*)
+   (dest[],indentation,false)->from_where.print;
+   '  ->  '->output;
+   (*(dest[],indentation,false)->to_rdecl.print;*)
+   (dest[],indentation,false)->to_where.print;
+   (if to_execute then ' (execute)'->output if);
+   INNER
+   
+   (*(dest[],indentation+indent_delta,false,true)->get_program.print
+    *(# before::(# do '\n- - - - - - - - - - - - - - - GET/repeat'->output #)#);
+    *(dest[],indentation+indent_delta,false,true)->put_program.print
+    *(# before::(# do '\n- - - - - - - - - - - - - - - PUT/repeat'->output #); 
+    *   after::(# do '\n- - - - - - - - - - - - - - -'->output #)
+    *#)
+    *)
+   
+-- TransferRepCodePrintShort:dopart --
+do
+   (*(dest[],indentation,false)->from_rdecl.print;*)
+   (dest[],indentation,false)->from_where.print;
+   ' -> '->output;
+   (*(dest[],indentation,false)->to_rdecl.print;*)
+   (dest[],indentation,false)->to_where.print;
+   (if to_execute then 'X'->output if)
+   
+-- TransferRepCodePrintCode:dopart --
+do
+   (*(dest[],indentation,false)->from_rdecl.print;*)
+   (dest[],indentation,false)->from_where.printCode;
+   '  ->  '->output;
+   (*(dest[],indentation,false)->to_rdecl.print;*)
+   (dest[],indentation,false)->to_where.printCode;
+   (if to_execute then ' (execute)'->output if);
+   INNER
+   
+   (*(dest[],indentation+indent_delta,false,true)->get_program.print
+    *(# before::(# do '\n- - - - - - - - - - - - - - - GET/repeat'->output #)#);
+    *(dest[],indentation+indent_delta,false,true)->put_program.print
+    *(# before::(# do '\n- - - - - - - - - - - - - - - PUT/repeat'->output #); 
+    *   after::(# do '\n- - - - - - - - - - - - - - -'->output #)
+    *#)
+    *)
+
+-- TransferRepCodeExecute:dopart --
+do
+   (* get hold of the two repetitions *)
+   (thrd[],unwind##,dContext[])
+     ->from_where.performDynamicButOne
+       (# impossible::(# do from_where[]->walkFail #)#)
+     ->from_targetContext[];
+   (thrd[],unwind##,dContext[])
+     ->to_where.performDynamicButOne
+       (# impossible::(# do to_where[]->walkFail #)#)
+     ->to_targetContext[];
+   (thrd[],unwind##,from_targetContext[])
+     ->from_where.lastlink.performDynamicL1
+     ->from_targetRep[];
+   (thrd[],unwind##,to_targetContext[])
+     ->to_where.lastlink.performDynamicL1
+     ->to_targetRep[];
+   
+   (* !!! problem: we should _lock_ the length of the rep. to 
+    * be thread safe: another thread might change the length
+    * of one or the other rep now, before the transfers are 
+    * completed *)
+
+   (* set up source bounds *)
+   (if (from_lo[]=NONE) and (from_hi[]=NONE) then
+       1->from_l;
+       from_targetRep.value.range->from_h;
+    else
+       (* assumable: (from_lo[]<>NONE) and (from_hi[]<>NONE); otherwise
+        * internal error, which we leave to the built-in RefNONE check *)
+       (thrd[],unwind##,dContext[])
+         ->from_evalWhere.performDynamic
+           (# impossible::(# do from_evalWhere[]->walkFail #)#)
+         ->from_evalContext[];
+       (thrd[],unwind##,from_evalContext[])
+         ->from_lo.exitExecuteInternal;
+       thrd.private.bvm.integers.pop
+         ->from_l;
+       (thrd[],unwind##,from_evalContext[])
+         ->from_hi.exitExecuteInternal;
+       thrd.private.bvm.integers.pop
+         ->from_h;
+       
+       (* The lower bound is checked rigidly, the upper more softly;
+        * this allows things like 'R[2:MAXINT]' for "all from 2"
+        * and 'R[1:0]' for the empty slice *)
+       (from_targetRep[],from_l,thrd[],unwind##)->boundsCheck;
+       (if from_h<from_l then from_l-1->from_h if);
+       (if from_h>from_targetRep.value.range then
+           from_targetRep.value.range->from_h
+       if)
+   if);
+
+   (* set up destinations bounds and conduct the transfer *)
+   (if (to_lo[]=NONE) and (to_hi[]=NONE) then
+       (* 'from_targetRep' and 'to_targetRep' are now available;
+        * adjust the size of the receiver *)
+       (if (from_h-from_l+1)<>to_targetRep.value.range then
+           (thrd[],unwind##,from_h-from_l+1)
+             ->to_targetRep.adjustLength
+       if);
+       1->to_l;
+       to_targetRep.value.range->to_h;
+
+       (* now do the actual transfer *)
+       INNER
+
+    else
+       (* assumable: (to_lo[]<>NONE) and (to_hi[]<>NONE); otherwise
+        * internal error, which we leave to the built-in RefNONE check *)
+       (thrd[],unwind##,dContext[])
+         ->to_evalWhere.performDynamic
+           (# impossible::(# do to_evalWhere[]->walkFail #)#)
+         ->to_evalContext[];
+       (thrd[],unwind##,to_evalContext[])
+         ->to_lo.exitExecuteInternal;
+       thrd.private.bvm.integers.pop
+         ->to_l;
+       (thrd[],unwind##,to_evalContext[])
+         ->to_hi.exitExecuteInternal;
+       thrd.private.bvm.integers.pop
+         ->to_h;
+
+       (* like above, rigid testing for lower bound and softer
+        * testing for the upper bound *)
+       (to_targetRep[],to_l,thrd[],unwind##)->boundsCheck;
+       (if to_h<to_l then to_l-1->to_h if);
+       (if to_h>to_targetRep.value.range then
+           to_targetRep.value.range->to_h
+       if);
+
+       (* Now 'from_targetRep' and 'to_targetRep' are available;
+        * adjusting the size of the receiver is more tricky here:
+        *
+        *   |======8================8========|
+        *   1      from_l           from_h   from_range
+        *
+        *
+        *   |------------*------*------------------------|
+        *   1            to_l   to_h                     to_range
+        *
+        * We want this:
+        *
+        *   |------------8================8------------------------|
+        *   1            to_l             to_h+D                   to_range+D
+        * 
+        * Original length of 'to_targetRep' was:
+        *
+        *   (to_l-1)+(to_h-to_l+1)+(to_range-to_h)
+        * 
+        * The final length is:
+        *
+        *   (to_l-1)+(from_h-from_l+1)+(to_range-to_h)
+        *
+        * Difference:
+        *
+        *   D = (from_h-from_l+1)-(to_h-to_l+1) = from_h-from_l-to_h+to_l
+        * 
+        * First step with 'to_targetRep': move elms. down, adjust length:
+        * 
+        *   |------------*------*+-----------------------|
+        *                       /////////////////////////
+        *                      /////////////////////////
+        *   |------------*----+-----------------------|###
+        *   1            to_l   to_h                     to_range
+        * 
+        *   |------------*----+-----------------------|
+        *   1            to_l                         to_range
+        * 
+        * 
+        * or conversely (D>0):
+        * 
+        *   |------------*------*------------------------|##########
+        *   1            to_l   to_h                     to_range
+        * 
+        *   |------------*------*+-----------------------|##########
+        *                         \\\\\\\\\\\\\\\\\\\\\\\\\
+        *                                      ...
+        *                                 \\\\\\\\\\\\\\\\\\\\\\\\\
+        *   |------------*------*##########+-----------------------|
+        *   1            to_l   to_h                     to_range
+        *
+        * Finally, "INNER" must copy the area [from_h:from_l] of
+        * 'from_targetRep' to the area starting at 'to_l' in
+        * 'to_targetRep'.
+        *)
+       (# to_range: @integer;
+          D: @integer; (* length of "###" area *)
+          freshies: [D] ^l1Entity
+       do
+          to_targetRep.value.range->to_range;
+          from_h-from_l-to_h+to_l->D;
+
+          (if true
+           // D=0 then (* NO-OP *)
+              
+           // D<0 then
+              (for j:(to_range-to_h) repeat 
+                   to_targetRep.value[to_h+j][]
+                     ->to_targetRep.value[to_h+j+D][]
+              for);
+              (thrd[],unwind##,to_range+D)
+                ->to_targetRep.adjustLength
+              
+           // D>0 then
+              (* extend target with new entities *)
+              (thrd[],unwind##,to_range+D)
+                ->to_targetRep.adjustLength;
+              
+              (* save the newly created entities *)
+              to_targetRep.value[to_range+1:to_range+D]->freshies;
+              
+              (* move the old entities (this creates aliasing, i.e., the
+               * same entity pointed to by >1 entry in the repetition) *)
+              (for j:(to_range-to_h) repeat
+                   to_targetRep.value[to_range+1-j][]
+                     ->to_targetRep.value[to_range+1-j+D][]
+              for);
+              
+              (* move the freshies into the "hole" (####) above
+               * 'to_h', "dealiasing" the aliased entries *)
+              (for j:freshies.range repeat
+                   freshies[j][]->to_targetRep.value[to_h+j][]
+              for)
+          if);
+          
+          (* now do the actual transfer *)
+          INNER execute
+       #)
+   if)
+   
+-- TransferRepHomCodeInit:dopart --
+do
+   (* We have a _ridiculous_ amount of special casing here, but
+    * we do not want to execute if-imps at runtime for each entry
+    * which will give the same statically known answer every time *)
+   (# fail:
+        (# msg: ^text
+        do 'Cannot perform assignment evaluation from a repetition of\n'
+             ->msg[];
+           from_rdecl.ReferenceSpecification.typename->msg.puttext;
+           ' to a repetition of '->msg.puttext;
+           from_rdecl.ReferenceSpecification.typename->msg.puttext;
+           (msg[],'Use an intermediate repetition or a for imp.'
+           ,usageAst[])->staticError
+        #);
+      type2kind:
+        (# l2rspec: ^l2ReferenceSpecification;
+           k: @integer
+        enter l2rspec[]
+        do (if true 
+            // l2rspec##<=l2StaticItem## 
+            // l2rspec##<=l2StaticComponent## then
+               (* object *)
+               objectTypeKind->k
+            // l2rspec##<=l2DynamicItem## 
+            // l2rspec##<=l2DynamicComponent## then
+               (* object ref *)
+               objectRefTypeKind->k
+            // l2rspec##<=l2VariablePattern## then
+               (* pattern *)
+               patternRefTypeKind->k
+            else
+               'unexpected ref.spec'->internalError
+           if)
+        exit k
+        #);
+      fromKind,toKind: @integer; (* one of .*TypeKind *)
+   do from_rdecl.ReferenceSpecification[]
+        ->type2kind
+        ->fromKind;
+      to_rdecl.ReferenceSpecification[]
+        ->type2kind
+        ->toKind;
+      (if byReference then
+          (if true
+           // fromKind=objectTypeKind then 
+              (if true 
+               // toKind=objectRefTypeKind then 
+                  execute_O_OR_oref##->executor##
+               else 'unexpected toKind in trnsf.rep.hom. init'->internalError
+              if)
+           // fromKind=objectRefTypeKind then
+              (if true 
+               // toKind=objectRefTypeKind then 
+                  execute_OR_OR_oref##->executor##
+               else 'unexpected toKind in trnsf.rep.hom. init'->internalError
+              if)
+           // fromKind=patternTypeKind then
+              (if true 
+               // toKind=objectRefTypeKind then 
+                  execute_P_OR_oref##->executor##
+               else 'unexpected toKind in trnsf.rep.hom. init'->internalError
+              if)
+           else
+              'unexpected fromKind in trnsf.rep.hom. init'->internalError
+          if)
+       else
+          (* by value *)
+          (if true
+           // fromKind=objectTypeKind then 
+              (if true 
+               // toKind=objectTypeKind then
+                  (if kind
+                   // booleanByteCodeKind then 
+                      execute_O_O_boolean##->executor##
+                   // charByteCodeKind then 
+                      execute_O_O_char##->executor##
+                   // integerByteCodeKind then 
+                      execute_O_O_integer##->executor##
+                   // realByteCodeKind then 
+                      execute_O_O_real##->executor##
+                   // stringByteCodeKind then 
+                      execute_O_O_string##->executor##
+                   // orefByteCodeKind then 
+                      fail
+                   // ptnByteCodeKind then 
+                      fail
+                   else
+                      'unexpected kind in trnsf.rep.hom. init'->internalError
+                  if)
+               // toKind=objectRefTypeKind then
+                  (if kind
+                   // booleanByteCodeKind then
+                      execute_O_OR_boolean##->executor##
+                   // charByteCodeKind then 
+                      execute_O_OR_char##->executor##
+                   // integerByteCodeKind then 
+                      execute_O_OR_integer##->executor##
+                   // realByteCodeKind then 
+                      execute_O_OR_real##->executor##
+                   // stringByteCodeKind then 
+                      execute_O_OR_string##->executor##
+                   // orefByteCodeKind then 
+                      execute_O_OR_oref##->executor##
+                   // ptnByteCodeKind then 
+                      execute_O_OR_ptn##->executor##
+                   else
+                      'unexpected kind in trnsf.rep.hom. init'->internalError
+                  if)
+               // toKind=patternTypeKind then
+                  (if kind
+                   // booleanByteCodeKind then 
+                      execute_O_P_boolean##->executor##
+                   // charByteCodeKind then 
+                      execute_O_P_char##->executor##
+                   // integerByteCodeKind then 
+                      execute_O_P_integer##->executor##
+                   // realByteCodeKind then 
+                      execute_O_P_real##->executor##
+                   // stringByteCodeKind then 
+                      execute_O_P_string##->executor##
+                   // orefByteCodeKind then 
+                      fail
+                   // ptnByteCodeKind then 
+                      execute_O_P_ptn##->executor##
+                   else
+                      'unexpected kind in trnsf.rep.hom. init'->internalError
+                  if)
+               else
+                  'unexpected toKind in trnsf.rep.hom. init'->internalError
+              if)
+           // fromKind=objectRefTypeKind then
+              (if true 
+               // toKind=objectTypeKind then
+                  (if kind
+                   // booleanByteCodeKind then 
+                      execute_OR_O_boolean##->executor##
+                   // charByteCodeKind then 
+                      execute_OR_O_char##->executor##
+                   // integerByteCodeKind then 
+                      execute_OR_O_integer##->executor##
+                   // realByteCodeKind then 
+                      execute_OR_O_real##->executor##
+                   // stringByteCodeKind then 
+                      execute_OR_O_string##->executor##
+                   // orefByteCodeKind then 
+                      fail
+                   // ptnByteCodeKind then 
+                      fail
+                   else
+                      'unexpected kind in trnsf.rep.hom. init'->internalError
+                  if)
+               // toKind=objectRefTypeKind then
+                  (if kind
+                   // booleanByteCodeKind then 
+                      execute_OR_OR_boolean##->executor##
+                   // charByteCodeKind then 
+                      execute_OR_OR_char##->executor##
+                   // integerByteCodeKind then 
+                      execute_OR_OR_integer##->executor##
+                   // realByteCodeKind then 
+                      execute_OR_OR_real##->executor##
+                   // stringByteCodeKind then 
+                      execute_OR_OR_string##->executor##
+                   // orefByteCodeKind then 
+                      execute_OR_OR_oref##->executor##
+                   // ptnByteCodeKind then 
+                      execute_OR_OR_ptn##->executor##
+                   else
+                      'unexpected kind in trnsf.rep.hom. init'->internalError
+                  if)
+               // toKind=patternTypeKind then
+                  (if kind
+                   // booleanByteCodeKind then 
+                      execute_OR_P_boolean##->executor##
+                   // charByteCodeKind then 
+                      execute_OR_P_char##->executor##
+                   // integerByteCodeKind then 
+                      execute_OR_P_integer##->executor##
+                   // realByteCodeKind then 
+                      execute_OR_P_real##->executor##
+                   // stringByteCodeKind then 
+                      execute_OR_P_string##->executor##
+                   // orefByteCodeKind then 
+                      fail
+                   // ptnByteCodeKind then 
+                      execute_OR_P_ptn##->executor##
+                   else
+                      'unexpected kind in trnsf.rep.hom. init'->internalError
+                  if)
+               else
+                  'unexpected toKind in trnsf.rep.hom. init'->internalError
+              if)
+           // fromKind=patternTypeKind then
+              (if true 
+               // toKind=objectTypeKind then
+                  (if kind
+                   // booleanByteCodeKind then 
+                      execute_P_O_boolean##->executor##
+                   // charByteCodeKind then 
+                      execute_P_O_char##->executor##
+                   // integerByteCodeKind then 
+                      execute_P_O_integer##->executor##
+                   // realByteCodeKind then 
+                      execute_P_O_real##->executor##
+                   // stringByteCodeKind then 
+                      execute_P_O_string##->executor##
+                   // orefByteCodeKind then 
+                      fail
+                   // ptnByteCodeKind then 
+                      fail
+                   else
+                      'unexpected kind in trnsf.rep.hom. init'->internalError
+                  if)
+               // toKind=objectRefTypeKind then
+                  (if kind
+                   // booleanByteCodeKind then 
+                      execute_P_OR_boolean##->executor##
+                   // charByteCodeKind then 
+                      execute_P_OR_char##->executor##
+                   // integerByteCodeKind then 
+                      execute_P_OR_integer##->executor##
+                   // realByteCodeKind then 
+                      execute_P_OR_real##->executor##
+                   // stringByteCodeKind then 
+                      execute_P_OR_string##->executor##
+                   // orefByteCodeKind then 
+                      execute_P_OR_oref##->executor##
+                   // ptnByteCodeKind then 
+                      execute_P_OR_ptn##->executor##
+                   else
+                      'unexpected kind in trnsf.rep.hom. init'->internalError
+                  if)
+               // toKind=patternTypeKind then
+                  (if kind
+                   // booleanByteCodeKind then 
+                      execute_P_P_boolean##->executor##
+                   // charByteCodeKind then 
+                      execute_P_P_char##->executor##
+                   // integerByteCodeKind then 
+                      execute_P_P_integer##->executor##
+                   // realByteCodeKind then 
+                      execute_P_P_real##->executor##
+                   // stringByteCodeKind then 
+                      execute_P_P_string##->executor##
+                   // orefByteCodeKind then 
+                      fail
+                   // ptnByteCodeKind then 
+                      execute_P_P_ptn##->executor##
+                   else
+                      'unexpected kind in trnsf.rep.hom. init'->internalError
+                  if)
+               else
+                  'unexpected toKind in trnsf.rep.hom. init'->internalError
+              if)
+           else
+              'unexpected fromKind in trnsf.rep.hom. init'->internalError
+          if)
+      if)
+   #)
+   
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

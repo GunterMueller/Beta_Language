@@ -1,0 +1,52 @@
+ORIGIN '../basiclib/v1.4/betaenv';
+INCLUDE '../containers/v1.4/btree.bet';
+--- Program: ObjectDescriptor ---
+(#
+   b: @btree
+     (#
+        element:: text;
+	compare::
+	  (# i: @integer
+	  do
+	     1->i;
+	     l: (if true
+	     // i>left.length then
+		(if i>right.length then 0->value else -1->value if);
+	     // i>right.length then
+		1->value
+	     else
+		(if ((i->left.inxGet)-(i->right.inxGet)->value)=0 then
+		   i+1->i; restart l
+		if);
+	     if);
+	  #);
+	emptyContainerError::
+	  (# do 'Global empty exception raised!'->putline; true->continue #);
+	illegalCellReference::
+	  (#
+	  do
+	     'Global illegalCellReference exception raised!'->putline;
+	     true->continue
+	  #);
+     #);
+   c,d: ^container;
+   thehas: ##c.has;
+do
+   'pencil'->b.insert;
+   'pen'->b.insert;
+   'rubber'->b.insert;
+   'paper'->b.insert;
+   'ink'->b.insert;
+   b[]->c[];
+   c.scan (# do current[]->putline #);
+   newline;
+   'All long names:'->putline;
+   b.scan
+     (# where:: (# do current.length>3->value #) do current[]->putline #);
+   newline;
+
+   c.has##->thehas##;
+   (if 'pen'->thehas then 'There is a pen in the btree.'->putline if);
+   (if not('ruler'->thehas) then 'There is no ruler in the btree.'->putline if);
+   newline;
+#)

@@ -1,0 +1,18 @@
+-- betaenv:descriptor --
+(# (* used to show a static analysis bug which made
+    * string&integer look like (i,s) for assignment 
+    *)
+   x: @string&integer;
+   y: @string(# i: @integer enter i #);
+   z: @(# s: @string; i: @integer enter (s,i) #);
+   v: @(# s: @string enter s #) & (# i: @integer enter i #);
+   a: (# s: @string enter s #); b: @a(# i: @integer enter i #)
+do 
+   ('abc',3)->x;
+   ('def',4)->y;
+   ('ghi',5)->z;
+   ('jkl',6)->v;
+   ('mno',7)->b;
+   2->x.at->stdio
+#)
+

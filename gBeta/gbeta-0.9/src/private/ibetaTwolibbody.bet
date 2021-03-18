@@ -1,0 +1,1861 @@
+(* FILE "./private/ibetaTwolibbody.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaTwolibbody.bet,v 1.56 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN 'ibetaTwolib';
+INCLUDE '../ibetaSType';
+INCLUDE 'ibetaCommonlib';
+INCLUDE 'ibetaStaticlib';
+INCLUDE 'ibetaSlicelib'
+
+(************************************************************
+ *                                                          *
+ *                 l2ReferenceSpecification                 *
+ *                                                          *
+ ************************************************************)
+
+-- ReferenceSpecificationLocalType:dopart --
+do
+   (if stype_cache[]<>NONE then 
+       stype_cache[]->stype[]
+    else
+       (# context: ^staticContext
+       do (NONE,NONE,scope.location)->position.init;
+          this(l2ReferenceSpecification)[]->scope.world.setAst;
+          (position[],scope.world[],this(l2ReferenceSpecification)[])
+            ->scope.getInitialContext
+            ->context[];
+          (context[],scope.world[],this(l2ReferenceSpecification)[])
+            ->getStaticType
+            ->stype_cache[]
+            ->stype[]
+       #);
+       (*test-obs  ('localStaticType of','l')->observe; *)
+       (*test-obs  ('','l')->stype.observe; *)
+   if)
+
+-- AttributeDeclGetTheNameDcl:dopart --
+do
+   (if Names.size<>1 then
+       (# msg: ^text
+       do 'The '->msg[];
+          typename->msg.puttext;
+          ' declares '->msg.puttext;
+          Names.size->msg.putint;
+          ' names'->msg.puttext;
+          (msg[]
+          ,'It must declare exactly one name'
+          ,this(l2AttributeDecl)[])->staticError
+       #)
+    else
+       (Names.head).elm[]->l2ndcl[]
+   if)
+
+(************************************************************ 
+ *                                                          * 
+ *                       VirtualChain                       *
+ *                                                          * 
+ ************************************************************)
+
+-- VirtualChainPrint:dopart --
+do
+   scanReverse(# do (dest[],indentation,element_nl)->current.print #)
+
+-- VirtualChainObserve:dopart --
+do
+   (this(interpreterBase).private.observeStream[],indentation,false,true)
+     ->print
+
+-- VirtualChainInsert:dopart --
+do
+   l2vdcl[]->append;
+   (if l2vdcl##<=l2FinalDecl## then true->hasFinalDecl if)
+
+-- VirtualChainIsSublist:dopart --
+do 
+   (if empty then 
+       (* other must also be empty *)
+       other.empty->value
+    else
+       (* this chain is non-empty; scan 'other' and match up *)
+       true->value;
+       head->myPos[];
+       L: other.scan
+         (# otherCurrent: ^l2VDecl
+         do current[]->otherCurrent[];
+            M: (# 
+               do (if myPos[]=NONE then 
+                      (* this list exhausted and 'other' not: fail *)
+                      false->value;
+                      leave L
+                  if);
+                  myPos[]->iterateFrom
+                  (# 
+                  do (if otherCurrent[]=current.elm[] then 
+                         (* found; update 'myPos' and continue outer loop *)
+                         current.succ[]->myPos[];
+                         leave M
+                     if)
+                  #);
+                  (* not found: fail *)
+                  false->value;
+                  leave L
+               #)
+         #)
+   if)
+
+-- VirtualChainCheckShape:dopart --
+do 
+   (* a virtual chain must be in (:<)(::<)*(::)? 
+    * which can be detected with the following mini-DFA
+    * 
+    *       :<          ::
+    *  (1) ----> ((2)) ----> ((3))
+    *            ^   |
+    *            |   | ::< 
+    *             ---
+    * 
+    * with start state 1 and final states {2,3}.
+    *)
+   (# state: @integer
+   do 1->state;
+      L: scanReverse
+        (#
+        do (if state
+            // 1 then 
+               (if current##<=l2VirtualDecl## then 
+                   2->state;
+                else
+                   (* fail *)
+                   0->state;
+                   leave L
+               if)
+            // 2 then 
+               (if true 
+                // current##<=l2BindingDecl## then 
+                   (* no state change *)
+                // current##<=l2FinalDecl## then 
+                   3->state
+                else
+                   (* fail *)
+                   0->state;
+                   leave L
+               if)
+            // 3 then 
+               (* fail *)
+               0->state;
+               leave L
+           if)
+        #);
+      
+      (* fail if state is not "further" or "final" now *)
+      (if (state<>2) and (state<>3) then 
+          (# msg: ^text;
+             signature: textValue
+               (# l2vdcl: ^l2VDecl
+               enter l2vdcl[]
+               do (if true
+                   // l2vdcl##<=l2VirtualDecl## then ' :<'->value[]
+                   // l2vdcl##<=l2BindingDecl## then ' ::<'->value[]
+                   // l2vdcl##<=l2FinalDecl## then ' ::'->value[]
+                   else
+                      (* an internal error, but we won`t interrupt 
+                       * error handling with more error handling *)
+                      '?'->value[]
+                  if)
+               #)
+          do 'Badly formed virtual chain {'->msg[];
+             scan(# do current[]->signature->msg.puttext #);
+             ' }'->msg.puttext;
+             (msg[]
+             ,'Use one ":<", then zero or more "::<", then zero or one "::"'
+             ,usageAst[])->staticError
+          #)
+      if)
+   #)
+
+(************************************************************* 
+ *                                                           * 
+ *                          l2VDecl                          *
+ *                                                           * 
+ *************************************************************)
+
+-- VDeclGatherVirtualChain:dopart --
+do
+   (# rootOfChain: ^l2VirtualDecl
+   do 
+      (&virtualChain[]).init->vchain[];
+      getVirtualDecl->rootOfChain[];
+      
+      L: sptype.slices.scan
+        (# csSlice: ^compositeStaticSlice
+        do (if current##<=compositeStaticSlice## then
+               current[]->csSlice[];
+               (if csSlice.l2mpar.private.hasSpecDecls then
+                   csSlice.l2mpar.scanSpecializedVDecls
+                   (# 
+                   do (if current.getVirtualDecl=rootOfChain[] then
+                          (* yes, this is one of my contributions *)
+                          current[]->vchain.insert
+                      if)
+                   #)
+               if)
+           if)
+        #);
+      rootOfChain[]->vchain.insert;
+      
+      (* inspect the result *)
+      (* Since the chain has exactly one virtual-decl at the top, 
+       * namely 'rootOfChain', it has the shape 
+       * 
+       *   ":<" ( "::<" | "::" )*  
+       * 
+       * We accept all such shapes, but check for each finalbinding
+       * that it specifies the full pattern of this virtual.  So the
+       * following is not executed any more:
+       * 
+       *   this(l2VDecl)[]->vchain.checkShape
+       * 
+       * If we choose to execute this again, the usage of
+       * finalbindings will be restricted a bit.
+       *)
+   #);
+   
+   (*test-obs  ('gatherVirtualChain of','v')->observe; *)
+   (*test-obs  vchain.scanReverse(# do ('','v')->current.observe #); *)
+
+(************************************************************ 
+ *                                                          * 
+ *                     l2EvaluationList                     * 
+ *                                                          * 
+ ************************************************************)
+
+-- EvaluationListGetOCPByTransient:dopart --
+do
+   (if size=1 then 
+       (# l2eval: ^l2Evaluation
+       do (head).elm[]->l2eval[];
+          (context[],world[],usageAst[],generatingAst[])
+            ->l2eval.getOCPByTransient
+            ->stocp[]
+       #)
+    else
+       (* ().x or (a,b,..).x, which has no defined semantics *)
+       (# t: ^text
+       do 'Attempt to obtain object reference from '->t[];
+          size->t.putint;
+          ' evaluations'->t.puttext;
+          (t[]
+          ,'Make the "(..)" expression deliver exactly one object reference'
+          ,errorAst[])->staticError
+       #)
+   if)
+
+-- EvaluationListLocalOCPByTransient:dopart --
+do
+   (# context: ^staticContext;
+      position: @runtimePath
+   do (NONE,NONE,l2ast.scope.location)->position.init;
+      usageAst[]->l2ast.scope.world.setAst;
+      (position[],l2ast.scope.world[],l2ast[])
+        ->l2ast.scope.getInitialContext
+        ->context[];
+      (l2ast[],context[],l2ast.scope.world[],usageAst[],generatingAst[])
+        ->getOCPByTransient
+        ->stocp[]
+   #)
+
+-- EvaluationListExecute:dopart --
+do
+   scan(# do (thrd[],unwind##,dContext[])->current.execute #)
+
+-- EvaluationListGetEnterIter:dopart --
+do
+   (if not empty then
+       &enterIterator
+       (# pos: ^theCellType;
+          current_ni: ^enterIterator;
+          get_iter:
+            (# 
+            do (thrd[],unwind##,stsub[],world[]
+               ,usageAst[],execute,dContext[])
+                 ->pos.elm.getEnterIter
+                 ->current_ni[];
+               current_ni.prepare
+            #);
+          refresh: 
+            (# 
+            do L: (if (pos.succ[]<>NONE) and (not current_ni.more) then
+                      current_ni.cleanup;
+                      pos.succ[]->pos[];
+                      get_iter;
+                      restart L
+                  if)
+            #);
+          prepare::(# do head->pos[]; get_iter; refresh #);
+          more::(# do refresh; current_ni.more->value #);
+          cleanup::(# do current_ni.cleanup #)
+       do l0tr[]->current_ni
+       #)[]->ni[]
+    else
+       (* no evaluations here; 'execute' is really ignored, of course *)
+       &enterEmpty[]->ni[]
+   if);
+   execute->ni.execute;
+   usageAst[]->ni.usageAst[]
+
+-- EvaluationListGetExitIter:dopart --
+do
+   (if not empty then
+       &exitIterator
+       (# pos: ^theCellType;
+          current_xi: ^exitIterator;
+          get_iter:
+            (# 
+            do (thrd[],unwind##,stsub[],world[],usageAst[],dContext[])
+                 ->pos.elm.getExitIter
+                 ->current_xi[];
+               current_xi.prepare
+            #);
+          refresh: 
+            (# 
+            do L: (if (pos.succ[]<>NONE) and (not current_xi.more) then
+                      current_xi.cleanup;
+                      pos.succ[]->pos[];
+                      get_iter;
+                      restart L
+                  if)
+            #);
+          prepare::(# do head->pos[]; get_iter; refresh #);
+          more::(# do refresh; current_xi.more->value #);
+          cleanup::(# do current_xi.cleanup #)
+       do current_xi->l0tr[]
+       #)[]->xi[]
+    else
+       (* no evaluations here; 'execute' is really ignored, of course *)
+       &exitEmpty[]->xi[]
+   if);
+   usageAst[]->xi.usageAst[]
+
+-- EvaluationListGetEnterExitIter:dopart --
+do
+   (* we have to obtain enterIterators and exitIterators from 
+    * each element in the list _dependently_, so we get them 
+    * all and put them into two lists, and the deliver from there;
+    * the problem is that in (..,p,..), p may be a pattern.. *)
+   (# enterIters: [size]^enterIterator;
+      exitIters: [size]^exitIterator
+   do 
+      (* collect all the iterators _dependently_ *)
+      scan
+      (# inx: @integer
+      do inx+1->inx;
+         (thrd[],unwind##,stsub[],world[],usageAst[],dContext[])
+           ->current.getEnterExitIter
+           ->(enterIters[inx][],exitIters[inx][])
+      #);
+      
+      (* create iterators that will use the iterator lists *)
+      &enterIterator
+      (# pos: @integer;
+         current_ni: ^enterIterator;
+         get_iter:
+           (# 
+           do enterIters[pos][]->current_ni[];
+              current_ni.prepare
+           #);
+         refresh: 
+           (# 
+            do L: (if (pos<size) and (not current_ni.more) then
+                      current_ni.cleanup;
+                      pos+1->pos;
+                      get_iter;
+                      restart L
+                  if)
+           #);
+         prepare::(# do 1->pos; get_iter; refresh #);
+         more::(# do refresh; current_ni.more->value #);
+         cleanup::(# do current_ni.cleanup #)
+      do l0tr[]->current_ni
+      #)[]->ni[];
+      false->ni.execute; (* in the middle of an enter+exit *)
+      usageAst[]->ni.usageAst[];
+      
+      &exitIterator
+      (# pos: @integer;
+         current_xi: ^exitIterator;
+         get_iter:
+           (# 
+           do exitIters[pos][]->current_xi[];
+              current_xi.prepare
+           #);
+         refresh: 
+           (# 
+            do L: (if (pos<size) and (not current_xi.more) then
+                      current_xi.cleanup;
+                      pos+1->pos;
+                      get_iter;
+                      restart L
+                  if)
+           #);
+         prepare::(# do 1->pos; get_iter; refresh #);
+         more::(# do refresh; current_xi.more->value #);
+         cleanup::(# do current_xi.cleanup #)
+      do current_xi->l0tr[]
+      #)[]->xi[];
+      usageAst[]->xi.usageAst[]
+   #)
+
+-- ScopeSpecImpBindNames:dopart --
+do 
+   (* NB: This method will bind 'NameAplOpt' if not NONE, and it will
+    * also set up 'rtp', whether the spec is name, count, or missing
+    *)
+   (# objectFail:
+        (# msg,solution: ^text
+        do '"'->msg[];
+           (msg[],0,false)->NameAplOpt.print;
+           '" does not specify an enclosing object'->msg.append;
+           (msg[],'Use the name of an enclosing descriptor or a superpattern'
+           ,this(l2ScopeSpecImp)[])->staticError
+        #);
+      handleBase:
+        (* common structure for handling the different kinds of specs *)
+        (# fail:< object;
+           onStaticOCP:< (# stocp: ^staticOCP enter stocp[] do INNER #);
+           onLabel:< (# stlab: ^staticLabelSubstance enter stlab[] do INNER #);
+           context: ^staticContext;      (* initial context *)
+           curcon: ^staticContext;       (* current context for the search *)
+           done: @boolean;               (* set to true when done *)
+        do
+           (* init *)
+           (position[],scope.world[],this(l2ScopeSpecImp)[])
+             ->scope.getInitialContext
+             ->context[]
+             ->curcon[];
+           
+           INNER; (* for further init *)
+           
+           (* traverse enclosing objects *)
+           L: (if curcon[]<>NONE then
+
+                  (*test-obs  ('ScopeSpecImp,curcon','b')->curcon.observe; *)
+                  
+                  (* check kind of substance *)
+                  (if true 
+                   // curcon##<=staticOCP## then 
+                      (* normal case *)
+                      curcon[]->onStaticOCP
+                      
+                   // curcon##<=predefinedStaticSubstance## then
+                      (* predefined substance is never target *)
+                      fail
+                      
+                   // curcon##<=staticLabelSubstance## then
+                      (* labelled imp *)
+                      curcon[]->onLabel
+                      
+                   // curcon##<=staticForSubstance##
+                   // curcon##<=staticWhenSubstance##
+                   // curcon##<=staticWhenAltSubstance##
+                   // curcon##<=staticRepSubstance## then
+                      (* for/when/rep-index, cannot be target, continue *)
+                      
+                   else
+                      'unrecognized kind of static substance'
+                        ->internalError
+                  if);
+                  
+                  (if done then leave L if);
+           
+                  (* make the search continue with the next entity *)
+                  (scope.world[],this(l2ScopeSpecImp)[])
+                    ->curcon.getEnclosing
+                    ->curcon[];
+                  (curcon.getSyntax,(curcon##<=staticLabelSubstance##))
+                    ->rtp.addStepOut;
+                  restart L
+               else
+                  (* no more enclosing objects, search failed *)
+                  fail
+              if)
+        #);
+      handleNameApl: handleBase
+        (# fail::
+             (# msg,solution: ^text
+             do 'The name "'->msg[];
+                (msg[],0,false)->NameAplOpt.print;
+                '" was not found'->msg.append;
+                'Use a name from the enclosing syntax'->solution[];
+                '\nor the name of a superpattern of an enclosing descriptor'
+                  ->solution.puttext;
+                (msg[],solution[],this(l2ScopeSpecImp)[])->staticError
+             #);
+           onStaticOCP::
+             (# 
+             do (if stocp.sptype[]->NameAplOpt.stype.lessEqual then 
+                    (* search succeeded, 'rtp' is OK now *)
+                    (*test-obs  ('ScopeSpecImp','b')->rtp.observe; *)
+                    true->done;
+                 (* else: *)
+                    (* wrong name, search continues *)
+                if)
+             #);
+           onLabel::
+             (#
+             do (if (NameAplOpt.value[],stlab.l2limp.NameDcl[])
+                      ->private.theNameEqual then 
+                    (if nameMustBeObject then
+                        objectFail
+                     else
+                        (* search succeeded, 'rtp' is OK now *)
+                        (*test-obs  ('ScopeSpecImp','b')->rtp.observe; *)
+                        true->done
+                    if)
+                 (* else: *)
+                    (* wrong name, search continues *)
+                if)
+             #)
+        do 
+           (* the run-time path of this l2ScopeSpecImp is special, like
+            * the rtp of an l2thisObject: we must traverse the enclosing
+            * objects until we find the first one whose static type is
+            * a specialization of the static type of 'NameAplOpt'; this
+            * run-time path will always have the shape {<-n} *)
+           
+           (* first ensure that the name apl has the right type and rtp *)
+           NameAplOpt.localCheck;
+           (* now the rest of handleBase will call back to on... as needed *)
+        #);
+      handleCount: handleBase
+        (# counted: @integer;
+           fail:: 
+             (# msg,solution: ^text
+             do 'The number '->msg[];
+                CountOpt->msg.putint;
+                ' enclosing entity does not exist'->msg.append;
+                'Use a smaller (though non-negative) number'->solution[];
+                (msg[],solution[],this(l2ScopeSpecImp)[])->staticError
+             #);
+           onStaticOCP::
+             (# 
+             do counted+1->counted;
+                (if counted>=CountOpt then
+                    (* search succeeded, 'rtp' is OK now *)
+                    (*test-obs  ('ScopeSpecImp','b')->rtp.observe; *)
+                    true->done;
+                 (* else: *)
+                    (* not yet counted far enough, search continues *)
+                if)
+             #);
+           onLabel::
+             (#
+             do (if nameMustBeObject then
+                    (* ignore non-objects (including labels) with INNER *)
+                 else
+                    counted+1->counted;
+                    (if counted>=CountOpt then
+                        (* search succeeded, 'rtp' is OK now *)
+                        (*test-obs  ('ScopeSpecImp','b')->rtp.observe; *)
+                        true->done
+                     (* else: *)
+                        (* not yet counted far enough, search continues *)
+                    if)
+                if)
+             #)
+        do 0->counted
+        #);
+      handleDefault: handleBase
+        (# fail:: 
+             (# do 'Should not be able to fail in the default case'
+                  ->internalError
+             #);
+           onStaticOCP::
+             (# 
+             do (* enclosing is object: always OK *)
+                (* stopping immediately *)
+                true->done 
+             #);
+           onLabel::
+             (# 
+             do (* enclosing is label *)
+                (if nameMustBeObject then 
+                    (* ignore non-objects (including labels) with INNER *)
+                 else
+                    (* stopping immediately *)
+                    true->done
+                if)
+             #)
+        #)
+   do 
+      (* distinguish between the different kinds of specs *)
+      (if true
+       // (NameAplOpt[]<>NONE) then handleNameApl
+       // UsesCount then handleCount 
+       else handleDefault
+      if)
+   #)
+
+(************************************************************
+ *                                                          *
+ *                       l2Expression                       *
+ *                                                          *
+ ************************************************************)
+
+-- ExpressionWrapSingletonStaticTransient:dopart --
+do
+   (if stran##<=staticSublistTransient## then 
+       stran[]->sstran[]
+    else
+       (&staticSublistTransient[]).init->sstran[];
+       stran[]->sstran.strlist.append
+   if)
+
+(************************************************************ 
+ *                                                          * 
+ *                    l2FinalStaticItem                     * 
+ *                                                          * 
+ ************************************************************)
+
+-- FinalStaticItemGetVirtualDecl:dopart --
+do
+   (* make sure 'theIntro' is initialized *)
+   (if theIntro[]=NONE then 
+       (# fail:
+            (# msg,solution: ^text
+            do 'There is no virtual object declaration for this final binding'
+                 ->msg[];
+               'Change the name, the prefix of the enclosing '->solution[];
+               'pattern, or use ":< @"'->solution.puttext;
+               (msg[],solution[],this(l2FinalStaticItem)[])->staticError
+            #);
+          l2ast: ^l2AstNode;
+          l2mpar: ^l2MainPart;
+          sptype: ^staticPatternType;
+          l2sdcl: ^l2SimpleDecl; (* scratch *)
+          l2rspc: ^l2ReferenceSpecification;
+          name: ^text; (* "my" name *)
+          l2ndcl: ^l2NameDcl (* scratch *)
+       do
+          scope.location->l2ast[];
+          (if l2ast##<=l2MainPart## then 
+              (* find "my" environment and name *)
+              l2ast[]->l2mpar[];
+              l2mpar.localStaticType->sptype[];
+              father[]->l2sdcl[];
+              (l2sdcl.getTheNameDcl).value[]->name[];
+              
+              (* search the type slice stack for my "intro" virtual decl *)
+              L: (# 
+                 do (if sptype.slices.size<2 then 
+                        (* this is a final decl, so there _must_
+                         * be at least one slice above this one where 
+                         * the virtual intro decl can live *)
+                        fail
+                     else
+                        (* we must skip myself, and since 'sptype' is a 
+                         * local type, "myself" must be in the first slice *)
+                        ((sptype.slices.first).next).scanForward
+                        (# l2ast: ^l2AstNode
+                        do (if (name[]->current.lookupName->l2ndcl[])<>NONE then
+                               (* found a declaration with the right name *)
+                               l2ndcl.decl.location->l2ast[];
+                               (if l2ast##<=l2SimpleDecl## then 
+                                   l2ast[]->l2sdcl[];
+                                   l2sdcl.ReferenceSpecification[]->l2rspc[];
+                                   (if l2rspc##<=l2VirtualStaticItem## then
+                                       (* found! *)
+                                       l2rspc[]->theIntro[];
+                                       leave L
+                                   if)
+                                (* else: *)
+                                   (* intermediate declaration of same name;
+                                    * like with virtuals we simply skip such
+                                    * "irrelevant" declarations *)
+                               if)
+                            (* else: *)
+                               (* not found, search continues *)
+                           if)
+                        #);
+                        (* no virtual declaration found *)
+                        fail
+                    if)
+                 #)
+           else
+              'Virtual object final binding found in non-object'
+                ->internalError
+          if)
+       #)
+   if);
+   
+   (* deliver it *)
+   theIntro[]->l2vsit[]
+
+(************************************************************ 
+ *                                                          * 
+ *                        l2UnaryExp                        * 
+ *                                                          * 
+ ************************************************************)
+
+-- UnaryExitLib:attributes --
+
+error:
+  (# t: ^text;
+     thrd: ^thread
+  enter (t[],thrd[])
+  do ' expression, expected '->t.prepend;
+     context->t.prepend;
+     'In '->t.prepend;
+     (t[],thrd[],unwind##)->listLengthError
+  #)
+
+-- UnaryExitPrepare:dopart --
+do
+   (thrd[],unwind##,stsub[],world[],usageAst[],dContext[])
+     ->operand.getExitIter
+     ->sub_xi[];
+   sub_xi.prepare
+
+-- UnaryExitCleanUp:dopart --
+do
+   (* check that the exit has been emptied *)
+   (if sub_xi.more then
+       ('one value but got more than one!',thrd[])->error
+    else
+       sub_xi.cleanup
+   if)
+
+-- UnaryExit:dopart --
+do
+   (if sub_xi.more then
+       (* obtain the transient value *)
+       sub_xi->l0trOp[];
+       (* compute the expression, deliver in 'l0tr' *)
+       INNER
+    else
+       ('a value but got none!',thrd[])->error
+   if)
+
+(************************************************************ 
+ *                                                          * 
+ *                         l2BinExp                         * 
+ *                                                          * 
+ ************************************************************)
+
+-- BinaryExitLib:attributes --
+
+error:
+  (# t: ^text;
+     left: @boolean; (* true iff this is left operand *)
+     thrd: ^thread;
+     unwind: ##stackUnwinder
+  enter (t[],left,thrd[],unwind##)
+  do ' expression, expected '->t.prepend;
+     context->t.prepend;
+     ' operand of '->t.prepend;
+     (if left then 'left'->t.prepend else 'right'->t.prepend if);
+     'In '->t.prepend;
+     (t[],thrd[],unwind##)->listLengthError
+  #)
+
+-- BinaryExit:dopart --
+do  
+   (* !! sometimes change evaluation order for left/right operand? *)
+
+   (* Extract transients from the operands *)
+   (if sub_xi1.more then
+       sub_xi1->l0tr1[]
+    else
+       ('a value but got none!',true,getThrd,unwind##)->error
+   if);
+   (if sub_xi2.more then
+       sub_xi2->l0tr2[]
+    else
+       ('a value but got none!',false,getThrd,unwind##)->error
+   if);
+   
+   (* compute the expression, deliver in 'l0tr' *)
+   INNER
+
+-- BinaryExitPrepare:dopart --
+do
+   ((getThrd,unwind##,stsub[],world[],usageAst[],dContext[])
+     ->operand1.getExitIter
+     ->sub_xi1[]).prepare;
+   ((getThrd,unwind##,stsub[],world[],usageAst[],dContext[])
+     ->operand2.getExitIter
+     ->sub_xi2[]).prepare
+
+-- BinaryExitCleanUp:dopart --
+do
+   (* check that the exit lists have been emptied *)
+   (if sub_xi1.more then
+       ('one value but got more than one!',true,getThrd,unwind##)->error
+    else
+       sub_xi1.cleanup
+   if);
+   (if sub_xi2.more then
+       ('one value but got more than one!',false,getThrd,unwind##)->error
+    else
+       sub_xi2.cleanup
+   if)
+
+-- BinaryExitCoerceArith:dopart --
+do
+   (* coerce the transients to same type *)
+   (getThrd,unwind##,l0tr1[],l0tr2[])
+     ->pairTransientsArithBinOp
+     ->(l0tr1[],l0tr2[]);
+   
+   (* compute the expression, deliver in 'l0tr' *)
+   INNER
+
+-- BinaryExitCoerceMod:dopart --
+do
+   (* coerce the transients to same type *)
+   (getThrd,unwind##,l0tr1[],l0tr2[])
+     ->pairTransientsModBinOp
+     ->(l0tr1[],l0tr2[]);
+   
+   (* compute the expression, deliver in 'l0tr' *)
+   INNER
+
+-- BinaryExitCoerceRDiv:dopart --
+do
+   (* coerce the transients to same type *)
+   (getThrd,unwind##,l0tr1[],l0tr2[])
+     ->pairTransientsRDivBinOp
+     ->(l0tr1[],l0tr2[]);
+   
+   (* compute the expression, deliver in 'l0tr' *)
+   INNER
+
+-- BinaryExitCoerceEqNEq:dopart --
+do
+   (* coerce the transients to same type *)
+   (getThrd,unwind##,l0tr1[],l0tr2[])
+     ->pairTransientsEqNEqBinOp
+     ->(l0tr1[],l0tr2[]);
+   
+   (* compute the expression, deliver in 'l0tr' *)
+   INNER
+
+-- BinaryExitCoerceUnEq:dopart --
+do
+   (* coerce the transients to same type *)
+   (getThrd,unwind##,l0tr1[],l0tr2[])
+     ->pairTransientsUnEqBinOp
+     ->(l0tr1[],l0tr2[]);
+   
+   (* compute the expression, deliver in 'l0tr' *)
+   INNER
+
+-- BinaryExitCoerceAndOr:dopart --
+do
+   (* coerce the transients to same type *)
+   (getThrd,unwind##,l0tr1[],l0tr2[])
+     ->pairTransientsAndOrBinOp
+     ->(l0tr1[],l0tr2[]);
+   
+   (* compute the expression, deliver in 'l0tr' *)
+   INNER
+
+(************************************************************
+ *                                                          *
+ *                       l2Reference                        *
+ *                                                          *
+ ************************************************************)
+
+-- ReferenceObtainObject:dopart --
+do
+   (thrd[],unwind##,dContext[],renew)
+     ->obtainObjectRef
+     ->l1obj[];
+   (if l1obj[]=NONE then 
+       ('Trying to access an object via a NONE reference'
+       ,thrd[],unwind##)->refNoneError
+   if)
+   
+(***********************************************************
+ *                                                         *
+ *                    l2RepetitionSlice                    *
+ *                                                         *
+ ***********************************************************)
+
+-- RepetitionSliceGetIterBase:dopart --
+do 
+   (* get hold of the repetition *)
+   (thrd[],unwind##,dContext[])
+     ->AttributeDenotation.lookup
+     ->aden_ent[];
+   (if aden_ent##<=l1RepetitionEntity## then 
+       aden_ent[]->l1rep[]
+    else
+       'Trying to evaluate slice from non-repetition'
+         ->internalError
+   if);
+   
+   (* evaluate the limiting indices; first get static context *)
+   (thrd[],unwind##,(thrd[],unwind##,stsub[],world[]
+   ,this(l2RepetitionSlice)[],dContext[])->Low.getExitIter)
+     ->exitOneValue(# context::(# do 'ibetaTwoExp2body.bet/280'->value[]#)#)
+     ->transient_many2integer
+     ->l0tri[];
+   l0tri->lowIndex;
+   (thrd[],unwind##,(thrd[],unwind##,stsub[],world[]
+   ,this(l2RepetitionSlice)[],dContext[])->High.getExitIter)
+     ->exitOneValue(# context::(# do 'ibetaTwoExp2body.bet/286'->value[]#)#)
+     ->transient_many2integer
+     ->l0tri[];
+   l0tri->highIndex;
+   
+   (* get hold of the static info about the repetition *)
+   (if stsub##<=staticContext## then
+       stsub[]->sContext[]
+    else
+       'RepetitionSlice found in non-context?!'
+         ->internalError
+   if);
+   (sContext[],world[],this(l2RepetitionSlice)[])
+     ->getStaticSubstance
+     ->rep_stsub[];
+   INNER
+   
+(***********************************************************
+ *                                                         *
+ *                        Coercion                         *
+ *                                                         *
+ ***********************************************************)
+
+-- BinCoerceBaseFail:dopart --
+do 
+   (# msg: ^text
+   do 'Cannot coerce '->msg[];
+      (leftSTran.typename).withIndefArticle->msg.puttext;
+      ' and '->msg.puttext;
+      (rightSTran.typename).withIndefArticle->msg.puttext;
+      ' into\n'->msg.puttext;
+      'compatible types of values for '->msg.puttext;
+      (typename).withIndefArticle->msg.puttext;
+      (msg[]
+      ,'Change the expression'
+      ,this(l2Evaluation)[])->staticError
+   #)
+
+-- BinEqCoerce:dopart --
+do 
+   (if leftSTran##<>rightSTran## then
+       (if true 
+        // leftSTran##=staticCharTransient## then
+           (if true 
+            // rightSTran##=staticIntegerTransient## then
+               ('ibetaTwoExprbody.bet/176'->(&coerceCharIntegerCode[]).init
+               ,insPos[])
+                 ->program.insertAfter
+                 ->inspos[];
+               (&staticIntegerTransient[]).init->resultSTran[]
+            // rightSTran##=staticStringTransient## then
+               (# sSTran: ^staticStringTransient
+               do rightSTran[]->sSTran[];
+                  (if ssTran.singleton then 
+                      'ibetaTwoExprbody.bet/185'
+                        ->(&coerceString1CharCode[]).init
+                        ->program.append;
+                      (&staticCharTransient[]).init->resultSTran[]
+                   else
+                      ('ibetaTwoExprbody.bet/190'
+                        ->(&coerceCharStringCode[]).init
+                      ,insPos[])
+                        ->program.insertAfter
+                        ->insPos[];
+                      (&staticStringTransient[]).init->resultSTran[]
+                  if)
+               #)
+            else 
+               fail
+           if)
+        // leftSTran##=staticIntegerTransient## then
+           (if true
+            // rightSTran##=staticCharTransient## then 
+               'ibetaTwoExprbody.bet/204'
+                 ->(&coerceCharIntegerCode[]).init
+                 ->program.append;
+               (&staticIntegerTransient[]).init->resultSTran[]
+            // rightSTran##=staticRealTransient## then 
+               ('ibetaTwoExprbody.bet/209'
+                 ->(&coerceIntegerRealCode[]).init
+               ,insPos[])
+                 ->program.insertAfter
+                 ->insPos[];
+               (&staticRealTransient[]).init->resultSTran[]
+            // rightSTran##=staticStringTransient## then
+               (# sSTran: ^staticStringTransient
+               do rightSTran[]->sSTran[];
+                  (if sStran.singleton then
+                      'ibetaTwoExprbody.bet/219'
+                        ->(&coerceString1IntegerCode[]).init
+                        ->program.append;
+                      (&staticIntegerTransient[]).init->resultSTran[]
+                   else
+                      fail
+                  if)
+               #)
+            else
+               fail
+           if)
+        // leftSTran##=staticRealTransient## then
+           (if rightSTran##=staticIntegerTransient## then
+               'ibetaTwoExprbody.bet/232'
+                 ->(&coerceIntegerRealCode[]).init
+                 ->program.append;
+               (&staticRealTransient[]).init->resultSTran[]
+            else
+               fail
+           if)
+        // leftSTran##=staticStringTransient## then
+           (# sSTran: ^staticStringTransient
+           do leftSTran[]->sSTran[];
+              (if sSTran.singleton then
+                  (if true
+                   // rightSTran##=staticCharTransient## then 
+                      ('ibetaTwoExprbody.bet/245'
+                        ->(&coerceString1CharCode[]).init
+                      ,insPos[])
+                        ->program.insertAfter
+                        ->insPos[];
+                      (&staticCharTransient[]).init->resultSTran[]
+                   // rightSTran##=staticIntegerTransient## then
+                      ('ibetaTwoExprbody.bet/252'
+                        ->(&coerceString1IntegerCode[]).init
+                      ,insPos[])
+                        ->program.insertAfter
+                        ->insPos[];
+                      (&staticIntegerTransient[]).init->resultSTran[]
+                   // rightSTran##=staticStringTransient## then 
+                      (&staticStringTransient[]).init->resultSTran[]
+                   else
+                      fail
+                  if)
+               else
+                  (* not a singleton string *)
+                  (if true
+                   // rightSTran##=staticCharTransient## then 
+                      'ibetaTwoExprbody.bet/267'
+                        ->(&coerceCharStringCode[]).init
+                        ->program.append;
+                      (&staticStringTransient[]).init->resultSTran[]
+                   else
+                      fail
+                  if)
+              if)
+           #)
+        // leftSTran##=staticORefTransient## then
+           (* in 'x[]=NONE' we give NONE the lhs type *)
+           (if rightSTran##=staticNoneTransient## then
+               'ibetaTwoExprbody.bet/279'
+                 ->(&noneObjectCode[]).init
+                 ->program.append;
+               leftSTran[]->resultSTran[]
+            else
+               fail
+           if)
+        // leftSTran##=staticPRefTransient## then
+           (if rightSTran##=staticNoneTransient## then
+               'ibetaTwoExprbody.bet/288'
+                 ->(&nonePatternCode[]).init
+                 ->program.append;
+               leftSTran[]->resultSTran[]
+            else
+               fail
+           if)
+        // leftSTran##=staticNoneTransient## then
+           (if true
+            // rightSTran##=staticORefTransient## then
+               ('ibetaTwoExprbody.bet/298'
+                 ->(&noneObjectCode[]).init
+               ,insPos[])
+                 ->program.insertAfter
+                 ->insPos[];
+               rightSTran[]->resultSTran[]
+            // rightSTran##=staticPRefTransient## then
+               ('ibetaTwoExprbody.bet/305'
+                 ->(&nonePatternCode[]).init
+               ,insPos[])
+                 ->program.insertAfter
+                 ->insPos[];
+               rightSTran[]->resultSTran[]
+            else
+               fail
+           if)
+        else
+           fail
+       if)
+    else
+       leftSTran[]->resultSTran[]
+   if)
+
+-- BinInEqCoerce:dopart --
+do 
+   (if leftSTran##<>rightSTran## then
+       (if true 
+        // leftSTran##=staticCharTransient## then
+           (if true 
+            // rightSTran##=staticIntegerTransient## then
+               ('ibetaTwoExprbody.bet/358'
+                 ->(&coerceCharIntegerCode[]).init
+               ,insPos[])
+                 ->program.insertAfter
+                 ->insPos[];
+               (&staticIntegerTransient[]).init->resultSTran[]
+            // rightSTran##=staticStringTransient## then
+               (# sSTran: ^staticStringTransient
+               do rightSTran[]->sSTran[];
+                  (if sSTran.singleton then
+                      'ibetaTwoExprbody.bet/368'
+                        ->(&coerceString1CharCode[]).init
+                        ->program.append;
+                      (&staticCharTransient[]).init->resultSTran[]
+                   else
+                      ('ibetaTwoExprbody.bet/373'
+                        ->(&coerceCharStringCode[]).init
+                      ,insPos[])
+                        ->program.insertAfter
+                        ->insPos[];
+                      (&staticStringTransient[]).init->resultSTran[]
+                  if)
+               #)
+            else
+               fail
+           if)
+        // leftSTran##=staticIntegerTransient## then
+           (if true
+            // rightSTran##=staticCharTransient## then 
+               'ibetaTwoExprbody.bet/387'
+                 ->(&coerceCharIntegerCode[]).init
+                 ->program.append;
+               (&staticIntegerTransient[]).init->resultSTran[]
+            // rightSTran##=staticRealTransient## then 
+               ('ibetaTwoExprbody.bet/392'
+                 ->(&coerceIntegerRealCode[]).init
+               ,insPos[])
+                 ->program.insertAfter
+                 ->insPos[];
+               (&staticRealTransient[]).init->resultSTran[]
+            // rightSTran##=staticStringTransient## then
+               (# sSTran: ^staticStringTransient
+               do rightSTran[]->sStran[];
+                  (if sSTran.singleton then
+                      'ibetaTwoExprbody.bet/402'
+                        ->(&coerceString1IntegerCode[]).init
+                        ->program.append;
+                      (&staticIntegerTransient[]).init->resultSTran[]
+                   else
+                      fail
+                  if)
+               #)
+            else
+               fail
+           if)
+        // leftSTran##=staticRealTransient## then
+           (if rightSTran##=staticIntegerTransient## then
+               'ibetaTwoExprbody.bet/415'
+                 ->(&coerceIntegerRealCode[]).init
+                 ->program.append;
+               (&staticRealTransient[]).init->resultSTran[]
+            else
+               fail
+           if)
+        // leftSTran##=staticStringTransient## then
+           (# sSTran: ^staticStringTransient
+           do leftSTran[]->sSTran[];
+              (if sSTran.singleton then
+                  (if true
+                   // rightSTran##=staticCharTransient## then 
+                      ('ibetaTwoExprbody.bet/428'
+                        ->(&coerceString1CharCode[]).init
+                      ,insPos[])
+                        ->program.insertAfter
+                        ->insPos[];
+                      (&staticCharTransient[]).init->resultSTran[]
+                   // rightSTran##=staticIntegerTransient## then
+                      ('ibetaTwoExprbody.bet/435'
+                        ->(&coerceString1IntegerCode[]).init
+                      ,insPos[])
+                        ->program.insertAfter
+                        ->insPos[];
+                      (&staticIntegerTransient[]).init->resultSTran[]
+                   // rightSTran##=staticStringTransient## then 
+                      false
+                        ->(&staticStringTransient[]).init
+                        ->resultSTran[]
+                   else
+                      fail
+                  if)
+               else
+                  (if true
+                   // rightSTran##=staticCharTransient## then 
+                      'ibetaTwoExprbody.bet/451'
+                        ->(&coerceCharStringCode[]).init
+                        ->program.append;
+                      false
+                        ->(&staticStringTransient[]).init
+                        ->resultSTran[]
+                   else
+                      fail
+                  if)
+              if)
+           #)
+           
+        else
+           fail
+       if)
+    else
+       leftSTran[]->resultSTran[]
+   if)
+   
+-- BinPlusCoerce:dopart --
+do 
+   (if leftSTran##<>rightSTran## then
+       (if true 
+        // leftSTran##=staticCharTransient## then
+           (if true 
+            // rightSTran##=staticIntegerTransient## then
+               ('ibetaTwoExprbody.bet/502'
+                 ->(&coerceCharIntegerCode[]).init
+               ,insPos[])
+                 ->program.insertAfter
+                 ->insPos[];
+               (&staticIntegerTransient[]).init->resultSTran[]
+            // rightSTran##=staticStringTransient## then
+               (# sSTran: ^staticStringTransient
+               do rightSTran[]->sSTran[];
+                  (if sSTran.singleton then
+                      ('ibetaTwoExprbody.bet/512'
+                        ->(&coerceCharIntegerCode[]).init
+                      ,insPos[])
+                        ->program.insertAfter
+                        ->insPos[];
+                      'ibetaTwoExprbody.bet/517'
+                        ->(&coerceString1IntegerCode[]).init
+                        ->program.append;
+                      (&staticIntegerTransient[]).init->resultSTran[]
+                   else 
+                      ('ibetaTwoExprbody.bet/522'
+                        ->(&coerceCharStringCode[]).init
+                      ,insPos[])
+                        ->program.insertAfter
+                        ->insPos[];
+                      (&staticStringTransient[]).init->resultSTran[]
+                  if)
+               #)
+            else
+               fail
+           if)
+        // leftSTran##=staticIntegerTransient## then
+           (if true
+            // rightSTran##=staticCharTransient## then 
+               'ibetaTwoExprbody.bet/536'
+                 ->(&coerceCharIntegerCode[]).init
+                 ->program.append;
+               (&staticIntegerTransient[]).init->resultSTran[]
+            // rightSTran##=staticRealTransient## then 
+               ('ibetaTwoExprbody.bet/541'
+                 ->(&coerceIntegerRealCode[]).init
+               ,insPos[])
+                 ->program.insertAfter
+                 ->insPos[];
+               (&staticRealTransient[]).init->resultSTran[]
+            // rightSTran##=staticStringTransient## then
+               (# sSTran: ^staticStringTransient
+               do rightSTran[]->sSTran[];
+                  (if sSTran.singleton then
+                      'ibetaTwoExprbody.bet/551'
+                        ->(&coerceString1IntegerCode[]).init
+                        ->program.append;
+                      (&staticIntegerTransient[]).init->resultSTran[]
+                   else
+                      fail
+                  if)
+               #)
+            else
+               fail
+           if)
+        // leftSTran##=staticRealTransient## then
+           (if rightSTran##=staticIntegerTransient## then
+               'ibetaTwoExprbody.bet/564'
+                 ->(&coerceIntegerRealCode[]).init
+                 ->program.append;
+               (&staticRealTransient[]).init->resultSTran[]
+            else
+               fail
+           if)
+        // leftSTran##=staticStringTransient## then
+           (# sSTran,right_sSTran: ^staticStringTransient
+           do leftSTran[]->sSTran[];
+              (if sSTran.singleton then
+                  (if true
+                   // rightSTran##=staticCharTransient## then 
+                      ('ibetaTwoExprbody.bet/577'
+                        ->(&coerceString1IntegerCode[]).init
+                      ,insPos[])
+                        ->program.insertAfter
+                        ->insPos[];
+                      'ibetaTwoExprbody.bet/582'
+                        ->(&coerceCharIntegerCode[]).init
+                        ->program.append;
+                      (&staticIntegerTransient[]).init->resultSTran[]
+                   // rightSTran##=staticIntegerTransient## then
+                      ('ibetaTwoExprbody.bet/587'
+                        ->(&coerceString1IntegerCode[]).init
+                      ,insPos[])
+                        ->program.insertAfter
+                        ->insPos[];
+                      (&staticIntegerTransient[]).init->resultSTran[]
+                   else
+                      fail
+                  if)
+               else
+                  (* not singleton *)
+                  (if true
+                   // rightSTran##=staticCharTransient## then 
+                      'ibetaTwoExprbody.bet/600'
+                        ->(&coerceCharStringCode[]).init
+                        ->program.append;
+                      (&staticStringTransient[]).init->resultSTran[]
+                   else
+                      fail
+                  if)
+              if)
+           #)
+        else
+           fail
+       if)
+    else
+       (* leftSTran##=rightSTran## *)
+       (if true 
+        // leftSTran##=staticCharTransient## then
+           (* adding two chars, must coerce both into integers *)
+           ('ibetaTwoExprbody.bet/617'
+             ->(&coerceCharIntegerCode[]).init
+           ,insPos[])
+             ->program.insertAfter
+             ->insPos[];
+           'ibetaTwoExprbody.bet/622'
+             ->(&coerceCharIntegerCode[]).init
+             ->program.append;
+           (&staticIntegerTransient[]).init->resultSTran[]
+        // leftSTran##=staticStringTransient## then
+           (# leftSStran,rightSSTran: ^staticStringTransient
+           do leftSTran[]->leftSSTran[];
+              rightSTran[]->rightSSTran[];
+              (if leftSSTran.singleton and rightSSTran.singleton then
+                  (* adding two string1s, must coerce both into integers *)
+                  ('ibetaTwoExprbody.bet/632'
+                    ->(&coerceString1IntegerCode[]).init
+                  ,insPos[])
+                    ->program.insertAfter
+                    ->insPos[];
+                  'ibetaTwoExprbody.bet/637'
+                    ->(&coerceString1IntegerCode[]).init
+                    ->program.append;
+                  (&staticIntegerTransient[]).init->resultSTran[]
+               else
+                  (* adding two strings, at most one singleton: 
+                   * OK, no-op, and result std. (never singleton) *)
+                  (&staticStringTransient[]).init->resultSTran[]
+              if)
+           #)
+        // leftSTran##=staticIntegerTransient## 
+        // leftSTran##=staticRealTransient## 
+        // leftSTran##=staticStringTransient## then
+           (* no-op *)
+           leftSTran[]->resultSTran[]
+        else 
+           fail
+       if)
+   if)
+  
+-- BinArithCoerce:dopart --
+do 
+   (if leftSTran##<>rightSTran## then
+       (if true 
+        // leftSTran##=staticCharTransient## then
+           (if true 
+            // rightSTran##=staticIntegerTransient## then
+               ('ibetaTwoExprbody.bet/686'
+                 ->(&coerceCharIntegerCode[]).init
+               ,insPos[])
+                 ->program.insertAfter
+                 ->insPos[];
+               (&staticIntegerTransient[]).init->resultSTran[]
+            // rightSTran##=staticStringTransient## then
+               (# sSTran: ^staticStringTransient
+               do rightSTran[]->sSTran[];
+                  (if sSTran.singleton then
+                      ('ibetaTwoExprbody.bet/696'
+                        ->(&coerceCharIntegerCode[]).init
+                      ,insPos[])
+                        ->program.insertAfter
+                        ->insPos[];
+                      'ibetaTwoExprbody.bet/701'
+                        ->(&coerceString1IntegerCode[]).init
+                        ->program.append;
+                      (&staticIntegerTransient[]).init->resultSTran[]
+                   else
+                      fail
+                  if)
+               #)
+            else 
+               fail
+           if)
+        // leftSTran##=staticIntegerTransient## then
+           (if true
+            // rightSTran##=staticCharTransient## then 
+               'ibetaTwoExprbody.bet/715'
+                 ->(&coerceCharIntegerCode[]).init
+                 ->program.append;
+               (&staticIntegerTransient[]).init->resultSTran[]
+            // rightSTran##=staticRealTransient## then 
+               ('ibetaTwoExprbody.bet/720'
+                 ->(&coerceIntegerRealCode[]).init
+               ,insPos[])
+                 ->program.insertAfter
+                 ->insPos[];
+               (&staticRealTransient[]).init->resultSTran[]
+            // rightSTran##=staticStringTransient## then
+               (# sSTran: ^staticStringTransient
+               do rightSTran[]->sSTran[];
+                  (if sSTran.singleton then
+                      'ibetaTwoExprbody.bet/730'
+                        ->(&coerceString1IntegerCode[]).init
+                        ->program.append;
+                      (&staticIntegerTransient[]).init->resultSTran[]
+                   else
+                      fail
+                  if)
+               #)
+            else
+               fail
+           if)
+        // leftSTran##=staticRealTransient## then
+           (if rightSTran##=staticIntegerTransient## then
+               'ibetaTwoExprbody.bet/743'
+                 ->(&coerceIntegerRealCode[]).init
+                 ->program.append;
+               (&staticRealTransient[]).init->resultSTran[]
+            else
+               fail
+           if)
+        // leftSTran##=staticStringTransient## then
+           (# sSTran: ^staticStringTransient
+           do leftSTran[]->sSTran[];
+              (if sSTran.singleton then
+                  (if true
+                   // rightSTran##=staticCharTransient## then 
+                      ('ibetaTwoExprbody.bet/756'
+                        ->(&coerceString1IntegerCode[]).init
+                      ,insPos[])
+                        ->program.insertAfter
+                        ->insPos[];
+                      'ibetaTwoExprbody.bet/761'
+                        ->(&coerceCharIntegerCode[]).init
+                        ->program.append;
+                      (&staticIntegerTransient[]).init->resultSTran[]
+                   // rightSTran##=staticIntegerTransient## then
+                      ('ibetaTwoExprbody.bet/766'
+                        ->(&coerceString1IntegerCode[]).init
+                      ,insPos[])
+                        ->program.insertAfter
+                        ->insPos[];
+                      (&staticIntegerTransient[]).init->resultSTran[]
+                   // rightSTran##=staticStringTransient## then 
+                      (&staticStringTransient[]).init->resultSTran[]
+                   else
+                      fail
+                  if)
+               else
+                  fail
+              if)
+           #)
+        else
+           fail
+       if)
+    else
+       (* leftSTran##=rightSTran## *)
+       (if true 
+        // leftSTran##=staticCharTransient## then
+           (* using two chars, must coerce both into integers *)
+           ('ibetaTwoExprbody.bet/789'
+             ->(&coerceCharIntegerCode[]).init
+           ,insPos[])
+             ->program.insertAfter
+             ->insPos[];
+           'ibetaTwoExprbody.bet/794'
+             ->(&coerceCharIntegerCode[]).init
+             ->program.append;
+           (&staticIntegerTransient[]).init->resultSTran[]
+        // leftSTran##=staticStringTransient## then
+           (# leftSSTran,rightSSTran: ^staticStringTransient
+           do leftSTran[]->leftSSTran[];
+              rightSTran[]->rightSSTran[];
+              (if leftSSTran.singleton and rightSSTran.singleton then
+                  (* using two string1s, must coerce both into integers *)
+                  ('ibetaTwoExprbody.bet/804'
+                    ->(&coerceString1IntegerCode[]).init
+                  ,insPos[])
+                    ->program.insertAfter
+                    ->insPos[];
+                  'ibetaTwoExprbody.bet/809'
+                    ->(&coerceString1IntegerCode[]).init
+                    ->program.append;
+                  (&staticIntegerTransient[]).init->resultSTran[]
+               else
+                  fail
+              if)
+           #)
+        // leftSTran##=staticIntegerTransient## 
+        // leftSTran##=staticRealTransient## then
+           (* no-op *)
+           leftSTran[]->resultSTran[]
+        else 
+           fail
+       if)
+   if)
+
+-- BinModCoerce:dopart --
+do 
+   (if leftSTran##<>rightSTran## then
+       (if true 
+        // leftSTran##=staticCharTransient## then
+           (if true 
+            // rightSTran##=staticIntegerTransient## then
+               ('ibetaTwoExprbody.bet/854'
+                 ->(&coerceCharIntegerCode[]).init
+               ,insPos[])
+                 ->program.insertAfter
+                 ->insPos[]
+            // rightSTran##=staticStringTransient## then
+               (# sSTran: ^staticStringTransient
+               do rightSTran[]->sSTran[];
+                  (if sSTran.singleton then
+                      ('ibetaTwoExprbody.bet/863'
+                        ->(&coerceCharIntegerCode[]).init
+                      ,insPos[])
+                        ->program.insertAfter
+                        ->insPos[];
+                      'ibetaTwoExprbody.bet/868'
+                        ->(&coerceString1IntegerCode[]).init
+                        ->program.append
+                   else
+                      fail
+                  if)
+               #)
+            else 
+               fail
+           if)
+        // leftSTran##=staticIntegerTransient## then
+           (if true
+            // rightSTran##=staticCharTransient## then 
+               'ibetaTwoExprbody.bet/881'
+                 ->(&coerceCharIntegerCode[]).init
+                 ->program.append
+            // rightSTran##=staticStringTransient## then 
+               (# sSTran: ^staticStringTransient
+               do rightSTran[]->sSTran[];
+                  (if sSTran.singleton then 
+                      'ibetaTwoExprbody.bet/888'
+                        ->(&coerceString1IntegerCode[]).init
+                        ->program.append
+                   else
+                      fail
+                  if)
+               #)
+            else
+               fail
+           if)
+        // leftSTran##=staticStringTransient## then
+           (# sSTran: ^staticStringTransient
+           do leftSTran[]->sSTran[];
+              (if sSTran.singleton then
+                  (if true
+                   // rightSTran##=staticCharTransient## then 
+                      ('ibetaTwoExprbody.bet/904'
+                        ->(&coerceString1IntegerCode[]).init
+                      ,insPos[])
+                        ->program.insertAfter
+                        ->insPos[];
+                      'ibetaTwoExprbody.bet/909'
+                        ->(&coerceCharIntegerCode[]).init
+                        ->program.append
+                   // rightSTran##=staticIntegerTransient## then
+                      ('ibetaTwoExprbody.bet/913'
+                        ->(&coerceString1IntegerCode[]).init
+                      ,insPos[])
+                        ->program.insertAfter
+                        ->insPos[]
+                   // rightSTran##=staticStringTransient## then 
+                      (# sSTran: ^staticStringTransient
+                      do rightSTran[]->sSTran[];
+                         (if sSTran.singleton then
+                             ('ibetaTwoExprbody.bet/922'
+                               ->(&coerceString1IntegerCode[]).init
+                             ,insPos[])
+                               ->program.insertAfter
+                               ->insPos[];
+                             'ibetaTwoExprbody.bet/927'
+                               ->(&coerceString1IntegerCode[]).init
+                               ->program.append
+                          else
+                             fail
+                         if)
+                      #)
+                   else
+                      fail
+                  if)
+               else
+                  fail
+              if)
+           #)
+        else
+           fail
+       if)
+    else
+       (* leftSTran##=rightSTran## *)
+       (if true 
+        // leftSTran##=staticCharTransient## then
+           (* "mod"ing two chars, must coerce both into integers *)
+           ('ibetaTwoExprbody.bet/949'
+             ->(&coerceCharIntegerCode[]).init
+           ,insPos[])
+             ->program.insertAfter
+             ->insPos[];
+           'ibetaTwoExprbody.bet/954'
+             ->(&coerceCharIntegerCode[]).init
+             ->program.append
+        // leftSTran##=staticStringTransient## then
+           (# leftSSTran,rightSSTran: ^staticStringTransient
+           do leftSTran[]->leftSSTran[];
+              rightSTran[]->rightSSTran[];
+              (if leftSSTran.singleton and rightSSTran.singleton then
+                  (* "mod"ing two string1s, must coerce both into integers *)
+                  ('ibetaTwoExprbody.bet/963'
+                    ->(&coerceString1IntegerCode[]).init
+                  ,insPos[])
+                    ->program.insertAfter
+                    ->insPos[];
+                  'ibetaTwoExprbody.bet/968'
+                    ->(&coerceString1IntegerCode[]).init
+                    ->program.append
+               else
+                  fail
+              if)
+           #)
+        // leftSTran##=staticIntegerTransient## then
+           (* no-op *)
+        else 
+           fail
+       if)
+   if);
+   (&staticIntegerTransient[]).init->resultSTran[]
+
+-- BinRDivCoerce:dopart --
+do
+   (if leftSTran##<>rightSTran## then
+       (if true 
+        // leftSTran##=staticCharTransient## then
+           ('ibetaTwoExprbody.bet/1011'
+             ->(&coerceCharRealCode[]).init
+           ,insPos[])
+             ->program.insertAfter
+             ->insPos[];
+           (if true 
+            // rightSTran##=staticIntegerTransient## then
+               'ibetaTwoExprbody.bet/1018'
+                 ->(&coerceIntegerRealCode[]).init
+                 ->program.append
+            // rightSTran##=staticStringTransient## then
+               (# sSTran: ^staticStringTransient
+               do rightSTran[]->sSTran[];
+                  (if sSTran.singleton then 
+                      'ibetaTwoExprbody.bet/1025'
+                        ->(&coerceString1RealCode[]).init
+                        ->program.append
+                   else
+                      fail
+                  if)
+               #)
+            else 
+               fail
+           if)
+        // leftSTran##=staticIntegerTransient## then
+           ('ibetaTwoExprbody.bet/1036'
+             ->(&coerceIntegerRealCode[]).init
+           ,insPos[])
+             ->program.insertAfter
+             ->insPos[];
+           (if true
+            // rightSTran##=staticCharTransient## then 
+               'ibetaTwoExprbody.bet/1043'
+                 ->(&coerceCharRealCode[]).init
+                 ->program.append
+            // rightSTran##=staticIntegerTransient## then
+               'ibetaTwoExprbody.bet/1047'
+                 ->(&coerceIntegerRealCode[]).init
+                 ->program.append
+            // rightSTran##=staticStringTransient## then 
+               (# sSTran: ^staticStringTransient
+               do rightSTran[]->sSTran[];
+                  (if sSTran.singleton then
+                      'ibetaTwoExprbody.bet/1054'
+                        ->(&coerceString1RealCode[]).init
+                        ->program.append
+                   else
+                      fail
+                  if)
+               #)
+            // rightSTran##=staticRealTransient## then 
+               (* no-op *)
+            else
+               fail
+           if)
+        // leftSTran##=staticRealTransient## then
+           (if true
+            // rightSTran##=staticIntegerTransient## then
+               'ibetaTwoExprbody.bet/1067'
+                 ->(&coerceIntegerRealCode[]).init
+                 ->program.append
+            else
+               fail
+           if)
+        // leftSTran##=staticStringTransient## then
+           (# sSTran: ^staticStringTransient
+           do leftSTran[]->sSTran[];
+              (if sSTran.singleton then
+                  ('ibetaTwoExprbody.bet/1077'
+                    ->(&coerceString1RealCode[]).init
+                  ,insPos[])
+                    ->program.insertAfter
+                    ->insPos[];
+                  (if true
+                   // rightSTran##=staticCharTransient## then 
+                      'ibetaTwoExprbody.bet/1084'
+                        ->(&coerceCharRealCode[]).init
+                        ->program.append
+                   // rightSTran##=staticIntegerTransient## then
+                      'ibetaTwoExprbody.bet/1088'
+                        ->(&coerceIntegerRealCode[]).init
+                        ->program.append
+                   // rightSTran##=staticStringTransient## then 
+                      (# rightSSTran: ^staticStringTransient
+                      do rightSTran[]->rightSSTran[];
+                         (if rightSSTran.singleton then
+                             'ibetaTwoExprbody.bet/1095'
+                               ->(&coerceString1RealCode[]).init
+                               ->program.append
+                          else
+                             fail
+                         if)
+                      #)
+                   else
+                      fail
+                  if)
+               else
+                  fail
+              if)
+           #)
+        else
+           fail
+       if)
+    else
+       (* leftSTran##=rightSTran## *)
+       (if true 
+        // leftSTran##=staticCharTransient## then
+           (* dividing two chars, must coerce both into reals *)
+           ('ibetaTwoExprbody.bet/1117'
+             ->(&coerceCharRealCode[]).init
+           ,insPos[])
+             ->program.insertAfter
+             ->insPos[];
+           'ibetaTwoExprbody.bet/1122'
+             ->(&coerceCharRealCode[]).init
+             ->program.append
+        // leftSTran##=staticIntegerTransient## then
+           (* dividing two integers, must coerce both into reals *)
+           ('ibetaTwoExprbody.bet/1127'
+             ->(&coerceIntegerRealCode[]).init
+           ,insPos[])
+             ->program.insertAfter
+             ->insPos[];
+           'ibetaTwoExprbody.bet/1132'
+             ->(&coerceIntegerRealCode[]).init
+             ->program.append
+        // leftSTran##=staticStringTransient## then
+           (# leftSSTran,rightSSTran: ^staticStringTransient
+           do leftSTran[]->leftSSTran[];
+              rightSTran[]->rightSSTran[];
+              (if leftSSTran.singleton and rightSSTran.singleton then
+                  (* adding two string1s, must coerce both into reals *)
+                  ('ibetaTwoExprbody.bet/1141'
+                    ->(&coerceString1RealCode[]).init
+                  ,insPos[])
+                    ->program.insertAfter
+                    ->insPos[];
+                  'ibetaTwoExprbody.bet/1146'
+                    ->(&coerceString1RealCode[]).init
+                    ->program.append
+              if)
+           #)
+        // leftSTran##=staticRealTransient## then
+           (* no-op *)
+        else 
+           fail
+       if)
+   if);
+   (&staticRealTransient[]).init->resultSTran[]
+
+-- BinBoolCoerce:dopart --
+do 
+   (if (leftSTran##<>staticBooleanTransient##) or 
+       (rightSTran##<>staticBooleanTransient##) then
+       fail
+   if);
+   (&staticBooleanTransient[]).init->resultSTran[]
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

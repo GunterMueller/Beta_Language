@@ -1,0 +1,62 @@
+(* FILE aex5.gb *)
+-- betaenv:descriptor --
+(#
+   (* This shows how specialization of nested
+    * patterns ('role1' and 'role2') can be used
+    * to "fill in the roles" with "actors" defined
+    * in an ensemble with a given basic structure.
+    * In this case we use the 'twoActors' setup
+    * which simply states that there are two actors,
+    * but there could be other constraints, e.g. a
+    * basic scheme of actions taking place, implemented
+    * as hooks (virtuals) which must then be filled in.
+    *
+    * The 'twoActors' setup is then specialized to an
+    * "implementation aspect," 'anEnsemble', and
+    * independently to an "activity aspect," the
+    * 'hamlet' play.  Finally the two aspects are
+    * combined in the do-part, and executed
+    *)
+   
+   actor: 
+     (# realname:< string;
+        name:< string;
+        limps:< boolean;
+        deaf:< boolean;
+        speak: (# do '\n'+name+' ('+realname+')'+': '->stdio; INNER #);
+        answer: speak
+          (# do (if deaf then 'Er..?'->stdio else 'Yes, quite so.'->stdio if);
+             (if limps then '   .. Ouch, my leg!!'->stdio if)
+          #)
+     #);
+   
+   twoActors:
+     (# role1:< actor;
+        role2:< actor;
+        r1: @role1; r2: @role2
+     do INNER
+     #);
+   
+   anEnsemble: twoActors
+     (# role1::<
+          (# realname::(# do 'Laurence Olivier'->value #);
+             deaf::(# do true->value #)
+          #);
+        role2::<
+          (# realname::(# do 'Madonna'->value #);
+             limps::(# do true->value #)
+          #)
+     do INNER
+     #);
+   hamlet: twoActors
+     (# role1::< actor(# name::(# do 'Hamlet'->value #)#);
+        role2::< actor(# name::(# do 'Ophelia'->value #)#);
+     do r1.speak(# do 'Oh, I love You, '+r2.name+'!'->stdio #)
+          ->r2.answer;
+        r2.speak
+        (# do r1.name+', are you still seeing that Leigh woman?'->stdio #)
+          ->r1.answer
+     #)
+do
+   anEnsemble & hamlet
+#)

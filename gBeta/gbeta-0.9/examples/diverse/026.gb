@@ -1,0 +1,14 @@
+-- betaenv:descriptor --
+(# (* simple example of directed suspend: problem: 
+    * the parser thinks 'suspend' is a reserved word! *)
+   C1: @|
+     (# P: (# N: @integer
+           enter N
+           do INNER; C1._suspend;
+              (if N//2 then else N+1->N; N->&P if)
+           #);
+     do INNER; C1._suspend; INNER; INNER;
+        1->&P;
+     #);
+do C1; C1; C1; C1
+#)

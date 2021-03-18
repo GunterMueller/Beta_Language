@@ -1,0 +1,25 @@
+ORIGIN '~beta/basiclib/current/betaenv';
+INCLUDE '~beta/containers/current/list.bet';
+--- Program: ObjectDescriptor ---
+(#
+   l: @list
+     (#
+        element:: text;
+        equal:: (# do left[]->right.equal->value #);
+	emptyContainerError::
+	  (# do 'Global empty exception raised!'->putline; true->continue #);
+	illegalCellReference::
+	  (#
+	  do
+	     'Global illegalCellReference exception raised!'->putline;
+	     true->continue
+	  #);
+     #);
+   c: ^container;
+   thehas: ##c.has;
+do
+   'pencil'->l.append;
+   l[]->c[];
+   c.has##->thehas##;
+   (if 'pencil'->thehas then 'There is a pencil in the list.'->putline if);
+#)

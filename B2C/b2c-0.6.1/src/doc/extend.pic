@@ -1,0 +1,46 @@
+\unitlength=1.00mm
+\special{em:linewidth 0.4pt}
+\linethickness{0.4pt}
+\begin{picture}(127.00,160.00)
+\put(35.00,146.00){\vector(-2,-3){6.67}}
+\put(18.00,160.00){\makebox(0,0)[lc]{change by $amount$, new size in $size$, $alsize$ -- already allocated size}}
+\put(30.00,143.00){\makebox(0,0)[cc]{$+$}}
+\put(36.00,148.00){\makebox(0,0)[cc]{$amount < 0$}}
+\put(36.00,157.00){\vector(0,-1){5.00}}
+\put(28.00,131.00){\makebox(0,0)[cc]{$alsize * RUB < size$}}
+\put(37.00,146.00){\vector(3,-1){31.00}}
+\put(68.00,131.00){\makebox(0,0)[cc]{$size <= alsize$}}
+\put(45.00,112.00){\makebox(0,0)[cc]{end}}
+\put(37.00,124.00){\makebox(0,0)[cc]{$+$}}
+\put(56.00,124.00){\makebox(0,0)[cc]{$+$}}
+\put(70.00,127.00){\vector(2,-1){22.00}}
+\put(92.00,112.00){\makebox(0,0)[cc]{$amount < RAB * alsize$}}
+\put(93.00,108.00){\vector(2,-1){15.00}}
+\put(117.00,95.00){\makebox(0,0)[cc]{$amount \longleftarrow RAB * alsize$}}
+\put(108.00,91.00){\vector(-2,-1){14.00}}
+\put(92.00,107.00){\vector(0,-1){23.00}}
+\put(93.00,78.00){\makebox(0,0)[cc]{$alsize \longleftarrow alsize + amount$}}
+\put(84.00,123.00){\makebox(0,0)[cc]{$-$}}
+\put(103.00,106.00){\makebox(0,0)[cc]{$+$}}
+\put(89.00,100.00){\makebox(0,0)[cc]{$-$}}
+\put(28.00,127.00){\vector(4,-3){14.00}}
+\put(66.00,127.00){\vector(-3,-2){17.00}}
+\put(28.00,77.00){\makebox(0,0)[cc]{$alsize \longleftarrow size$}}
+\put(28.00,127.00){\vector(0,-1){46.00}}
+\put(28.00,73.00){\vector(3,-1){22.00}}
+\put(93.00,74.00){\vector(-3,-1){26.00}}
+\put(58.00,58.00){\makebox(0,0)[cc]{do realloc to size $alsize * elsize$}}
+\put(58.00,54.00){\vector(0,-1){7.00}}
+\put(58.00,42.00){\makebox(0,0)[cc]{$amount > 0$}}
+\put(59.00,38.00){\vector(2,-1){11.00}}
+\put(57.00,37.00){\vector(-3,-2){17.00}}
+\put(71.00,27.00){\makebox(0,0)[cc]{end}}
+\put(7.00,20.00){\makebox(0,0)[lc]{clear to zero starting at $(alzize - amount) * elsize$ in length $amount * elsize$}}
+\put(40.00,16.00){\vector(1,-1){8.00}}
+\put(56.00,2.00){\makebox(0,0)[cc]{end}}
+\put(25.00,116.00){\makebox(0,0)[cc]{$-$}}
+\put(48.00,35.00){\makebox(0,0)[cc]{$+$}}
+\put(66.00,37.00){\makebox(0,0)[cc]{$-$}}
+\put(126.50,136.00){\makebox(0,0)[cc]{RUB = RepUseBlock}}
+\put(127.00,129.00){\makebox(0,0)[cc]{RAB = RepAddBlock}}
+\end{picture}

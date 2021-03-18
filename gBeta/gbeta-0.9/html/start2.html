@@ -1,0 +1,94 @@
+
+
+
+
+
+
+
+<HTML>
+<HEAD><TITLE>gbeta Getting Started:: Running a Program</TITLE></HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF"
+  LINK="#0000FF" VLINK="#800080" ALINK="#FF00FF">
+<TABLE WIDTH="100%">
+<TR><TD ALIGN="right">
+<TABLE><TR ALIGN="center">
+  <TD><A HREF="start_index1.html" TARGET="display"><IMG SRC="left.gif"></A></TD>
+  <TD><A HREF="start_index3.html" TARGET="display"><IMG SRC="right.gif"></A></TD>
+</TR></TABLE></TD></TR>
+<TR><TD ALIGN="left"><H1>Getting Started: Running a Program</H1></TD></TR>
+</TABLE>
+<P><HR></P>
+<TABLE><TR><TD WIDTH="25%">&nbsp;</TD><TD WIDTH="50%">
+
+<P>
+Now try to run the program <CODE>hello.gb</CODE> (you didn't expect
+this, did you? ;-)
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>gbeta hello</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+The program looks like this:
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE> 
+-- betaenv:descriptor --
+(# 
+do 'Hello, world!'->stdio
+#) </PRE></TD></TR>
+  </TABLE>
+</P>
+
+The output from the execution is quite verbose:
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE> 
+<SMALL>GBETA version 0.9, copyright (C) 1997-2001 Erik Ernst.
+This is free software, and you are welcome to redistribute it 
+under certain conditions; this software comes with ABSOLUTELY NO WARRANTY.
+For details please see the file COPYING.
+
+Interpreting "hello"
+
+------------------------------ Analyze program
+
+------------------------------ Execute primary object
+Hello, world!
+</SMALL> </PRE></TD></TR>
+  </TABLE>
+</P>
+
+There is no way to get rid of the verbosity right now, but the next
+release will have a <CODE>-q</CODE> option or (likely) be much more
+quiet by default.
+</P>
+
+<P>
+The <A HREF="start_index3.html" TARGET="display">next</A> subject is interactive execution, not unlike a
+debugging session.
+</P>
+
+</TD><TD WIDTH="20%">&nbsp;</TD></TR></TABLE>
+<P><HR></P>
+<SMALL>
+  <I>
+    <CENTER>
+      <STRONG>Signed by: </STRONG>
+      <A HREF="mailto:eernst@cs.auc.dk">eernst@cs.auc.dk</A>.
+      Last Modified:  3-Jul-01
+<BR>
+    </CENTER>
+  </I>
+</SMALL>
+</BODY>
+</HTML>
+

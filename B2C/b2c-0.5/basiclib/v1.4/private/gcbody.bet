@@ -1,0 +1,6 @@
+ORIGIN '../betaenv'
+--- betaenvDoGC: ObjectDescriptor ---
+(* JO *)
+(# thisdoGC:< (# marksweep: external(# #) do marksweep; INNER #);
+do thisdoGC; INNER
+#)

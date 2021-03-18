@@ -1,0 +1,10 @@
+-- betaenv:descriptor --
+(#
+do 
+   (&boolean[]).value; 
+   (&char[]).value;
+   (&integer[]).value;
+   (&real[]).value;
+   (&string[]).value;
+#)
+

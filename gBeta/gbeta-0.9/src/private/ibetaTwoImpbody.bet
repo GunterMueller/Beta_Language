@@ -1,0 +1,2343 @@
+(* FILE "./private/ibetaTwoImpbody.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaTwoImpbody.bet,v 1.89 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN 'ibetaTwobody';
+INCLUDE 'ibetaTwolib';
+INCLUDE 'ibetaVirtualMachinelib';
+
+(************************************************************* 
+ *                                                           * 
+ *                       l2LabelledImp                       * 
+ *                                                           * 
+ *************************************************************)
+
+-- LabelledImpInit:dopart --
+do 
+   theScopeNode.init;
+   INNER
+
+-- LabelledImpPrint:dopart --
+do
+   (dest[],indentation,false)->NameDcl.print;
+   ': '->output;
+   (dest[],indentation+indent_delta,false)->Imp.print
+
+-- LabelledImpPrintCode:dopart --
+do
+   'label("'->output;
+   (dest[],indentation,false)->NameDcl.printCode;
+   '" '->output;
+   (dest[],indentation+indent_delta,true)->Imp.printCode;
+   '\n)'->output
+
+-- LabelledImpScanImpl:dopart --
+do
+   (preCB[],postCB[])->NameDcl.scanImpl;
+   (preCB[],postCB[])->Imp.scanImpl
+
+-- LabelledImpScopeGetIC:dopart --
+do
+   (# stLab: ^staticLabelSubstance;
+      worldPos: ^runtimePath
+   do (* get hold of enclosing objects *)
+      position.copyRTP->worldPos[];
+      (scope.location,true)->worldPos.addStepOut;
+      (worldPos[],world[],usageAst[])
+        ->enclosing.getInitialContext;
+
+      (* add the substance for this lab.imp.scope *)
+      (worldPos.getInitialSyntax,this(l2LabelledImp)[])
+        ->(&staticLabelSubstance[]).init
+        ->stLab[];
+      (scope.location,true)->stLab.originPath.addStepOut;
+      position[]->stLab.adjustPaths;
+      stLab[]->world.enhance;
+
+      (* deliver *)
+      stLab[]->stcon[]
+   #)
+
+-- LabelledImpScopeFind:dopart --
+do
+   (if (name[],NameDcl[])->private.theNameEqual then
+       NameDcl[]->l2ndcl[]
+    else
+       NONE->l2ndcl[]
+   if)
+
+-- LabelledImpGetType:dopart --
+do
+   (* this is always simply a label static type *)
+   (# sltype: ^staticLabelType
+   do (context.getInitialSyntax,NameDcl[])
+        ->(&staticLabelType[]).init
+        ->sltype[];
+      sltype[]->stype[]
+   #)
+
+-- LabelledImpGetQuaType:dopart --
+do
+   ('Attempt to obtain the qualification of a label'
+   ,'Use an object reference or a pattern reference'
+   ,usageAst[])->staticError
+
+-- LabelledImpExecute:dopart --
+do
+   (* set up new level of 'unwind' handling *)
+   (*test-trace  ('execute lab.Imp','u')->trace; *)
+   (# lsSlice: ^labelSubstanceSlice
+   do
+      (private.newSubstanceSliceID,this(l2LabelledImp)[],dContext[])
+        ->(&labelSubstanceSlice[]).init
+        ->lsSlice[];
+      (lsSlice[],thrd[])
+        ->newStackableLabel
+        ->thrd.private.currentComponent.currentStack.push;
+      L: unwindScope
+        (# maybe_rethrow:
+             (# ec: ^targetedExitCode;
+                oSlice: ^objectSlice
+             enter ec[]
+             do (if ec.target[]=lsSlice[] then
+                    (* this was the target, just continue *)
+                    (*test-trace  ('jmp destination','u')->trace; *)
+                 else
+                    (* target is another slice, rethrow *)
+                    ec[]->&this(execute).unwind
+                if)
+             #);
+           onLeave::
+             (# 
+             do (*test-trace  ('leaving lab.Imp','u')->trace; *)
+                el[]->maybe_rethrow;
+                leave L
+             #);
+           onRestart::
+             (# 
+             do (*test-trace  ('restart lab.Imp','u')->trace; *)
+                er[]->maybe_rethrow;
+                restart L
+             #);
+           onKill::(# do ek[]->&this(execute).unwind #);
+           onError::(# do ee[]->&this(execute).unwind #)
+        do (thrd[],unwind##,lsSlice[])->Imp.execute
+        #);
+      thrd.stackPop
+   #)
+
+(************************************************************ 
+ *                                                          * 
+ *                      l2SimpleForImp                      * 
+ *                                                          * 
+ ************************************************************)
+
+-- SimpleForImpPrint:dopart --
+do
+   '(for '->output;
+   (dest[],indentation,false)->SimpleIndex.print;
+   ' repeat'->output;      
+   (dest[],indentation+indent_delta,true,true)->Imperatives.print;
+   '\nfor)'->output
+
+-- SimpleForImpScanImpl:dopart --
+do
+   (preCB[],postCB[])->SimpleIndex.scanImpl;
+   (preCB[],postCB[])->Imperatives.scanImpl
+
+-- SimpleForImpGetTranOut:dopart --
+do
+   (if Imperatives.empty then
+       ('Evaluating an empty simple "for" imperative'
+       ,'Execute the "for" in stead of evaluating it, or add imperative(s)'
+       ,this(l2SimpleForImp)[])->staticError
+    else
+       (# solvemsg: 
+            (# msg: ^text
+            do 'Execute the "for" in stead of evaluating it, '->msg[];
+               'or change the body'->msg.puttext
+            exit msg[]
+            #);
+          l2impr: ^l2Imp; l2eval: ^l2Evaluation; l2tran: ^l2Transaction;
+          stran1,stran2: ^staticTransient
+       do (Imperatives.head).elm[]->l2impr[];
+          (if l2impr##<=l2Transaction## then
+              l2impr[]->l2tran[];
+              (context[],world[])
+                ->l2eval.getStaticTransientIn
+                ->stran1[]
+           else
+              ('Evaluating simple "for" with non-transaction first in body'
+              ,solvemsg,this(l2SimpleForImp)[])->staticError
+          if);
+          (Imperatives.last).elm[]->l2impr[];
+          (if l2impr##<=l2Evaluation## then
+              l2impr[]->l2eval[];
+              (context[],world[])
+                ->l2eval.getStaticTransientOut
+                ->stran2[]
+           else
+              ('Evaluating simple "for" with non-evaluation last in body'
+              ,solvemsg,this(l2SimpleForImp)[])->staticError
+          if);
+          (if not (stran1[]->stran2.equal) then
+              ('Evaluating simple "for" with differently typed in/out of body'
+              ,solvemsg,this(l2SimpleForImp)[])->staticError
+          if);
+          (* that is it, deliver *)
+          stran2[]->stran[]
+       #)
+   if)
+
+-- SimpleForImpGetTranIn:dopart --
+do
+   (* !! should be combined with ..TranOut, too much common stuff *)
+   (if Imperatives.empty then
+       ('Assigning to empty simple "for" imperative'
+       ,'Execute the "for" in stead of evaluating it, or add imperative(s)'
+       ,this(l2SimpleForImp)[])->staticError
+    else
+       (# solvemsg: 
+            (# msg: ^text
+            do 'Execute the "for" in stead of assigning, '->msg[];
+               'or change the body'->msg.puttext
+            exit msg[]
+            #);
+          l2impr: ^l2Imp; 
+          l2asev: ^l2AssignmentEvaluation;
+          l2eval: ^l2Evaluation; 
+          l2tran: ^l2Transaction;
+          stran1,stran2: ^staticTransient
+       do (Imperatives.head).elm[]->l2impr[];
+          L: (if true
+              // l2impr##<=l2Transaction## then
+                 l2impr[]->l2tran[];
+                 (context[],world[])
+                   ->l2tran.getStaticTransientIn
+                   ->stran1[]
+              // l2impr##<=l2AssignmentEvaluation## then
+                 (* search to the bottom of evaluation chain a->b->c.. *)
+                 l2impr[]->l2asev[];
+                 l2asev.Evaluation[]->l2impr[];
+                 restart L
+              else
+                 ('Assigning to simple "for" with non-transaction first in body'
+                 ,solvemsg,this(l2SimpleForImp)[])->staticError
+             if);
+          (Imperatives.last).elm[]->l2impr[];
+          (if l2impr##<=l2Evaluation## then
+              l2impr[]->l2eval[];
+              (context[],world[])
+                ->l2eval.getStaticTransientOut
+                ->stran2[]
+           else
+              ('Assigning to simple "for" with non-evaluation last in body'
+              ,solvemsg,this(l2SimpleForImp)[])->staticError
+          if);
+          (if not (stran1[]->stran2.equal) then
+              ('Assigning to simple "for" with differently typed in/out of body'
+              ,'Execute the "for" instead of assigning, or change body'
+              ,this(l2SimpleForImp)[])->staticError
+          if);
+          (* that is it, deliver *)
+          stran1[]->stran[]
+       #)
+   if)
+
+-- SimpleForImpGetCplr:dopart --
+do
+   &exeCompiler
+   (# generate::
+        (# do ('ibetaTwoImpbody.bet/277',this(l2SimpleForImp)[])
+             ->(&simpleForCode[]).init
+             ->program.append
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[];
+   (&staticIntegerTransient[]).init->SimpleIndex.Evaluation.exitSTran[]
+
+-- SimpleForImpGetEnterCplr:dopart --
+do
+   'ibetaTwoImpbody.bet/286'->notyet; (* !!! *)
+
+-- SimpleForImpGetExitCplr:dopart --
+do
+   'ibetaTwoImpbody.bet/290'->notyet; (* !!! *)
+
+-- SimpleForImpGetEnterExitCplr:dopart --
+do
+   'ibetaTwoImpbody.bet/294'->notyet; (* !!! *)
+
+-- SimpleForImpClosureExecute:dopart --
+do
+   (# position: @runtimepath;
+      sContext: ^staticContext;
+      l0tri: ^l0TransientInteger;
+      count: @integer
+   do
+      (* get the static context for the Evaluation *)
+      (NONE,NONE,scope.location)
+        ->position.init;
+      (position[],scope.world[],this(l2SimpleForImp)[])
+        ->scope.getInitialContext
+        ->sContext[];
+
+      (* perform the evaluation, extract the value *)
+      (thrd[],unwind##,(thrd[],unwind##,sContext[],scope.world[]
+      ,this(l2SimpleForImp)[],dContext[])->SimpleIndex.Evaluation.getExitIter)
+        ->exitOneValue(# context::(# do 'ibetaTwoImpbody.bet/313'->value[] #)#)
+        ->transient_many2integer
+        ->l0tri[];
+      l0tri->count;
+
+      (* repeated execution of the body *)
+      (for count repeat 
+           (thrd[],unwind##,dContext[])->Imperatives.execute
+      for)
+   #)
+
+-- SimpleForImpGetEnterIter:dopart --
+do
+   'ibetaTwoImpbody.bet/326'->notyet; (* !!! *)
+
+-- SimpleForImpGetExitIter:dopart --
+do
+   'ibetaTwoImpbody.bet/330'->notyet; (* !!! *)
+
+-- SimpleForImpGetEnterExitIter:dopart --
+do
+   'ibetaTwoImpbody.bet/334'->notyet; (* !!! *)
+
+(************************************************************ 
+ *                                                          * 
+ *                      l2NamedForImp                       * 
+ *                                                          * 
+ ************************************************************)
+
+-- NamedForImpPrint:dopart --
+do
+   '(for '->output;
+   (dest[],indentation,false)->NamedIndex.print;
+   ' repeat'->output;      
+   (dest[],indentation+indent_delta,true,true)->Imperatives.print;
+   '\nfor)'->output
+
+-- NamedForImpScanImpl:dopart --
+do
+   (preCB[],postCB[])->NamedIndex.scanImpl;
+   (preCB[],postCB[])->Imperatives.scanImpl
+
+-- NamedForImpScopeGetIC:dopart --
+do
+   (# stFor: ^staticForSubstance;
+      worldPos: ^runtimePath
+   do (* get hold of enclosing objects *)
+      position.copyRTP->worldPos[];
+      (scope.location,false)->worldPos.addStepOut;
+      (worldPos[],world[],usageAst[])
+        ->enclosing.getInitialContext;
+
+      (* add the substance for this for.imp.scope *)
+      (worldPos.getInitialSyntax,this(l2NamedForImp)[])
+        ->(&staticForSubstance[]).init
+        ->stFor[];
+      (scope.location,false)->stFor.originPath.addStepOut;
+      position[]->stFor.adjustPaths;
+      stFor[]->world.enhance;
+
+      (* deliver *)
+      stFor[]->stcon[]
+   #)
+
+-- NamedForImpScopeFind:dopart --
+do
+   (if (name[],NamedIndex.NameDcl[])->private.theNameEqual then
+       NamedIndex.NameDcl[]->l2ndcl[]
+    else
+       (* wrong name *)
+       NONE->l2ndcl[]
+   if)
+
+-- NamedForImpScopeGetIType:dopart --
+do
+   (# stfsub: ^staticForSubstance
+   do context[]->stfsub[];
+      &stfsub.theIndexType[]->stype[]
+   #)
+
+-- NamedForImpGetTranOut:dopart --
+do
+   (if Imperatives.empty then
+       ('Evaluating an empty "for" imperative'
+       ,'Execute the "for" in stead of evaluating it, or add imperative(s)'
+       ,this(l2NamedForImp)[])->staticError
+    else
+       (# solvemsg: 
+            (# msg: ^text
+            do 'Execute the "for" in stead of evaluating it, '->msg[];
+               'or change the body'->msg.puttext
+            exit msg[]
+            #);
+          l2impr: ^l2Imp; l2eval: ^l2Evaluation; l2tran: ^l2Transaction;
+          stran1,stran2: ^staticTransient
+       do (Imperatives.head).elm[]->l2impr[];
+          (if l2impr##<=l2Transaction## then
+              l2impr[]->l2tran[];
+              (context[],world[])
+                ->l2eval.getStaticTransientIn
+                ->stran1[]
+           else
+              ('Evaluating "for" with non-transaction first in body'
+              ,solvemsg,this(l2NamedForImp)[])->staticError
+          if);
+          (Imperatives.last).elm[]->l2impr[];
+          (if l2impr##<=l2Evaluation## then
+              l2impr[]->l2eval[];
+              (context[],world[])
+                ->l2eval.getStaticTransientOut
+                ->stran2[]
+           else
+              ('Evaluating "for" with non-evaluation last in body'
+              ,solvemsg,this(l2NamedForImp)[])->staticError
+          if);
+          (if not (stran1[]->stran2.equal) then
+              ('Evaluating "for" with differently typed in/out of body'
+              ,solvemsg,this(l2NamedForImp)[])->staticError
+          if);
+          (* that is it, deliver *)
+          stran2[]->stran[]
+       #)
+   if)
+
+-- NamedForImpGetTranIn:dopart --
+do
+   (* !! should be combined with ..TranOut, too much common stuff *)
+   (if Imperatives.empty then
+       ('Assigning to empty "for" imperative'
+       ,'Execute the "for" in stead of evaluating it, or add imperative(s)'
+       ,this(l2NamedForImp)[])->staticError
+    else
+       (# solvemsg: 
+            (# msg: ^text
+            do 'Execute the "for" in stead of assigning, '->msg[];
+               'or change the body'->msg.puttext
+            exit msg[]
+            #);
+          l2impr: ^l2Imp; l2eval: ^l2Evaluation; l2tran: ^l2Transaction;
+          stran1,stran2: ^staticTransient
+       do (Imperatives.head).elm[]->l2impr[];
+          (if l2impr##<=l2Transaction## then
+              l2impr[]->l2tran[];
+              (context[],world[])
+                ->l2eval.getStaticTransientIn
+                ->stran1[]
+           else
+              ('Assigning to "for" with non-transaction first in body'
+              ,solvemsg,this(l2NamedForImp)[])->staticError
+          if);
+          (Imperatives.last).elm[]->l2impr[];
+          (if l2impr##<=l2Evaluation## then
+              l2impr[]->l2eval[];
+              (context[],world[])
+                ->l2eval.getStaticTransientOut
+                ->stran2[]
+           else
+              ('Assigning to "for" with non-evaluation last in body'
+              ,solvemsg,this(l2NamedForImp)[])->staticError
+          if);
+          (if not (stran1[]->stran2.equal) then
+              ('Assigning to "for" with differently typed in/out of body'
+              ,'Execute the "for" instead of assigning, or change body'
+              ,this(l2NamedForImp)[])->staticError
+          if);
+          (* that is it, deliver *)
+          stran1[]->stran[]
+       #)
+   if)
+
+-- NamedForImpGetCplr:dopart --
+do
+   &exeCompiler
+   (# generate::
+        (# do ('ibetaTwoImpbody.bet/487',this(l2NamedForImp)[])
+             ->(&namedForCode[]).init
+             ->program.append
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[];
+   (&staticIntegerTransient[]).init->NamedIndex.Evaluation.exitSTran[]
+
+-- NamedForImpGetEnterCplr:dopart --
+do
+   'ibetaTwoImpbody.bet/496'->notyet; (* !!! *)
+
+-- NamedForImpGetExitCplr:dopart --
+do
+   'ibetaTwoImpbody.bet/500'->notyet; (* !!! *)
+
+-- NamedForImpGetEnterExitCplr:dopart --
+do
+   'ibetaTwoImpbody.bet/504'->notyet; (* !!! *)
+
+-- NamedForImpClosureExecute:dopart --
+do
+   (# position: @runtimepath;
+      sContext: ^staticContext;
+      l0tri: ^l0TransientInteger;
+      count: @integer;
+      fsSlice: ^forSubstanceSlice
+   do
+      (* get the static context for the Evaluation *)
+      (NONE,NONE,this(l2NamedForImp)[])
+        ->position.init;
+      (position[],theScopeNode.world[],NamedIndex.Evaluation[])
+        ->theScopeNode.getInitialContext
+        ->sContext[];
+
+      (* create for-slice in the context of which we execute the body *)
+      (private.newSubstanceSliceID,this(l2NamedForImp)[],dContext[])
+        ->(&forSubstanceSlice[]).init
+        ->fsSlice[];
+
+      (* perform the evaluation, extract the value *)
+      (thrd[],unwind##,(thrd[],unwind##,sContext[],theScopeNode.world[]
+      ,this(l2NamedForImp)[],fsSlice[])->NamedIndex.Evaluation.getExitIter)
+        ->exitOneValue(# context::(# do 'ibetaTwoImpbody.bet/529'->value[] #)#)
+        ->transient_many2integer
+        ->l0tri[];
+      l0tri->count;
+
+      (* repeated execution of the body *)
+      (fsSlice[],thrd[])
+        ->newStackableFor
+        ->thrd.private.currentComponent.currentStack.push;
+      (for i:count repeat
+           i->fsSlice.index.value;
+           (thrd[],unwind##,fsSlice[])->Imperatives.execute
+      for);
+      thrd.stackPop
+   #)
+
+-- NamedForImpGetEnterIter:dopart --
+do
+   'ibetaTwoImpbody.bet/547'->notyet; (* !!! *)
+
+-- NamedForImpGetExitIter:dopart --
+do
+   'ibetaTwoImpbody.bet/551'->notyet; (* !!! *)
+
+-- NamedForImpGetEnterExitIter:dopart --
+do
+   'ibetaTwoImpbody.bet/555'->notyet; (* !!! *)
+
+(*************************************************************
+ *                                                           *
+ *                        l2WhileImp                         *
+ *                                                           *
+ *************************************************************)
+
+-- WhileImpPrint:dopart --
+do 
+   (# multiline: @boolean
+   do '(while '->output;
+      (dest[],indentation,false)->Evaluation.print;
+      ' repeat '->output;
+      (Imperatives.size>1)->multiline;
+      (dest[],indentation+indent_delta,multiline,multiline)
+        ->Imperatives.print;
+      (if multiline then '\n'->output else ' '->output if);
+      'while)'->output
+   #)
+
+-- WhileImpScanImpl:dopart --
+do 
+   (preCB[],postCB[])->Evaluation.scanImpl;
+   (preCB[],postCB[])->Imperatives.scanImpl
+
+-- WhileImpGetTranOut:dopart --
+do
+   'ibetaTwoImpbody.bet/583'->notyet; (* !!! *)
+
+-- WhileImpGetTranIn:dopart --
+do 
+   'ibetaTwoImpbody.bet/587'->notyet; (* !!! *)
+
+-- WhileImpGetCplr:dopart --
+do
+   &exeCompiler
+   (# generate::
+        (# do ('ibetaTwoImpbody.bet/593',this(l2WhileImp)[])
+             ->(&whileCode[]).init
+             ->program.append
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[];
+   (&staticBooleanTransient[]).init->Evaluation.exitSTran[]
+
+-- WhileImpGetEnterCplr:dopart --
+do
+   'ibetaTwoImpbody.bet/602'->notyet; (* !!! *)
+
+-- WhileImpGetExitCplr:dopart --
+do
+   'ibetaTwoImpbody.bet/606'->notyet; (* !!! *)
+
+-- WhileImpGetEnterExitCplr:dopart --
+do
+   'ibetaTwoImpbody.bet/610'->notyet; (* !!! *)
+
+-- WhileImpClosureExecute:dopart --
+do
+   (# position: @runtimepath;
+      sContext: ^staticContext;
+      l0trb: ^l0TransientBoolean;
+      choice: @boolean
+   do
+      (* get the static context for the Evaluation *)
+      (NONE,NONE,scope.location)
+        ->position.init;
+      (position[],scope.world[],this(l2WhileImp)[])
+        ->scope.getInitialContext
+        ->sContext[];
+
+      L: (# 
+         do (* perform the evaluation, extract the value *)
+            (thrd[],unwind##,(thrd[],unwind##,sContext[],scope.world[]
+            ,this(l2WhileImp)[],dContext[])->Evaluation.getExitIter)
+              ->exitOneValue
+                (# context::(# do 'ibetaTwoImpbody.bet/631'->value[] #)#)
+              ->transient_many2boolean
+              ->l0trb[];
+            l0trb->choice;
+
+            (* doit *)
+            (if choice then 
+                (thrd[],unwind##,dContext[])->Imperatives.execute;
+                restart L
+            if)
+         #)
+   #)
+
+-- WhileImpGetEnterIter:dopart --
+do
+   'ibetaTwoImpbody.bet/646'->notyet; (* !!! *)
+
+-- WhileImpGetExitIter:dopart --
+do
+   'ibetaTwoImpbody.bet/650'->notyet; (* !!! *)
+
+-- WhileImpGetEnterExitIter:dopart --
+do
+   'ibetaTwoImpbody.bet/654'->notyet; (* !!! *)
+
+(************************************************************* 
+ *                                                           * 
+ *                       l2SimpleIfImp                       * 
+ *                                                           * 
+ *************************************************************)
+
+-- SimpleIfImpPrint:dopart --
+do
+   (# multiline: @boolean
+   do '(if '->output;
+      (dest[],indentation,false)->Evaluation.print;
+      ' then '->output;
+      (Imperatives.size>1) or (ElsePartOpt.size>1) -> multiline;
+      (dest[],indentation+indent_delta,multiline,multiline)
+        ->Imperatives.print;
+      (if not ElsePartOpt.empty then
+          (if multiline then '\n'->output else ' '->output if);
+          'else '->output;
+          (dest[],indentation+indent_delta,multiline,multiline)
+            ->ElsePartOpt.print
+      if);
+      (if multiline then '\n'->output else ' '->output if);
+      'if)'->output
+   #)
+
+-- SimpleIfImpScanImpl:dopart --
+do
+   (preCB[],postCB[])->Evaluation.scanImpl;
+   (preCB[],postCB[])->Imperatives.scanImpl;
+   (preCB[],postCB[])->ElsePartOpt.scanImpl
+
+-- SimpleIfImpLib:attributes --
+
+getUpperBoundTransient:
+  (# doesNotExist:< exception;
+     stran1,stran2,stran: ^staticTransient;
+     
+     upperBoundPtn:
+       (# sptype1,sptype2,sptype: ^staticPatternType
+       enter (sptype1[],sptype2[])
+       do (if sptype1[]->sptype2.lessEqual then sptype2[]->sptype[]
+           else
+              (if sptype2[]->sptype1.lessEqual then sptype1[]->sptype[]
+               else doesNotExist
+              if)
+          if);
+          (if not (sptype1[]->sptype2.equal) then
+              (* a "skewed" union - make sure the result is not fixed *)
+              sptype.copy->sptype[];
+              sptype.makeNotKnownStatically
+          if)
+       exit sptype[]
+       #)
+
+  enter (stran1[],stran2[])
+
+  do (if true
+      // stran1[]->stran2.equal then
+         stran1[]->stran[]
+         
+      // (stran1##<=staticORefTransient##)
+         and (stran2##<=staticORefTransient##) then
+         (# sortran1,sortran2: ^staticORefTransient
+         do stran1[]->sortran1[];
+            stran2[]->sortran2[];
+            (sortran1.sptype[],sortran2.sptype[])
+              ->upperBoundPtn
+              ->(&staticORefTransient[]).init
+              ->stran[]
+         #)
+
+      // (stran1##<=staticPRefTransient##)
+         and (stran2##<=staticPRefTransient##) then
+         (# sprtran1,sprtran2: ^staticPRefTransient
+         do stran1[]->sprtran1[];
+            stran2[]->sprtran2[];
+            (sprtran1.sptype[],sprtran2.sptype[])
+              ->upperBoundPtn
+              ->(&staticPRefTransient[]).init
+              ->stran[]
+         #)
+      else
+         doesNotExist
+     if)
+  exit stran[]
+  #)
+
+-- SimpleIfImpGetTranOut:dopart --
+do
+   (if Imperatives.empty or ElsePartOpt.empty then
+       ('Evaluating simple "if" imperative with empty then- or else-part'
+       ,'Execute the "if" in stead of evaluating it, or add evaluation(s)'
+       ,this(l2SimpleIfImp)[])->staticError
+    else
+       (# evalFail:
+            (# msg,errmsg,solvemsg: ^text
+            enter msg[]
+            do 'Evaluating simple "if" with non-evaluation at end of '
+                 ->errmsg[];
+               msg[]->errmsg.puttext;
+               'Execute the "if" in stead of evaluating, or change the '
+                 ->solvemsg[];
+               msg[]->solvemsg.puttext;
+               (errmsg[],solvemsg[],this(l2SimpleIfImp)[])->staticError
+            #);
+          compatFail:
+            (# 
+            do ('Evaluating simple "if" with differently typed then/else-parts'
+               ,'Execute the "if" instead of evaluating, or change then/else'
+               ,this(l2SimpleIfImp)[])->staticError
+            #);
+          l2impr: ^l2Imp; l2eval: ^l2Evaluation;
+          stran1,stran2: ^staticTransient
+       do (Imperatives.last).elm[]->l2impr[];
+          (if l2impr##<=l2Evaluation## then
+              l2impr[]->l2eval[];
+              (context[],world[])
+                ->l2eval.getStaticTransientOut
+                ->stran1[]
+           else
+              'then-part'->evalfail
+          if);
+          (ElsePartOpt.last).elm[]->l2impr[];
+          (if l2impr##<=l2Evaluation## then
+              l2impr[]->l2eval[];
+              (context[],world[])
+                ->l2eval.getStaticTransientOut
+                ->stran2[]
+           else
+              'else-part'->evalfail
+          if);
+          (* find a static transient that covers both then/else, deliver *)
+          (stran1[],stran2[])
+            ->getUpperBoundTransient(# doesNotExist::(# do compatFail #)#)
+            ->stran[]
+       #)
+   if)
+
+-- SimpleIfImpGetTranIn:dopart --
+do
+   (if Imperatives.empty or ElsePartOpt.empty then
+       ('Assigning to simple "if" imperative with empty then- or else-part'
+       ,'Execute the "if" in stead of assigning to it, or add imperatives'
+       ,this(l2SimpleIfImp)[])->staticError
+    else
+       (# assignFail:
+            (# msg,errmsg,solvemsg: ^text
+            enter msg[]
+            do 'Assigning to simple "if" with non-evaluation at the'->errmsg[];
+               '\nbeginning of the '->errmsg.puttext;
+               msg[]->errmsg.puttext;
+               'Execute the "if" in stead of assigning, or change the '
+                 ->solvemsg[];
+               msg[]->solvemsg.puttext;
+               (errmsg[],solvemsg[],this(l2SimpleIfImp)[])->staticError
+            #);
+          l2impr: ^l2Imp; 
+          l2eval: ^l2Evaluation;
+          stran1,stran2: ^staticTransient
+       do (Imperatives.head).elm[]->l2impr[];
+          L: (if l2impr##<=l2Evaluation## then
+                 l2impr[]->l2eval[];
+                 (context[],world[])
+                   ->l2eval.getStaticTransientIn
+                   ->stran1[]
+              else
+                 'then-part'->assignfail
+             if);
+          (ElsePartOpt.head).elm[]->l2impr[];
+          L: (if l2impr##<=l2Evaluation## then
+                 l2impr[]->l2eval[];
+                 (context[],world[])
+                   ->l2eval.getStaticTransientIn
+                   ->stran2[]
+              else
+                 'else-part'->assignfail
+             if);
+          (if not (stran1[]->stran2.equal) then
+              ('Assigning to simple "if" with differently typed then/else-parts'
+              ,'Execute the if imp. instead of assigning, or change then/else'
+              ,this(l2SimpleIfImp)[])->staticError
+          if);
+          (* that is it, deliver *)
+          stran1[]->stran[]
+       #)
+   if)
+
+-- SimpleIfImpGetCplr:dopart --
+do
+   &exeCompiler
+   (# generate::
+        (# do ('ibetaTwoImpbody.bet/788',this(l2SimpleIfImp)[])
+             ->(&simpleIfCode[]).init
+             ->program.append
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[];
+   (&staticBooleanTransient[]).init->Evaluation.exitSTran[]
+
+-- SimpleIfImpGetEnterCplr:dopart --
+do
+   &enterCompiler
+   (# thenEval,elseEval: ^l2Evaluation;
+      thenEnterCplr,elseEnterCplr: ^enterCompiler;
+      thenProgram,elseProgram: ^betaByteCodeList;
+      done: @boolean; (* say 'more' exactly once, like in enterOnceCompiler *)
+      prepare::
+        (# thenImp,elseImp: ^l2Imp;
+           thenInfo,elseInfo: @compileInfo;
+           filler_stcon: ^staticContext;
+           filler_stocp: ^staticOCP;
+           framePos: @integer
+        do (if (not Imperatives.empty) and (not ElsePartOpt.empty) then
+               (Imperatives.head).elm[]->thenImp[];
+               (ElsePartOpt.head).elm[]->elseImp[];
+               (if (thenImp##<=l2Evaluation##) and
+                   (elseImp##<=l2Evaluation##) then
+                   thenImp[]->thenEval[];
+                   elseImp[]->elseEval[];
+                   (context[],world[],usageAst[],execute)
+                     ->thenEval.getEnterCompiler
+                     ->thenEnterCplr[];
+                   (context[],world[],usageAst[],execute)
+                     ->elseEval.getEnterCompiler
+                     ->elseEnterCplr[];
+                   (* this is a very special place because we are
+                    * creating a separate program for each of the
+                    * two cases and storing them in the bytecode;
+                    * we cannot use the thenEval/elseEval programs,
+                    * because they are unique but we might need
+                    * several different compilations since this
+                    * if-stm might be in an enter part; that also
+                    * means that we have to use two new info objects
+                    * (to avoid messing up the then and the else temps).
+                    * To avoid messing these temps up with the temps
+                    * planned with cInfo we will execute the then/else
+                    * imperatives in a separate frame.
+                    * However, the _first_ statement (thenEval, elseEval) 
+                    * will be executed in the frame controlled by cInfo, 
+                    * and they must use the same number of temporaries 
+                    * in order to make it possible to push temporaries 
+                    * on top of that again and address them by frame-offset.
+                    * We ensure this by pushing the current object
+                    * a number of times on the tmp-stack if there is
+                    * an imbalance (yeah, that is an ugly hack..)
+                    *)
+                   (&betaByteCodeList[]).init->thenProgram[];
+                   (&betaByteCodeList[]).init->elseProgram[];
+                   cInfo.tmpLevel->thenInfo.tmpLevel;
+                   cInfo.tmpLevel->elseInfo.tmpLevel;
+                   (thenProgram[],thenInfo[])->thenEnterCplr.prepare;
+                   (elseProgram[],elseInfo[])->elseEnterCplr.prepare;
+                   (* check the tmp balance *)
+                   (if thenInfo.tmpLevel<>elseInfo.tmpLevel then
+                       (* they do _not_ use the same number of tmps;
+                        * describe _something_ to push on tmp *)
+                       context[]->filler_stcon[];
+                       L: (if filler_stcon##<=staticOCP## then
+                              filler_stcon[]->filler_stocp[]
+                           else
+                              filler_stcon.getEnclosing->filler_stcon[];
+                              restart L
+                          if);
+                       (if thenInfo.tmpLevel<elseInfo.tmpLevel then
+                           (* pushing on tmp in thenProgram *)
+                           (for elseInfo.tmpLevel-thenInfo.tmpLevel repeat
+                                thenInfo.allocateTmp->framePos;
+                                ('ibetaTwoImpbody.bet/863'
+                                ,filler_stocp.pathTo[]
+                                ,filler_stocp.sptype[],framePos)
+                                  ->(&getTmpCode[]).init
+                                  ->thenProgram.append
+                           for)
+                        else
+                           (* elseInfo.tmpLevel<thenInfo.tmpLevel;
+                            * pushing on tmp in elseProgram *)
+                           (for thenInfo.tmpLevel-elseInfo.tmpLevel repeat
+                                elseInfo.allocateTmp->framePos;
+                                ('ibetaTwoImpbody.bet/874'
+                                ,filler_stocp.pathTo[]
+                                ,filler_stocp.sptype[],framePos)
+                                  ->(&getTmpCode[]).init
+                                  ->elseProgram.append
+                           for)
+                       if)
+                   if);
+                   (if thenInfo.tmpLevel<>elseInfo.tmpLevel then
+                       'Buggy if/enterCplr tmp balance computation!'
+                         ->internalError
+                   if);
+                   (* force cInfo to consider that much of the tmp-stack used *)
+                   thenInfo.tmpLevel->cInfo.tmpLevel;
+                   (* now check that the compilers expect exactly one value *)
+                   (if not (thenEnterCplr.more and elseEnterCplr.more) then
+                       (# msg,solution: ^text
+                       do 'Attempt to assign to an \'if\'-imperative with '
+                            ->msg[];
+                          'an evaluation accepting no values as first imp.'
+                            ->msg.puttext;
+                          'Ensure that the first imperative '->solution[];
+                          'of both the then- and else-part accepts one value'
+                            ->solution.puttext;
+                          (msg[],solution[],this(l2SimpleIfImp)[])
+                            ->staticError
+                       #)
+                   if)
+                else
+                   (# msg: ^text
+                   do 'Attempt to assign to an \'if\'-imperative '->msg[];
+                      (if not (thenImp##<=l2Evaluation##) then
+                          'whose then-part begins with '->msg.puttext;
+                          (thenImp.typename).withIndefArticle->msg.puttext
+                       else
+                          'whose else-part begins with '->msg.puttext;
+                          (elseImp.typename).withIndefArticle->msg.puttext
+                      if);
+                      (msg[]
+                      ,'Ensure that the first imperative is an evaluation'
+                      ,this(l2SimpleIfImp)[])->staticError
+                   #)
+               if)
+            else
+               (# msg,solution: ^text
+               do 'Attempt to assign to an \'if\'-imperative '->msg[];
+                  'with a missing '->msg.puttext;
+                  (if Imperatives.empty then 
+                      'then'->msg.puttext
+                   else 
+                      'else'->msg.puttext
+                  if);
+                  ' part'->msg.puttext;
+                  'Put at least one imp. in the \'then\' and the \'else\' part'
+                    ->solution[];
+                  (msg[],solution[],usageAst[])->staticError
+               #)
+           if)
+        #);
+      more::(# do (if not done then true->done->value else false->value if)#);
+      generate::
+        (# thenStran,elseStran: ^staticTransient;
+           lsifCode: ^locatedSimpleIfCode
+        do (thenProgram[],cInfo[])
+             ->thenEnterCplr.generate
+             ->thenStran[];
+           (elseProgram[],cInfo[])
+             ->elseEnterCplr.generate
+             ->elseStran[];
+           (if thenEnterCplr.more or elseEnterCplr.more then
+               (# msg,solution: ^text
+               do 'Attempt to assign to an \'if\'-imperative with '->msg[];
+                  'an imp. accepting more than 1 value'->msg.puttext;
+                  'Ensure that the first imp.s in the then- and '->solution[];
+                  'else-parts accept exactly one value'->solution.puttext;
+                  (msg[],solution[],this(l2SimpleIfImp)[])->staticError
+               #)
+           if);
+           (if thenStran[]->elseStran.equal then
+               thenStran[]->stran[]
+            else
+               (* coercion *)
+               'ibetaTwoImpbody.bet/956'->notyet; (* !!! *)
+           if);
+           (* !!!! Should become something like:
+            *   (thenProgram[],thenStran[],elseProgram[],elseStran[])
+            *     ->binExpEqCoerce
+            *     ->stran[];
+            *)
+           ('ibetaTwoImpbody.bet/963',this(l2SimpleIfImp)[],context.pathTo[]
+           ,thenProgram[],elseProgram[],true(*entering*))
+             ->(&locatedSimpleIfCode[]).init
+             ->lsifCode[]
+             ->program.append;
+           (* now register the imps. to execute in the then/else bodies *)
+           Imperatives.scan
+           (# nonfirst: @boolean
+           do (if not nonfirst then
+                  true->nonfirst
+               else
+                  current[]->lsifCode.thenBody.append
+              if)
+           #);
+           ElsePartOpt.scan
+           (# nonfirst: @boolean
+           do (if not nonfirst then
+                  true->nonfirst
+               else
+                  current[]->lsifCode.elseBody.append
+              if)
+           #)
+        #);
+      cleanup::
+        (# do (thenProgram[],cInfo[])->thenEnterCplr.cleanup;
+           (elseProgram[],cInfo[])->elseEnterCplr.cleanup
+        #)
+   #)[]->nc[];
+   usageAst[]->nc.usageAst[];
+   (&staticBooleanTransient[]).init->Evaluation.exitSTran[]
+
+-- SimpleIfImpGetExitCplr:dopart --
+do
+   &exitCompiler
+   (# thenEval,elseEval: ^l2Evaluation;
+      thenExitCplr,elseExitCplr: ^exitCompiler;
+      thenProgram,elseProgram: ^betaByteCodeList;
+      done: @boolean; (* say 'more' exactly once, like in exitOnceCompiler *)
+      prepare::
+        (# thenImp,elseImp: ^l2Imp;
+           thenInfo,elseInfo: @compileInfo;
+           filler_stcon: ^staticContext;
+           filler_stocp: ^staticOCP;
+           framePos: @integer
+        do (if (not Imperatives.empty) and (not ElsePartOpt.empty) then
+               (Imperatives.last).elm[]->thenImp[];
+               (ElsePartOpt.last).elm[]->elseImp[];
+               (if (thenImp##<=l2Evaluation##) and 
+                   (elseImp##<=l2Evaluation##) then
+                   thenImp[]->thenEval[];
+                   elseImp[]->elseEval[];
+                   (context[],world[],usageAst[])
+                     ->thenEval.getExitCompiler
+                     ->thenExitCplr[];
+                   (context[],world[],usageAst[])
+                     ->elseEval.getExitCompiler
+                     ->elseExitCplr[];
+                   (* this is a very special place because we are
+                    * creating a separate program for each of the
+                    * two cases and storing them in the bytecode;
+                    * we cannot use the thenEval/elseEval programs,
+                    * because they are unique but we might need
+                    * several different compilations since this
+                    * if-stm might be in an exit part; that also
+                    * means that we have to use two new info objects
+                    * (to avoid messing up the then and the else temps).
+                    * To avoid messing these temps up with the temps
+                    * planned with cInfo we will execute the then/else
+                    * imperatives in a separate frame.
+                    * However, the _first_ statement (thenEval, elseEval) 
+                    * will be executed in the frame controlled by cInfo, 
+                    * and they must use the same number of temporaries 
+                    * in order to make it possible to push temporaries on 
+                    * top of that again and address them by frame-offset.
+                    * We ensure this by pushing the current object
+                    * a number of times on the tmp-stack if there is
+                    * an imbalance (yeah, that is an ugly hack..)
+                    *)
+                   (&betaByteCodeList[]).init->thenProgram[];
+                   (&betaByteCodeList[]).init->elseProgram[];
+                   cInfo.tmpLevel->thenInfo.tmpLevel;
+                   cInfo.tmpLevel->elseInfo.tmpLevel;
+                   (thenProgram[],thenInfo[])->thenExitCplr.prepare;
+                   (elseProgram[],elseInfo[])->elseExitCplr.prepare;
+                   (* check the tmp balance *)
+                   (if thenInfo.tmpLevel<>elseInfo.tmpLevel then
+                       (* they do _not_ use the same number of tmps;
+                        * describe _something_ to push on tmp *)
+                       context[]->filler_stcon[];
+                       L: (if filler_stcon##<=staticOCP## then
+                              filler_stcon[]->filler_stocp[]
+                           else
+                              filler_stcon.getEnclosing->filler_stcon[];
+                              restart L
+                          if);
+                       (if thenInfo.tmpLevel<elseInfo.tmpLevel then
+                           (* pushing on tmp in thenProgram *)
+                           (for elseInfo.tmpLevel-thenInfo.tmpLevel repeat
+                                thenInfo.allocateTmp->framePos;
+                                ('ibetaTwoImpbody.bet/1061'
+                                ,filler_stocp.pathTo[]
+                                ,filler_stocp.sptype[],framePos)
+                                  ->(&getTmpCode[]).init
+                                  ->thenProgram.append
+                           for)
+                        else
+                           (* elseInfo.tmpLevel<thenInfo.tmpLevel;
+                            * pushing on tmp in elseProgram *)
+                           (for thenInfo.tmpLevel-elseInfo.tmpLevel repeat
+                                elseInfo.allocateTmp->framePos;
+                                ('ibetaTwoImpbody.bet/1072'
+                                ,filler_stocp.pathTo[]
+                                ,filler_stocp.sptype[],framePos)
+                                  ->(&getTmpCode[]).init
+                                  ->elseProgram.append
+                           for)
+                       if)
+                   if);
+                   (if thenInfo.tmpLevel<>elseInfo.tmpLevel then
+                       'Buggy if/exitCplr tmp balance computation!'
+                         ->internalError
+                   if);
+                   (* force cInfo to consider that much of the tmp-stack used *)
+                   thenInfo.tmpLevel->cInfo.tmpLevel;
+                   (* now check that the compilers expect exactly one value *)
+                   (if not (thenExitCplr.more and elseExitCplr.more) then
+                       (# msg,solution: ^text
+                       do 'Attempt to evaluate an \'if\'-imperative with '
+                            ->msg[];
+                          'an evaluation yielding no values as the last imp.'
+                            ->msg.puttext;
+                          'Ensure that the last imperative '->solution[];
+                          'of both the then- and else-part delivers one value'
+                            ->solution.puttext;
+                          (msg[],solution[],this(l2SimpleIfImp)[])
+                            ->staticError
+                       #)
+                   if)
+                else
+                   (# msg: ^text
+                   do 'Attempt to evaluate an \'if\'-imperative '->msg[];
+                      (if not (thenImp##<=l2Evaluation##) then
+                          'whose then-part ends in '->msg.puttext;
+                          (thenImp.typename).withIndefArticle->msg.puttext
+                       else
+                          'whose else-part ends in '->msg.puttext;
+                          (elseImp.typename).withIndefArticle->msg.puttext
+                      if);
+                      (msg[]
+                      ,'Ensure that the last imperative is an evaluation'
+                      ,this(l2SimpleIfImp)[])->staticError
+                   #)
+               if)
+            else
+               (# msg,solution: ^text
+               do 'Attempt to evaluate an \'if\'-imperative '->msg[];
+                  'with a missing '->msg[];
+                  (if Imperatives.empty then 
+                      'then'->msg.puttext
+                   else 
+                      'else'->msg.puttext
+                  if);
+                  ' part'->msg.puttext;
+                  'Put at least one imp. in the \'then\' and the \'else\' part'
+                    ->solution[];
+                  (msg[],solution[],usageAst[])->staticError
+               #)
+           if)
+        #);
+      more::(# do (if not done then true->done->value else false->value if)#);
+      generate::
+        (# thenStran,elseStran: ^staticTransient;
+           lsifCode: ^locatedSimpleIfCode
+        do (thenProgram[],cInfo[])
+             ->thenExitCplr.generate
+             ->thenStran[];
+           (elseProgram[],cInfo[])
+             ->elseExitCplr.generate
+             ->elseStran[];
+           (if thenExitCplr.more or elseExitCplr.more then
+               (# msg,solution: ^text
+               do 'Attempt to evaluate an \'if\'-imperative with '->msg[];
+                  'evaluation yielding >1 value as imp.'->msg.puttext;
+                  'Ensure that the last imp. in the then- and '->solution[];
+                  'else-part delivers exactly one value'->solution.puttext;
+                  (msg[],solution[],this(l2SimpleIfImp)[])->staticError
+               #)
+           if);
+           (if thenStran[]->elseStran.equal then
+               thenStran[]->stran[]
+            else
+               (* coercion *)
+               'ibetaTwoImpbody.bet/1153'->notyet; (* !!! *)
+           if);
+           (* !!!! Should become something like:
+            *   (thenProgram[],thenStran[],elseProgram[],elseStran[])
+            *     ->binExpEqCoerce
+            *     ->stran[];
+            *)
+           ('ibetaTwoImpbody.bet/1160',this(l2SimpleIfImp)[],context.pathTo[]
+           ,thenProgram[],elseProgram[],false(*exiting*))
+             ->(&locatedSimpleIfCode[]).init
+             ->lsifCode[]
+             ->program.append;
+           (* now register the imps. to execute in the then/else bodies *)
+           Imperatives.iterate
+           (#
+           do (if current.succ[]<>NONE then
+                  current.elm[]->lsifCode.thenBody.append
+              if)
+           #);
+           ElsePartOpt.iterate
+           (#
+           do (if current.succ[]<>NONE then
+                  current.elm[]->lsifCode.elseBody.append
+              if)
+           #)
+        #);
+      cleanup::
+        (# do (thenProgram[],cInfo[])->thenExitCplr.cleanup;
+           (elseProgram[],cInfo[])->elseExitCplr.cleanup
+        #)
+   #)[]->xc[];
+   usageAst[]->xc.usageAst[];
+   (&staticBooleanTransient[]).init->Evaluation.exitSTran[]
+
+-- SimpleIfImpGetEnterExitCplr:dopart --
+do
+   'ibetaTwoImpbody.bet/1174'->notyet; (* !!! *)
+
+-- SimpleIfImpClosureExecute:dopart --
+do
+   (# position: @runtimepath;
+      sContext: ^staticContext;
+      l0trb: ^l0TransientBoolean;
+      choice: @boolean
+   do
+      (* get the static context for the Evaluation *)
+      (NONE,NONE,scope.location)
+        ->position.init;
+      (position[],scope.world[],this(l2SimpleIfImp)[])
+        ->scope.getInitialContext
+        ->sContext[];
+
+      (* perform the evaluation, extract the value *)
+      (thrd[],unwind##,(thrd[],unwind##,sContext[],scope.world[]
+      ,this(l2SimpleIfImp)[],dContext[])->Evaluation.getExitIter)
+        ->exitOneValue(# context::(# do 'ibetaTwoImpbody.bet/1193'->value[] #)#)
+        ->transient_many2boolean
+        ->l0trb[];
+      l0trb->choice;
+
+      (* doit *)
+      (if choice then 
+          (thrd[],unwind##,dContext[])->Imperatives.execute
+       else
+          (thrd[],unwind##,dContext[])->ElsePartOpt.execute
+      if)
+   #)
+
+-- SimpleIfImpGetEnterIter:dopart --
+do
+   &enterIterator
+   (# sub_ni: ^enterIterator;
+      choice: @boolean;
+      prepare::
+        (# position: @runtimepath;
+           sContext: ^staticContext;
+           l0trb: ^l0TransientBoolean;
+           l2impr: ^l2Imp;
+           l2eval: ^l2Evaluation
+        do (* get the static context for the Evaluation *)
+           (NONE,NONE,scope.location)
+             ->position.init;
+           (position[],scope.world[],this(l2SimpleIfImp)[])
+             ->scope.getInitialContext
+             ->sContext[];
+
+           (* perform the evaluation, extract the value *)
+           (thrd[],unwind##,(thrd[],unwind##,sContext[],scope.world[]
+           ,this(l2SimpleIfImp)[],dContext[])->Evaluation.getExitIter)
+             ->exitOneValue
+           (# context::(# do 'ibetaTwoImpbody.bet/1228'->value[] #)#)
+             ->transient_many2boolean
+             ->l0trb[];
+           l0trb->choice;
+
+           (* obtain the enter-iter from the chosen branch *)
+           (if choice then 
+               (Imperatives.head).elm[]->l2impr[]
+            else
+               (ElsePartOpt.head).elm[]->l2impr[]
+           if);
+           (if l2impr##<=l2Evaluation## then 
+               l2impr[]->l2eval[]
+            else
+               'Assigned-to SimpleIf did not start with l2Transaction'
+                 ->internalError
+           if);
+           (thrd[],unwind##,sContext[],scope.world[]
+           ,this(l2SimpleIfImp)[],execute,dContext[])
+             ->l2eval.getEnterIter
+             ->sub_ni[];
+           sub_ni.prepare
+        #);
+      more::(# do sub_ni.more->value #);
+      cleanup::
+        (# 
+        do sub_ni.cleanup;
+
+           (* execute the chosen branch, get hold of the terminal evaluation *)
+           (if choice then 
+               Imperatives.iterate
+               (# (* execute all-but-first *)
+               do (if current.pred[]<>NONE then 
+                      (thrd[],unwind##,dContext[])->current.elm.execute
+                  if)
+               #)
+            else
+               ElsePartOpt.iterate
+               (# (* execute all-but-last *)
+               do (if current.pred[]<>NONE then 
+                      (thrd[],unwind##,dContext[])->current.elm.execute
+                  if)
+               #)
+           if)
+        #)
+   do l0tr[]->sub_ni
+   #)[]->ni[];
+   this(l2SimpleIfImp)[]->ni.usageAst[]
+
+-- SimpleIfImpGetExitIter:dopart --
+do
+   &exitIterator
+   (# sub_xi: ^exitIterator;
+      choice: @boolean;
+      prepare::
+        (# position: @runtimepath;
+           sContext: ^staticContext;
+           l0trb: ^l0TransientBoolean;
+           l2eval: ^l2Evaluation
+        do (* get the static context for the Evaluation *)
+           (NONE,NONE,scope.location)
+             ->position.init;
+           (position[],scope.world[],this(l2SimpleIfImp)[])
+             ->scope.getInitialContext
+             ->sContext[];
+
+           (* perform the evaluation, extract the value *)
+           (thrd[],unwind##,(thrd[],unwind##,sContext[],scope.world[]
+           ,this(l2SimpleIfImp)[],dContext[])->Evaluation.getExitIter)
+             ->exitOneValue
+           (# context::(# do 'ibetaTwoImpbody.bet/1298'->value[] #)#)
+             ->transient_many2boolean
+             ->l0trb[];
+           l0trb->choice;
+
+           (* execute the chosen branch, get hold of the terminal evaluation *)
+           (if choice then 
+               Imperatives.iterate
+               (# (* execute all-but-last *)
+               do (if current.succ[]<>NONE then 
+                      (thrd[],unwind##,dContext[])->current.elm.execute
+                   else
+                      current.elm[]->l2eval[]
+                  if)
+               #)
+            else
+               ElsePartOpt.iterate
+               (# (* execute all-but-last *)
+               do (if current.succ[]<>NONE then 
+                      (thrd[],unwind##,dContext[])->current.elm.execute
+                   else
+                      current.elm[]->l2eval[]
+                  if)
+               #)
+           if);
+
+           (* obtain the exit-iter from the chosen branch *)
+           (thrd[],unwind##,sContext[],scope.world[]
+           ,this(l2SimpleIfImp)[],dContext[])
+             ->l2eval.getExitIter
+             ->sub_xi[];
+           sub_xi.prepare
+        #);
+      more::(# do sub_xi.more->value #);
+      cleanup::(# do sub_xi.cleanup #)
+   do sub_xi->l0tr[]
+   #)[]->xi[];
+   this(l2SimpleIfImp)[]->xi.usageAst[]
+
+-- SimpleIfImpGetEnterExitIter:dopart --
+do
+   (# position: @runtimepath;
+      sContext: ^staticContext;
+      l0trb: ^l0TransientBoolean;
+      choice: @boolean;
+      impList: ^l2ImperativeList
+   do 
+      (* get the static context for the Evaluation *)
+      (NONE,NONE,scope.location)
+        ->position.init;
+      (position[],scope.world[],this(l2SimpleIfImp)[])
+        ->scope.getInitialContext
+        ->sContext[];
+
+      (* perform the evaluation, extract the value *)
+      (thrd[],unwind##,(thrd[],unwind##,sContext[],scope.world[]
+      ,this(l2SimpleIfImp)[],dContext[])->Evaluation.getExitIter)
+        ->exitOneValue
+      (# context::(# do 'ibetaTwoImpbody.bet/1356'->value[] #)#)
+        ->transient_many2boolean
+        ->l0trb[];
+      l0trb->choice;
+
+      (if choice then 
+          Imperatives[]->impList[]
+       else
+          ElsePartOpt[]->impList[]
+      if);
+
+      (if true 
+       // impList.size>1 then 
+          (* chosen list has length greater than 1 *)
+
+          (* separate head and last: derive iterators separately *)
+          &enterIterator
+          (# sub_ni: ^enterIterator;
+             prepare::
+               (# l2impr: ^l2Imp;
+                  l2eval: ^l2Evaluation
+               do (* obtain the enter-iter from the chosen branch *)
+                  (impList.head).elm[]->l2impr[];
+                  (if l2impr##<=l2Evaluation## then 
+                      l2impr[]->l2eval[]
+                   else
+                      'As-then-eval\'d SimpleIf did not start with l2Evaluation'
+                        ->internalError
+                  if);
+                  (thrd[],unwind##,sContext[],scope.world[]
+                  ,this(l2SimpleIfImp)[],true,dContext[])
+                    ->l2eval.getEnterIter
+                    ->sub_ni[];
+                  sub_ni.prepare
+               #);
+             more::(# do sub_ni.more->value #);
+             cleanup::(# do sub_ni.cleanup #)
+          do l0tr[]->sub_ni
+          #)[]->ni[];
+          this(l2SimpleIfImp)[]->ni.usageAst[];
+
+          &exitIterator
+          (# sub_xi: ^exitIterator;
+             prepare::
+               (# l2eval: ^l2Evaluation
+               do (* execute chosen branch, get hold of terminal evaluation *)
+                  impList.iterate
+                  (# (* execute all-but-first-and-last *)
+                  do (if (current.pred[]<>NONE) and 
+                         (current.succ[]<>NONE) then 
+                         (thrd[],unwind##,dContext[])->current.elm.execute
+                      else
+                         (if current.succ[]=NONE then 
+                             current.elm[]->l2eval[]
+                         if)
+                     if)
+                  #);
+
+                  (* obtain the exit-iter from the chosen branch *)
+                  (thrd[],unwind##,sContext[],scope.world[]
+                  ,this(l2SimpleIfImp)[],dContext[])
+                    ->l2eval.getExitIter
+                    ->sub_xi[];
+                  sub_xi.prepare
+               #);
+             more::(# do sub_xi.more->value #);
+             cleanup::(# do sub_xi.cleanup #)
+          do sub_xi->l0tr[]
+          #)[]->xi[];
+          this(l2SimpleIfImp)[]->xi.usageAst[]
+
+       else       
+          (* 'impList.size<=1', i.e. =1 (static analysis) *)
+          (# l2impr: ^l2Imp;
+             l2eval: ^l2Evaluation;
+             sub_ni: ^enterIterator;
+             sub_xi: ^exitIterator
+          do 
+             (* obtain the enter/exit-iters from the chosen branch *)
+             (impList.head).elm[]->l2impr[];
+             (if l2impr##<=l2Evaluation## then 
+                 l2impr[]->l2eval[]
+              else
+                 'As-then-eval\'d SimpleIf did not start with l2Evaluation'
+                   ->internalError
+             if);
+             (thrd[],unwind##,sContext[],scope.world[]
+             ,this(l2SimpleIfImp)[],dContext[])
+               ->l2eval.getEnterExitIter
+               ->(ni[],xi[]);
+
+             this(l2SimpleIfImp)[]->ni.usageAst[]->xi.usageAst[]
+          #)
+      if)
+   #)
+
+(************************************************************ 
+ *                                                          * 
+ *                      l2GeneralIfImp                      * 
+ *                                                          * 
+ ************************************************************)
+
+-- GeneralIfImpPrint:dopart --
+do
+   '(if '->output;
+   (dest[],indentation,false)->Evaluation.print;
+   (dest[],indentation,true,true)->Alternatives.print;
+   (if not ElsePartOpt.empty then 
+       '\n else'->output;
+       (dest[],indentation+indent_delta,true,true)->ElsePartOpt.print
+   if);
+   '\nif)'->output
+
+-- GeneralIfImpScanImpl:dopart --
+do
+   (preCB[],postCB[])->Evaluation.scanImpl;
+   (preCB[],postCB[])->Alternatives.scanImpl;
+   (preCB[],postCB[])->ElsePartOpt.scanImpl
+
+-- GeneralIfImpCheck:dopart --
+do
+   (# eval_stran: ^staticTransient
+   do 
+      (* obtain static transient of the controlling evaluation *)
+      (context[],world[])
+        ->Evaluation.getStaticTransientOut
+        ->eval_stran[];
+
+      (* scan all alternatives ("then-blocks") *)
+      Alternatives.scan
+      (# cur_stran: ^staticTransient
+      do (* scan all selections of this alternative *)
+         current.Selections.scan
+         (# 
+         do (context[],world[])
+              ->current.getStaticTransientOut
+              ->cur_stran[];
+            (eval_stran[],cur_stran[],current[])
+              ->eqneqBinOpStaticCoercion
+         #)
+      #)
+   #)
+
+-- GeneralIfImpGetTranOut:dopart --
+do
+   'ibetaTwoImpbody.bet/1501'->notyet; (* !!! *)
+
+-- GeneralIfImpGetTranIn:dopart --
+do
+   'ibetaTwoImpbody.bet/1505'->notyet; (* !!! *)
+
+-- GeneralIfImpGetCplr:dopart --
+do
+   &exeCompiler
+   (# generate::
+        (# stran: ^staticTransient
+        do (context[],world[])
+             ->Evaluation.getStaticTransientOut
+             ->stran[];
+           (* !! this will let the Evaluation determine 
+            * the coercion; we should perhaps let each pair 
+            * of eval/alternative.selection "negotiate", 
+            * like in l2EqExp .. *)
+           (if true
+            // stran##<=staticSublistTransient## then
+               'ibetaTwoImpbody.bet/1521'->notyet; (* !!! *)
+            // stran##<=staticBooleanTransient## then (* OK *)
+            // stran##<=staticCharTransient## then (* OK *)
+            // stran##<=staticIntegerTransient## then (* OK *)
+            // stran##<=staticRealTransient## then (* OK *)
+            // stran##<=staticStringTransient## then (* OK *)
+            // stran##<=staticNoneTransient## then 
+               (* try to make it 'oref' or 'ptn' based on the 
+                * other argument to compare with; then check 
+                * that all the following cases support this choice; 
+                * !! NB: the Mjolner compiler supports things like 
+                * (if NONE // oref[] then .. // pref## then .. if) 
+                * but this is probably normally a bug anyway -- *)
+               L: (# complainAlien:
+                       (# sel_stran: ^staticTransient;
+                          msg: ^text
+                       enter sel_stran[]
+                       do 'Trying to compare "NONE" to '->msg[];
+                          (sel_stran.typename).withIndefArticle->msg.puttext;
+                          (msg[]
+                          ,'Compare NONE to object references or patterns'
+                          ,this(l2GeneralIfImp)[])->staticError
+                       #);
+                     complainInconsistent:
+                       (# (* only possible inconsistency is "NONE 
+                           * compared to both of oref and ptn" *)
+                          msg: ^text
+                       do 'Attempt to compare NONE with both an '->msg[];
+                          'object reference and a pattern'->msg.puttext;
+                          (msg[]
+                          ,'Compare with just one of the kinds of entities'
+                          ,this(l2GeneralIfImp)[])->staticError
+                       #);
+                     choice_made: @boolean
+                  do Alternatives.scan
+                     (# do current.Selections.scan
+                        (# sel_stran: ^staticTransient
+                        do (context[],world[])
+                             ->current.getStaticTransientOut
+                             ->sel_stran[];
+                           (if true 
+                            // sel_stran##<=staticORefTransient## then 
+                               (if choice_made then
+                                   (if stran##<>staticORefTransient## then 
+                                       complainInconsistent
+                                   if)
+                                else
+                                   true->choice_made;
+                                   sel_stran[]->stran[]
+                               if)
+                            // sel_stran##<=staticPRefTransient## then 
+                               (if choice_made then
+                                   (if stran##<>staticPRefTransient## then 
+                                       complainInconsistent
+                                   if)
+                                else
+                                   true->choice_made;
+                                   sel_stran[]->stran[]
+                               if)
+                            // sel_stran##<=staticNoneTransient## then 
+                               (* NONE//NONE; silly, but should be allowed *)
+                            else
+                               sel_stran[]->complainAlien
+                           if)
+                        #)
+                     #);
+                     (if stran##=staticNoneTransient## then
+                         (* Well, "(if NONE // NONE // NONE // NONE .. if)"
+                          * is kind of "if you need it, you will need it 
+                          * bad", Jerry Pournelle, so we just let it pass;
+                          * arbitrarily, let it be "object" refs
+                          *)
+                         predefinedSyntax.predefinedNames.private.objectSType[]
+                           ->(&staticORefTransient[]).init
+                           ->stran[];
+                     if)
+                  #)
+            // stran##<=staticORefTransient## then (* OK *)
+            // stran##<=staticPRefTransient## then (* OK *)
+            // stran##<=staticRepeatedTransient## then
+               'ibetaTwoImpbody.bet/1601'->notyet; (* !!! *)
+            else
+               'Unexpected static transient'
+                 ->internalError
+           if);
+           (* generate the main byte code for this generalIf *)
+           ('ibetaTwoImpbody.bet/1607',this(l2GeneralIfImp)[],stran[])
+             ->(&generalIfCode[]).init
+             ->program.append;
+           (* initialize the coercion information; Evaluation.exitCompile
+            * will later try to coerce the value actually produced into 
+            * the kind of value required according to exitSTran *)
+           stran[]->Evaluation.exitSTran[];
+           true->Evaluation.exitCompare;
+           Alternatives.scan
+           (# do current.Selections.scan
+              (# do stran[]->current.exitSTran[]; true->current.exitCompare #)
+           #)
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- GeneralIfImpGetEnterCplr:dopart --
+do
+   'ibetaTwoImpbody.bet/1624'->notyet; (* !!! *)
+
+-- GeneralIfImpGetExitCplr:dopart --
+do
+   'ibetaTwoImpbody.bet/1628'->notyet; (* !!! *)
+
+-- GeneralIfImpGetEnterExitCplr:dopart --
+do
+   'ibetaTwoImpbody.bet/1632'->notyet; (* !!! *)
+
+-- GeneralIfImpClosureExecute:dopart --
+do
+   L: (# trlist: @transientList;
+         position: @runtimePath;
+         sContext: ^staticContext;
+         xi: ^exitIterator;
+         l0tr: ^l0Transient
+      do 
+         (* obtain an iterator for the values to compare against *)
+         (NONE,NONE,scope.location)
+           ->position.init;
+         (position[],scope.world[],this(l2GeneralIfImp)[])
+           ->scope.getInitialContext
+           ->sContext[];
+         (thrd[],unwind##,sContext[],scope.world[]
+         ,this(l2GeneralIfImp)[],dContext[])
+           ->Evaluation.getExitIter
+           ->xi[];
+
+         (* obtain the values from the iterator, keep them in a list *)
+         trlist.init;
+         xi.prepare;
+         L2: (if xi.more then xi->trlist.append; restart L2 if);
+         xi.cleanup;
+
+         (* try each of the Alternatives in turn *)
+         Alternatives.scan
+         (# l2alt: ^l2Alternative
+         do current[]->l2alt[];
+            (* try each selection of this alternative in turn *)
+            l2alt.Selections.scan
+            (# success: @boolean;
+               sel_xi: ^exitIterator;
+               eval_tr,sel_tr: ^l0Transient
+            do
+               (* obtain iterator for the value of current selection *)
+               (thrd[],unwind##,sContext[],scope.world[]
+               ,this(l2GeneralIfImp)[],dContext[])
+                 ->current.getExitIter
+                 ->sel_xi[];
+
+               (* compare against the "condition" values *)
+               true->success;
+               sel_xi.prepare;
+               trlist.scan
+               (# 
+               do 
+                  (* get the next transient from 'sel_xi' *)
+                  (if sel_xi.more then
+                      sel_xi->sel_tr[]
+                   else
+                      sel_xi.cleanup;
+                      'List mismatch: evaluation longer than selection'
+                        ->internalError
+                  if);
+
+                  (* coerce the two transients together *)
+                  (thrd[],unwind##,current[],sel_tr[])
+                    ->pairtransientsEqNEqBinOp
+                    ->(eval_tr[],sel_tr[]);
+
+                  (* do the actual comparison *)
+                  (if not ((thrd[],unwind##,eval_tr[])->sel_tr.equal) then 
+                      false->success
+                  if)
+               #);
+               (if not sel_xi.more then 
+                   sel_xi.cleanup
+                else
+                   (* clean up to ease (future) interpreter recovery *)
+                   L3: (if sel_xi.more then sel_xi->sel_tr[]; restart L3 if);
+                   sel_xi.cleanup;
+                   'List mismatch: evaluation shorter than selection'
+                     ->internalError
+               if);
+
+               (* if comparison succeeds we just execute and run! *)
+               (if success then 
+                   (thrd[],unwind##,dContext[])
+                     ->l2alt.Imperatives.execute;
+                   leave L
+               if)
+            #)
+         #);
+         (* all Alternatives failed; execute ElsePartOpt *)
+         (thrd[],unwind##,dContext[])->ElsePartOpt.execute
+      #)
+
+-- GeneralIfImpGetEnterIter:dopart --
+do
+   'ibetaTwoImpbody.bet/1724'->notyet; (* !!! *)
+
+-- GeneralIfImpGetExitIter:dopart --
+do
+   'ibetaTwoImpbody.bet/1728'->notyet; (* !!! *)
+
+-- GeneralIfImpGetEnterExitIter:dopart --
+do
+   'ibetaTwoImpbody.bet/1732'->notyet; (* !!! *)
+
+(************************************************************ 
+ *                                                          * 
+ *                        l2WhenImp                         * 
+ *                                                          * 
+ ************************************************************)
+
+-- WhenImpInit:dopart --
+do
+   WhenAlternatives.init; 
+   ElsePartOpt.init; 
+   theScopeNode.init;
+   program.init
+
+-- WhenImpPrint:dopart --
+do
+   '(when '->output;
+   (dest[],indentation,false)->NameDcl.print;
+   ': '->output;
+   (dest[],indentation,false)->AttributeDenotation.print;
+   (dest[],indentation,true,true)->WhenAlternatives.print;
+   (if not ElsePartOpt.empty then 
+       '\n else'->output;
+       (dest[],indentation+indent_delta,true,true)->ElsePartOpt.print
+   if);
+   '\nwhen)'->output
+
+-- WhenImpScanImpl:dopart --
+do
+   (preCB[],postCB[])->NameDcl.scanImpl;
+   (preCB[],postCB[])->AttributeDenotation.scanImpl;
+   (preCB[],postCB[])->WhenAlternatives.scanImpl;
+   (preCB[],postCB[])->ElsePartOpt.scanImpl
+
+-- WhenImpScopeGetIC:dopart --
+do
+   (# stWhen: ^staticWhenSubstance;
+      worldPos: ^runtimePath
+   do (* get hold of enclosing objects *)
+      position.copyRTP->worldPos[];
+      (scope.location,true)->worldPos.addStepOut;
+      (worldPos[],world[],usageAst[])
+        ->enclosing.getInitialContext;
+
+      (* add the substance for this when imp. scope *)
+      (worldPos.getInitialSyntax,this(l2WhenImp)[])
+        ->(&staticWhenSubstance[]).init
+        ->stWhen[];
+      (scope.location,true)->stWhen.originPath.addStepOut;
+      position[]->stWhen.adjustPaths;
+      stWhen[]->world.enhance;
+
+      (* deliver *)
+      stWhen[]->stcon[]
+   #)
+
+-- WhenImpScopeFind:dopart --
+do
+   (if (name[],NameDcl[])->private.theNameEqual then
+       NameDcl[]->l2ndcl[]
+    else
+       NONE->l2ndcl[]
+   if)
+
+-- WhenImpGetType:dopart --
+do
+   (context[],world[],usageAst[])
+     ->AttributeDenotation.getStaticType
+     ->stype[];
+   (if stype.kind<>objectTypeKind then
+       (objectTypeKind,usageAst[])
+         ->stype.coerce
+         ->stype[]
+       (* TYPE_COERCION: the AttributeDenotation denotes an object(Ref),
+        * as checked in 'check', so the coercion can only change the 
+        * type kind from objectRefTypeKind to objectTypeKind, and for 
+        * that it is only necessary to adjust the type kind *)
+   if)
+
+-- WhenImpGetQuaType:dopart --
+do
+   (* this is the same message as with WhenAlternativeGetType, even
+    * though the cases are a bit different: with WhenAlternativeGetType
+    * we are trying to obtain the qualification of the target from within
+    * the else-part, here we are trying from within an alternative *)
+   ('Attempt to obtain the qualification of a when imperative target'
+   ,'Use an object reference or a pattern reference'
+   ,usageAst[])->staticError
+
+-- WhenImpCheck:dopart --
+do
+   (* Prepare *)
+   AttributeDenotation.localCheck;
+
+   (* Check that the AttributeDenotation denotes an object or an obj.ref *)
+   (# aden_stype: ^staticType
+   do (context[],world[],usageAst[])
+        ->AttributeDenotation.getStaticType
+        ->aden_stype[];
+      (if (not (aden_stype.kind=objectTypeKind)) and
+          (not (aden_stype.kind=objectRefTypeKind)) then
+          (# msg: ^text
+          do 'Attempt to typecase on '->msg[];
+             (aden_stype.typename).withIndefArticle->msg.puttext;
+             (msg[],'Use an objects or an object reference'
+             ,this(l2WhenImp)[])->staticError
+          #)
+      if)
+   #)
+
+-- WhenImpGetTranOut:dopart --
+do
+   'ibetaTwoImpbody.bet/1845'->notyet; (* !!! *)
+
+-- WhenImpGetTranIn:dopart --
+do
+   'ibetaTwoImpbody.bet/1849'->notyet; (* !!! *)
+
+-- WhenImpGetCplr:dopart --
+do
+   (if not compiled then compile; true->compiled if);
+   &exeCompiler
+   (# generate::
+        (# do ('ibetaTwoImpbody.bet/1856',this(l2WhenImp)[])
+             ->(&whenCode[]).init
+             ->program.append
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- WhenImpGetEnterCplr:dopart --
+do
+   (if not compiled then compile; true->compiled if);
+   'ibetaTwoImpbody.bet/1865'->notyet; (* !!! *)
+
+-- WhenImpGetExitCplr:dopart --
+do
+   (if not compiled then compile; true->compiled if);
+   'ibetaTwoImpbody.bet/1870'->notyet; (* !!! *)
+
+-- WhenImpGetEnterExitCplr:dopart --
+do
+   (if not compiled then compile; true->compiled if);
+   'ibetaTwoImpbody.bet/1875'->notyet; (* !!! *)
+
+-- WhenImpDoCompile:dopart --
+do
+   compile;
+   WhenAlternatives.scan(# do current.compile #)
+
+-- WhenImpClosureExecute:dopart --
+do
+   L: (# l1ent: ^l1Entity;
+         l1oref: ^l1ObjectRefEntity;
+         target: ^l1ObjectEntity;
+         wsSlice: ^whenSubstanceSlice
+      do (* create when-slice in the context of which we execute the body *)
+         (private.newSubstanceSliceID,this(l2WhenImp)[],dContext[])
+           ->(&whenSubstanceSlice[]).init
+           ->wsSlice[];
+
+         (* grab the target object *)
+         (thrd[],unwind##,wsSlice[])
+           ->AttributeDenotation.lookup
+           ->l1ent[];
+         (if true
+          // l1ent##<=l1ObjectRefEntity## then
+             l1ent[]->l1oref[];
+             l1oref.value[]->target[];
+             (if target[]=NONE then
+                 ('Trying to "when" on an object via a NONE reference'
+                 ,thrd[],unwind##)->refNoneError
+             if)
+          // l1ent##<=l1ObjectEntity## then
+             l1ent[]->target[]
+          else
+             'AtrributeDenotation of WhenImp was not an object/o.ref.'
+               ->internalError
+         if);
+         target[]->wsSlice.target[];
+
+         (* compare against each alternative *)
+         WhenAlternatives.scan
+         (# altSlice: ^whenAltSubstanceSlice;
+            l1pat: ^l1PatternEntity
+         do (private.newSubstanceSliceID,current[]
+            ,wsSlice[],wsSlice.target[])
+              ->(&whenAltSubstanceSlice[]->altSlice[]).init;
+            (thrd[],unwind##,altSlice[],NONE)
+              ->current.AttributeDenotation.obtainPattern
+              ->l1pat[];
+            (if current.Exact then
+                (if target.private.pattern[]->l1pat.equal then
+                    (altSlice[],thrd[])
+                      ->newStackableWhenAlt
+                      ->thrd.private.currentComponent.currentStack.push;
+                    (thrd[],unwind##,altSlice[])
+                      ->current.Imperatives.execute;
+                    thrd.stackPop;
+                    (* done, skip the else-part if any *)
+                    leave L
+                if)
+             else
+                (if target.private.pattern[]->l1pat.lessEqual then
+                    (altSlice[],thrd[])
+                      ->newStackableWhenAlt
+                      ->thrd.private.currentComponent.currentStack.push;
+                    (thrd[],unwind##,altSlice[])
+                      ->current.Imperatives.execute;
+                    thrd.stackPop;
+                    (* done, skip "else" *)
+                    leave L
+                if)
+            if)
+         #);
+
+         (* all Alternatives failed; execute ElsePartOpt *)
+         (wsSlice[],thrd[])
+           ->newStackableWhen
+           ->thrd.private.currentComponent.currentStack.push;
+         (thrd[],unwind##,wsSlice[])->ElsePartOpt.execute;
+         thrd.stackPop;
+      #)
+
+-- WhenImpGetEnterIter:dopart --
+do
+   'ibetaTwoImpbody.bet/1953'->notyet; (* !!! *)
+
+-- WhenImpGetExitIter:dopart --
+do
+   'ibetaTwoImpbody.bet/1957'->notyet; (* !!! *)
+
+-- WhenImpGetEnterExitIter:dopart --
+do
+   'ibetaTwoImpbody.bet/1961'->notyet; (* !!! *)
+
+-- WhenImpCompile:dopart --
+do
+   (# context: ^staticContext;
+      position: @runtimePath;
+      cInfo: @compileInfo;
+      (* ignore_sptype: ^staticPatternType *)
+   do (* always starting analysis with local point of view *)
+      (NONE,NONE,AttributeDenotation.scope.location)->position.init;
+      AttributeDenotation[]->scope.world.setAst;
+      (position[],AttributeDenotation.scope.world[],AttributeDenotation[])
+        ->AttributeDenotation.scope.getInitialContext
+        ->context[];
+      (context[],AttributeDenotation.scope.world[]
+      ,AttributeDenotation[],program[],cInfo[],false,false)
+        ->AttributeDenotation.generateGetObject
+        (* ->ignore_sptype[] *);
+      WhenAlternatives.scan(# do current.compile #)
+   #)
+
+(************************************************************ 
+ *                                                          * 
+ *                      l2ScopeSpecImp                      * 
+ *                                                          * 
+ ************************************************************)
+
+-- ScopeSpecImpInit:dopart --
+do
+   (* NB: 'scope' is not yet defined! We set 
+    * up rtp.initialsyntax in bindnames *)
+   (NONE,NONE,this(l2ScopeSpecImp)[])->rtp.init
+
+-- ScopeSpecImpPrint:dopart --
+do
+   INNER;
+   (if NameAplOpt[]<>NONE then
+       (* spec is a name *)
+       ' '->output;
+       (dest[],indentation,false)->NameAplOpt.print
+    else
+       (if UsesCount then
+           (* spec is a number *)
+           ' '->output;
+           CountOpt->outputInteger
+        else
+           (* no spec available: no-op *)
+       if)
+   if);
+   (if printSemanticAttributes then 
+       (dest[],indentation,false)->rtp.print;
+       '='->output;
+       (if nodePrivate.localChecked then 
+           count->outputInteger 
+        else 
+           '?'->output 
+       if)
+   if)
+
+-- ScopeSpecImpCheck:dopart --
+do
+   (* NB: 'bindNames' will also handle 'rtp' *)
+   (if not checked then bindNames; INNER; true->checked if)
+
+-- ScopeSpecImpLib:attributes --
+
+jumpPathCheck: 
+  (# pathFail:
+       (# 
+       do 'Runtime path of INNER/leave/restart imperative not well-formed'
+            ->internalError
+       #);
+     step: ^runtimeStep;
+     ostep: ^runtimeOutStep
+  do (if not nameMustBeObject then 
+         (* is leave/restart; checking the runtimepath for a long jump *)
+         (if rtp.size
+          // 0 then
+             0->count;
+             scope.location->targetAst[]
+          // 1 then
+             rtp.first->step[];
+             (if step##<=runtimeOutStep## then
+                 step[]->ostep[]
+              else
+                 pathFail
+             if);
+             ostep.count+ostep.lcount->count;
+             ostep.AstNode[]->targetAst[]
+          else
+             pathFail
+         if)
+      else
+         0->count;
+         scope.location->targetAst[]
+     if)
+  #);
+
+jumpBase:
+  (# pathFail:
+       (# 
+       do 'Runtime path of leave imperative not well-formed'
+            ->internalError
+       #);
+     exitCodeType:< targetedExitCode;
+     unwind: ##stackUnwinder;
+     dContext: ^substanceSlice;
+     sSlice: ^substanceSlice
+  enter (unwind##,dContext[])
+  do (if count<>0 then 
+         (* find the dynamic destination *)
+         dContext[]->sSlice[];
+         (for count repeat
+              sSlice.getEnclosing->sSlice[];
+              (if sSlice[]=NONE then 
+                  'Runtime path of leave imperative steps out of universe'
+                    ->internalError
+              if)
+         for);
+         (* check that the destination looks right *)
+         (if sSlice.getSyntax<>targetAst[] then 
+             'Unexpected destination found for leave/restart'
+               ->internalError
+         if)
+      else
+         (* this is not allowed by the standard BETA syntax, but it could be *)
+         dContext[]->sSlice[]
+     if);
+
+     (* jump! *)
+     sSlice[]
+       ->(&exitCodeType[]).init
+       ->&unwind
+  #)
+
+(************************************************************ 
+ *                                                          * 
+ *                        l2LeaveImp                        * 
+ *                                                          * 
+ ************************************************************)
+
+-- LeaveImpPrint:dopart --
+do
+   'leave'->output
+
+-- LeaveImpPrintCode:dopart --
+do
+   'LEAVE '->output;
+   count->outputInteger
+
+-- LeaveImpScanImpl:dopart --
+do
+   (if NameAplOpt[]<>NONE then
+       (preCB[],postCB[])->NameAplOpt.scanImpl
+   if)
+
+-- LeaveImpCheck:dopart --
+do
+   jumpPathCheck
+
+-- LeaveImpExecute:dopart --
+do
+   (*lazy*) (if not checked then localCheck if);
+   (unwind##,dContext[])->jumpBase(# exitCodeType::exitLeave #)
+
+(************************************************************ 
+ *                                                          * 
+ *                       l2RestartImp                       * 
+ *                                                          * 
+ ************************************************************)
+
+-- RestartImpPrint:dopart --
+do
+   'restart'->output
+
+-- RestartImpPrintCode:dopart --
+do
+   'RESTART '->output;
+   count->outputInteger
+
+-- RestartImpScanImpl:dopart --
+do
+   (if NameAplOpt[]<>NONE then
+       (preCB[],postCB[])->NameAplOpt.scanImpl
+   if)
+
+-- RestartImpCheck:dopart --
+do
+   jumpPathCheck
+
+-- RestartImpExecute:dopart --
+do
+   (*lazy*) (if not checked then localCheck if);
+   (unwind##,dContext[])->jumpBase(# exitCodeType::exitRestart #)
+
+(************************************************************ 
+ *                                                          * 
+ *                        l2InnerImp                        * 
+ *                                                          * 
+ ************************************************************)
+
+-- InnerImpPrint:dopart --
+do
+   'INNER'->output
+
+-- InnerImpPrintCode:dopart --
+do
+   'INNER '->output;
+   (if true
+    // rtp.empty then
+       '0'->output
+    // rtp.size=1 then 
+       (if rtp.firstLink##<=runtimeOutStep## then
+           (# ostep: ^runtimeOutStep
+           do rtp.firstLink[]->ostep[];
+              ostep.count+ostep.lcount->outputInteger
+           #)
+        else
+           'INNER rtp leads elsewhere than out?'
+             ->internalError
+       if)
+    else
+       'INNER rtp with more than one element?'
+         ->internalError
+   if)
+
+-- InnerImpScanImpl:dopart --
+do
+   (if NameAplOpt[]<>NONE then
+       (preCB[],postCB[])->NameAplOpt.scanImpl
+   if)
+
+-- InnerImpExecute:dopart --
+do
+   (*lazy*) (if not checked then localCheck if);
+   (# fail:
+        (# 
+        do 'Trying to walk an "impossible" path to execute INNER'
+             ->internalError
+        #);
+      target: ^substanceSlice;
+      oSlice: ^objectSlice
+   do (thrd[],unwind##,dContext[])
+        ->rtp.performDynamic(# impossible::(# do fail #)#)
+        ->target[];
+      (if target##<=objectSlice## then 
+          target[]->oSlice[];
+          (if oSlice.pred[]<>NONE then
+              (thrd[],unwind##)->oSlice.pred.execute
+          if)
+      if)
+   #)
+
+(************************************************************ 
+ *                                                          * 
+ *                       l2SuspendImp                       * 
+ *                                                          * 
+ ************************************************************)
+
+-- SuspendImpPrint:dopart --
+do
+   'SUSPEND'->output
+
+-- SuspendImpPrintCode:dopart --
+do
+   'SUSPEND'->output
+
+-- SuspendImpExecute:dopart --
+do
+   (* We do not have to check the state of the component 
+    * being suspended: the "current component" obtained 
+    * from the stack is _always_ running, and hence 
+    * ready to SUSPEND *)
+   (# curComp: ^componentObjectSlice
+   do thrd.private.popComponent->curComp[];
+      (* allow caller to continue *)
+      curComp.waitForDoit.v;
+      (* wait here *)
+      true->curComp.suspended;
+      curComp.waitForAttach.p;
+      false->curComp.suspended;
+      curComp[]->thrd.private.pushComponent
+   #)
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

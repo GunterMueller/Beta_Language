@@ -1,0 +1,13 @@
+ORIGIN 'myencl';
+INCLUDE 'bitch';
+INCLUDE '../getcexprlib';
+
+--- MyenclGetCexpr: DoPart ---
+do denote; 'encl'->t.append; n->t.putint; ctype_objectptr->ctype
+
+
+--- MyenclDoPart: DoPart ---
+do
+   1->sd.type;
+   prec.getpatt->sd.encl[];
+   (if (sd.od[]->sd.os[])<>NONE then sd[]->att.att[] if);

@@ -1,0 +1,194 @@
+
+
+
+
+
+
+
+<HTML>
+<HEAD><TITLE>gbeta Tutorial:: Transparency and Coercion</TITLE></HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF"
+  LINK="#0000FF" VLINK="#800080" ALINK="#FF00FF">
+<TABLE WIDTH="100%">
+<TR><TD ALIGN="right">
+<TABLE><TR ALIGN="center">
+  <TD><A HREF="tutorial_index3.html" TARGET="display"><IMG SRC="left.gif"></A></TD>
+  <TD><A HREF="tutorial_index5.html" TARGET="display"><IMG SRC="right.gif"></A></TD>
+</TR></TABLE></TD></TR>
+<TR><TD ALIGN="left"><H1>Tutorial: Transparency and Coercion</H1></TD></TR>
+</TABLE>
+<P><HR></P>
+<TABLE><TR><TD WIDTH="25%">&nbsp;</TD><TD WIDTH="50%">
+
+<P>
+A very important, implicit, and pervasive aspect of the <B>gbeta</B>
+language is that there is a very consistent <EM>transparency</EM> of
+entity category.  When used in a given context, whatever category of
+entity is available will be transformed to the category requested by
+the context.  Entity categories are object, pattern, object identity
+and pattern identity, including concurrent variants.
+</P>
+
+<H3>An imperative is an object context</H3>
+<P>
+An imperative is an object context, and that means that whatever is
+denoted by a name which occurs as an imperative in a program will be
+transformed into an object, implicitly and without special syntax
+which reveals what it was before the transformation.  That information
+is available by looking up the declaration anyway. 
+</P>
+
+<P>
+This is good since it makes the syntax at the point of application
+independent of the precise category of entity declared, and this means
+that the declaration may be changed without affecting all the usages
+of that declared name.
+</P>
+
+<P>
+The most basic example of this is that a name which denotes an object
+and a name which denotes an object reference (think "a pointer" if you
+like) are used in the same way, 
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE>
+(# 
+   i: @integer;
+   ir: ^integer
+do 
+   ...
+   1->i;
+   2->ir;
+   ...
+#)</PRE></TD></TR>
+  </TABLE>
+</P>
+
+If we decide to change <CODE>i</CODE> into an object reference, that
+is a change which is local to the declaration; the rest of the program
+works as before without changes.
+</P>
+
+<P>
+Of course, this means that it is very un-BETA-like to give names like
+<CODE>i</CODE> and <CODE>ir</CODE> which reveal the choice of
+representation, but when presenting a transparency mechanism it is
+necessary to focus on exactly that which is going to become invisible.
+</P>
+
+<P>
+Since this transparency is a very basic property of the BETA family of
+languages, the traditional BETA terminology is that <CODE>"@"</CODE>
+declares a <EM>static reference</EM> and <CODE>"^"</CODE> declares a
+<EM>dynamic reference</EM>.  Think of all substance-names as
+"pointers"/"references" and then note that some of them are constant
+(static) and others are variable (dynamic).  This might seem the most
+natural perspective, if you are used to the "everything-is-a-pointer"
+semantics of some other object-oriented languages.  When giving the
+formal semantics of the language, however, the notion of a "constant
+pointer" is an unnecessary complication compared to saying that a name
+simply "is" an object.
+</P>
+
+<H4>Method invocation is coercion!</H4>
+<P>
+A very important example of the imperative as an object context is
+method invocation.  If a name which denotes a pattern occurs as an
+imperative, the pattern is coerced into an object (this transformation
+from pattern to object is normally called "object instantiation"), and
+the resulting, anonymous object is executed.  As an example:
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE>
+(# i: @integer;
+   p: (# do i+1->i #);
+   x: @(# j: @integer do j+i->i #)
+do
+   p;
+   x;
+#)</PRE></TD></TR>
+  </TABLE>
+</P>
+
+In this example, it is not possible to detect syntactically at the
+application of the names <CODE>p</CODE> and <CODE>x</CODE> that
+<CODE>p</CODE> is a pattern (which is implicitly instantiated to
+create a "procedure activation record"), whereas <CODE>x</CODE> is an
+object which is simply executed (hence keeping its local state intact
+between "invocations"). 
+</P>
+
+<P>
+As a consequence of this, a pattern may be thought of as a procedure
+or method, since applying them as an imperative "works like" an
+invocation as known in other imperative languages.
+</P>
+
+<H3>An evaluation is also an object context</H3>
+
+Since an <A HREF="tutorial_index6.html" TARGET="display">evaluation</A> is also an object context, the
+mechanism of the following examples are the same as explained above:
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE>
+(# i: @integer;
+   ir: ^integer;
+   p: (# enter ir do (if ir&lt;i then i-ir else i+ir if)->i 
+      exit 2*i 
+      #);
+   x: @(# j: @integer enter j do j+i->i #)
+do
+   ...
+   i+ir->putint;
+   ((x,x),x)->(max,p)->min->putint;
+   ...
+#)</PRE></TD></TR>
+  </TABLE>
+</P>
+
+When <CODE>i</CODE> is printed with the assignment evaluation
+<CODE>i+ir->putint</CODE>, the transformation of <CODE>i</CODE> is a
+no-op since it is already an object.  However, <CODE>ir</CODE> is
+coerced from object reference to object.  You may think of it as
+"dereferencing a pointer."  On the right hand side of the assignment
+evaluation, <CODE>putint</CODE> is coerced from a pattern into an
+object, i.e. an instance is created, and this instance is then
+executed.
+</P>
+
+<P>
+The next imperative is a composite (multiple) assignment evaluation.
+Everywhere, whether a name delivers a value (it occurs before
+<CODE>-&gt;</CODE>), or a value is impressed upon it (it occurs after
+<CODE>-&gt;</CODE>), or both (it occurs between two
+<CODE>-&gt;</CODE>'s), patterns are instantiated and object references
+are dereferenced implicitly.  The
+<A HREF="tutorial_index12.html" TARGET="display"><CODE>if</CODE>-imperative</A> in <CODE>p</CODE> is 
+covered later.
+</P>
+
+<P>
+The <A HREF="tutorial_index5.html" TARGET="display">next</A> section deals with a number of non-object contexts.
+</P>
+
+</TD><TD WIDTH="20%">&nbsp;</TD></TR></TABLE>
+<P><HR></P>
+<SMALL>
+  <I>
+    <CENTER>
+      <STRONG>Signed by: </STRONG>
+      <A HREF="mailto:eernst@cs.auc.dk">eernst@cs.auc.dk</A>.
+      Last Modified:  3-Jul-01
+<BR>
+    </CENTER>
+  </I>
+</SMALL>
+</BODY>
+</HTML>
+

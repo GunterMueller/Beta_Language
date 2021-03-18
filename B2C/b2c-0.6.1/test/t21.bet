@@ -1,0 +1,17 @@
+ORIGIN '~beta/basiclib/current/betaenv';
+--- program: ObjectDescriptor ---
+(#
+   r: @integer;
+
+do
+   (* test mimimum, maximum and absolute value "functions": *)
+   (3,4)->min->putint; newline;
+   (6,8)->max->putint; newline;
+   (-4)->abs->putint; newline;
+
+   (* test looping patterns *)
+   (5,10)->forto (# do inx->putint; ' '->put; #);
+   9->r;
+   l: cycle (# do (if r<5 then leave l if); r->putint; ' '->put; r-1->r #);
+   newline
+#)

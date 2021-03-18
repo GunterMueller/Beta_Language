@@ -1,0 +1,40 @@
+Hi,
+
+this is the current state of b2c, a freeware BETA compiler under
+development.  Most of the code was written by Kai Petzke,
+wpp@physik.tu-berlin.de.  This compiler understands about 85% of
+the BETA syntax.  The big missing pieces are "for" loops, and
+anything, that has to do with Components and Pattern Variables.
+
+To complete installation of b2c, add a user named "b2c" to your
+/etc/passwd, and give it the home directory, where you unpacked
+the distribution.  Alternatively, you can install all files in
+/usr/local/lib/b2c, the default.
+
+There are a few directories in the distribution.  They have the
+following meanings:
+
+basiclib	Standard BETA basic libraries.
+bin		Binaries
+containers	Standard BETA container libraries.
+src		Source code
+src/doc		Documentation of the Source code
+test		Test files for the compiler
+
+For more information, see the src/doc subdir.  Some comments are
+also found in the source files.  For test driving the compiler
+use the examples in the test directory, or write your own.
+
+The compiler is written in BETA, but it can't compile itself yet.
+For testing it, you need the Mjolner BETA system version 5.2
+installed.  To compile b2c, change to the src subdir, and type:
+
+	beta -q b2c
+
+Please note once again, that this distribution is there to allow
+people to join the work on the compiler, or to toy around with
+BETA.  It is not something, that one would put on an "end user"
+CD-ROM like a linux distribution.
+
+
+Kai

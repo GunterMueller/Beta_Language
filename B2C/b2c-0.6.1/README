@@ -1,0 +1,54 @@
+Hi,
+
+this is the current state of b2c, a freeware BETA compiler under
+development.  Most of the code was written by Kai Petzke,
+wpp@physik.tu-berlin.de.  The sources, and also general
+information about BETA, can be found on the web home of b2c:
+
+	http://troubadix.physik.tu-berlin.de/~petz0433/beta/ewelcome.html
+
+This compiler understands about 95% of the BETA syntax.  The big
+missing piece is support for Components.
+
+To complete the installation of b2c, add a user named "b2c" to
+your /etc/passwd, and give it the home directory, where you
+unpacked the distribution.  Alternatively, you can install all
+files in /usr/local/lib/b2c, the default directory.  The third
+possibility is to unpack the distribution anywhere, and set the
+B2C_HOME environment variable to the name of that directory.
+
+The compiler is written in BETA, but it can't compile itself,
+yet.  Binary versions for some platforms can be found on the URL
+mentioned above.  Unpack those binary files from the same dir,
+where you installed the source.  Then change to the test
+subdirectory and play with the examples there.
+
+
+If you have the Mjølner BETA system version 5.2 installed, you
+can compile b2c yourself.  To do so, change to the src
+subdirectory and type:
+
+	beta -q b2c
+
+The resulting binary should be copied to the bin directory using
+the following command:
+
+	cp b2c "../bin/`uname -m`-`uname -s`-b2c"
+
+
+Finally, here is an overview of the most important directories in
+this distribution.  If you are looking for more information, you
+might find the "src/doc" directory helpfull:
+
+basiclib	Standard BETA basic libraries.
+bin		Binaries
+containers	Standard BETA container libraries.
+src		Source code
+src/doc		Documentation (mostly technical)
+terminal	BETA terminal interface library.
+test		Test files for the compiler
+
+
+
+
+Kai

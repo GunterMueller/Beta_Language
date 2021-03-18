@@ -1,0 +1,190 @@
+
+
+
+
+
+
+
+<HTML>
+<HEAD><TITLE>gbeta Getting Started:: GNU Emacs Integration (cont'd) </TITLE></HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF"
+  LINK="#0000FF" VLINK="#800080" ALINK="#FF00FF">
+<TABLE WIDTH="100%">
+<TR><TD ALIGN="right">
+<TABLE><TR ALIGN="center">
+  <TD><A HREF="start_index6.html" TARGET="display"><IMG SRC="left.gif"></A></TD>
+  <TD><A HREF="start_index8.html" TARGET="display"><IMG SRC="right.gif"></A></TD>
+</TR></TABLE></TD></TR>
+<TR><TD ALIGN="left"><H1>Getting Started: GNU Emacs Integration (cont'd) </H1></TD></TR>
+</TABLE>
+<P><HR></P>
+<TABLE><TR><TD WIDTH="25%">&nbsp;</TD><TD WIDTH="50%">
+
+Execute a few steps of the program by typing:
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>step[ENTER][ENTER][ENTER]</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+at the interactive prompt.  This should bring you to the following
+statement: 
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE> 
+line: integer
+  (# a:< string; b:< string; end:< boolean;
+     plural: (# exit (if value=1 then '' else 's' if)#);
+     punct: (# exit (if end then '.' else ',' if)#);
+=>do <FONT COLOR="#0000FF"><B>(if value=0 then 
+         'no more'->puttext 
+      else 
+         value->putint 
+     if);</B></FONT>
+     ' bottle'+plural+' of beer'+a+punct+b->putline
+  #); </PRE></TD></TR>
+  </TABLE>
+</P>
+
+Now take a look at the <CODE>value</CODE>:
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>print value</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+.. and try to execute an ad-hoc imperative (which assigns the lesser
+of zero and <CODE>value</CODE> to <CODE>value</CODE> and then prints
+the result): 
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>do (0,value)->min->value->putint</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+Give the command <CODE>step</CODE> and press <CODE>[ENTER]</CODE>
+several times to see the program execute step-by-step.  As you can
+see, the program is affected by the changes introduced by the
+execution of the ad-hoc imperative, and since any imperative is
+allowed (as long as it is statically correct) the <CODE>do</CODE>
+command is a strong tool.
+</P>
+
+<H3>Basic breakpoints</H3>
+<P>
+At some point, when the source code window shows the file
+<CODE>beer.bg</CODE>, click in the source code window on the
+<CODE>"->"</CODE> arrow of <CODE>value->putint</CODE>, to
+ensure that the source code window is the active window and that the
+point (cursor, insertion point) is at that arrow.  Since the arrow is
+syntactically a top-level constituent of the assignment 
+<CODE>value->putint</CODE>, this position is identified with
+the assignment itself, and that is useful because you can select the
+menu item <CODE>Breakpoint</CODE> from the <CODE>Gud</CODE> menu, thus
+setting a permanent breakpoint at that assignment.  By the way, a
+convenient method to access this menu is pressing the rightmost mouse
+button along with the <CODE>Control</CODE> modifier, then the menu
+pops up right there in over the source code window.
+</P>
+
+<P>
+Now execute the command:
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>go</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+to continue running until the interpretation would start executing
+that assignment.  Press <CODE>[ENTER]</CODE> a couple of times to
+watch what happens between each time the program reaches that point,
+for example: 
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE>executing~1> 
+96 bottles of beer.
+Take one down, pass it around,
+
+
+executing~1> _</PRE></TD></TR>
+  </TABLE>
+</P>
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE> <SMALL>line: integer
+  (# a:< string; b:< string; end:< boolean;
+     plural: (# exit (if value=1 then '' else 's' if)#);
+     punct: (# exit (if end then '.' else ',' if)#);
+=>do (if value=0 then 'no more'->puttext else <FONT COLOR="#0000FF"><B>value->putint</B></FONT> if);
+     ' bottle'+plural+' of beer'+a+punct+b->putline
+  #);</SMALL> </PRE></TD></TR>
+  </TABLE>
+</P>
+
+By now the default command is <CODE>go</CODE>, so every
+<CODE>[ENTER]</CODE> continues the execution in the running, not
+single-stepping, mode.
+</P>
+
+<H3>Other kinds of breakpoints</H3>
+<P>
+There are some other variants of breakpoints, namely <EM>temporary
+breakpoints</EM> and <EM>"after-breakpoints"</EM>.  A temporary
+breakpoint simply gets deleted the first time it causes a break, and
+this is sometimes convenient .. think of it as a way to "run until you
+hit this spot" without changing the properties of "this spot."
+</P>
+
+<P>
+Sometimes it is hard to say exactly what imperative will execute after
+the execution of a given imperative finishes, perhaps because it is
+the last imperative in the body of a method (pattern) which might be
+invoked from many different places.  In these cases it is convenient
+to stop <EM>after</EM> the execution of an imperative, not before the
+next one.  This is the motivation for the 
+<CODE>"Breakpoint After"</CODE> and <CODE>"Tmp. Brk. After"</CODE>
+menu entries, corresponding to the <CODE>abreak</CODE> and
+<CODE>tabreak</CODE> commands. 
+</P>
+
+<P>
+The <A HREF="start_index8.html" TARGET="display">next</A> section summarizes the execution control commands.
+</P>
+
+</TD><TD WIDTH="20%">&nbsp;</TD></TR></TABLE>
+<P><HR></P>
+<SMALL>
+  <I>
+    <CENTER>
+      <STRONG>Signed by: </STRONG>
+      <A HREF="mailto:eernst@cs.auc.dk">eernst@cs.auc.dk</A>.
+      Last Modified:  3-Jul-01
+<BR>
+    </CENTER>
+  </I>
+</SMALL>
+</BODY>
+</HTML>
+

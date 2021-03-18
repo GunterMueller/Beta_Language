@@ -1,0 +1,16 @@
+ORIGIN 'fakepdecl';
+INCLUDE '../ad/tempden';
+INCLUDE '../attributelib';
+INCLUDE '../objectdesc';
+INCLUDE '../namebitch';
+--- FakePatternDeclDoPart: DoPart ---
+do
+   (*
+    * Have to create a new pattern declaration ...
+    * first step: create a new name
+    * second step: create a new attribute for that name
+    * third step: create a reference to that new attribute
+    *)
+   (&TemporaryName,od[])->&PatternDecl->att[];
+   od.private.outer[]->att.encl[];
+   (att[],false)->&TemporaryDenotation->ad[]

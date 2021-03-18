@@ -1,0 +1,8 @@
+-- betaenv:descriptor --
+{
+   p: {v:< integer};
+   q: @p{v::component};
+   ic: @q.v
+do
+   5->(ic[]).value
+}

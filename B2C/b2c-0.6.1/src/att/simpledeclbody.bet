@@ -1,0 +1,171 @@
+ORIGIN 'simpledecl';
+INCLUDE '../ctype';
+INCLUDE '../attributebitch';
+INCLUDE '../cintf';
+INCLUDE '../namebitch';
+INCLUDE '../objectdesclib';
+INCLUDE '../specialdesc';
+INCLUDE '../ad/backlevel';
+--- SimpleDeclPrint: DoPart ---
+do
+   ': '->s.append;
+   INNER;
+   (if type
+     // 0 then '@'->s.append
+     // 1 then '^'->s.append
+   if);
+
+
+--- SimpleDeclGetcdecl: DoPart ---
+do
+   '    '->t;
+   (if os.isvirtual then
+      os[]->ad[];
+      (super[],0)->&DirectBacklevel->ad.copy->ad[];
+      ad.getpatt->super[];
+      data_inline->super.getcdecl->t.append;
+   else
+      data_inline->od.getcdecl->t.append;
+   if);
+   ' '->t.put;
+   names.recurse
+     (#
+	middle:: (# do ','->t.put #);
+	rc::
+	  (#
+	  do
+	     (if not(data_inline) then '*'->t.put if);
+	     INNER getcdecl;
+	     el.mapname[]->t.append
+	  #)
+     #);
+   ';\n'->t.append;
+
+
+(* JO *)
+--- SimpleDeclGetmdef: DoPart ---
+do
+   (if os.isvirtual then
+      os[]->ad[];
+      (super[],0)->&DirectBacklevel->ad.copy->ad[];
+      ad.getpatt->super[];
+      super[]->attod[];
+   else
+      od[]->attod[];
+   if);
+   (if (attod.private.sd[]=NONE)
+      or (super.isrep and ('b_ptr'->names.ptr.mapname.equalNCS)) then
+      '    '->t;
+      names.recurse
+       (#
+          middle::
+            (#
+            do
+               '    '->t.append;
+            #);
+	  rc::
+	    (#
+	    do
+            (if super.isrep and ('b_ptr'->el.mapname.equalNCS) then
+               'mrsetlive(m->b_ptr);\n'->t.append;
+               (* If the repetition elements are pointers to other
+                * objects, we have to mark them, too.
+                *)
+               (if not attod.isbasic then
+                  '    if (m->b_ptr) '->t.append;
+                  'for(mrep=0;mrep<m->b_size;mrep++)\n'->t.append;
+                  '      {\n#ifdef MAXDEBUG\n'->t.append;
+                  '      lprintf();\n'->t.append;
+                  '      fprintf(infofile, "marking repetition'->t.append;
+                  ' element number %d\\n",mrep+1);\n'->t.append;
+                  '#endif\n'->t.append;
+                  '      if (!markit((struct object *)'->t.append;
+                  ' m->b_ptr[mrep])) return 0;\n'->t.append;
+                  '      }\n'->t.append;
+               if);
+            else
+               'if (!markit((struct object* )'->t.append;
+	       (if data_inline then '&'->t.put if);
+	       'm->'->t.append;
+	       el.mapname[]->t.append;
+               ')) return 0;\n'->t.append;
+            if);
+	    #)
+       #);
+   if);
+
+
+--- SimpleDeclGetisrefel: DoPart ---
+do
+   (if os.isvirtual then
+      os[]->ad[];
+      (super[],0)->&DirectBacklevel->ad.copy->ad[];
+      ad.getpatt->super[];
+      super[]->attod[];
+   else
+      od[]->attod[];
+   if);
+   (if (attod.private.sd[]=NONE)
+      or (super.isrep and ('b_ptr'->names.ptr.mapname.equalNCS)) then
+      names.recurse
+       (#
+	  rc::
+	    (#
+	    do
+            (if super.isrep and ('b_ptr'->el.mapname.equalNCS) then
+               (if not attod.isbasic then
+                  true->elisref;
+               if);
+            if);
+	    #)
+       #);
+   if);
+(* JO *)
+
+
+--- SimpleDeclGetcexpr: DoPart ---
+do
+   INNER;
+   mapname[]->t.append;
+   (if data_inline then ctype_object->ctype else ctype_objectptr->ctype if)
+
+
+--- SimpleDeclResolve: DoPart ---
+do
+   (if type=1 then
+      (if (od[]<>NONE) then
+         (if (od.encl[]=this(SimpleDecl)[]) then
+            'A pattern is not allowed here!'->od.error
+	 if);
+	 CheckIsnotbasic##->c_file.todoReduce;
+      if);
+   if);
+   INNER;
+
+
+--- SimpleDeclCheckFollow: DoPart ---
+do
+   (if type=0 then
+      true->data_inline;
+      (if os.checkFollow then
+	 true->value
+      else
+	 (if od[]<>NONE then
+	    (if od.isslot then false->data_inline if);
+	    (if od.private.sd[]<>NONE then
+	       (if od.private.sd.isexternal then
+		  'Static references to externals are not possible!'->error;
+	       if)
+	    if);
+	    INNER;
+	 if);
+	 (if os.isvirtual then false->data_inline if)
+      if);
+   if);
+
+
+--- SimpleDeclCheckIsnotbasic: DoPart ---
+do
+   (if od.isbasic then
+      'Dynamic references to simple types are not allowed!'->os.error
+   if)

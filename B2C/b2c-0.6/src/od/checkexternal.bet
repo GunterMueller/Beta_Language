@@ -1,0 +1,198 @@
+ORIGIN '../objectdesc';
+INCLUDE '../evaluationlib';
+INCLUDE '../namebitch';
+INCLUDE '../specialdesc';
+INCLUDE '../ad/bitch';
+INCLUDE '../imp/eval';
+--- ObjectDescriptorCheckExternal: ObjectDescriptor ---
+(* LaTeX \section{Extra checks for externals}
+ * The first imperative of the do-part of an external is critical.
+ * It must be an evaluation, and must call one of the methods of
+ * the external pattern (like `callC' or `callPascal').  This
+ * method decides about the type of the external function call.
+ * It is also legal to assign a string to that method.  In this
+ * case, this string will be used as function name.
+ *
+ * After certain methods (like cExternalEntry), which denote
+ * callbacks to BETA from other languages, other imperatives
+ * may follow.  In other cases (like callC), no extra imperatives
+ * are allowed in the do-part.
+ *
+ * If the do-part is empty, it defaults to callC.
+ *)
+
+(#
+   nme: ^text;
+   type: @Integer;
+   gotname,from,to: @Boolean;
+
+   at: ^Attribute;
+   imp: ^Imperative;
+   evi: ^EvaluationImp;
+   ev: ^Evaluation;
+   oev: ^ObjectEvaluation;
+   od: ^ObjectDescriptor;
+   evas: ^AssignmentEvaluation;
+   sc: ^StringConst;
+   ad: ^AttributeDenotation;
+
+   err: (# do 'The first imperative of an external must call one of its methods\n      like callC or cExternalEntry!'->imp.error; #);
+do
+   (* get the name of the external function *)
+   (* DEBUG 'Getting the attribute name of the external function'->putline; *)
+   (if encl##<=Attribute## then
+      encl[]->at[]; at.names.ptr.str->sd.ctype; true->gotname
+   if);
+
+   (* DEBUG 'Checking imperatives of external'->putline; *)
+   doprt->imp[];
+   (if imp[]<>NONE then
+      (if imp##<>EvaluationImp## then err; leave checkExternal if);
+
+      imp[]->evi[];
+      evi.ev->ev[];
+
+      (* DEBUG 'Checking evaluations of external'->putline; *)
+      -1->type;
+      loop: (if ev[]<>NONE then
+	 (if ev##
+	   // ObjectEvaluation## then
+	      ev[]->oev[];
+	      (if not (oev.obj##<=AttributeDenotation##) then
+	         err; leave checkExternal
+	      if);
+	      oev.obj[]->ad[];
+	      ad.resolve;
+	      (* DEBUG 'Checking attributes of called pattern'->putline; *)
+	      (if ad.att.att[]<>NONE then
+		 ad.att.att.names.ptr.str[]->nme[];
+		 (if type>=0 then err; leave checkExternal if);
+		 (if true
+		   // 'callc'->nme.equalNCS then
+		      ExternalC->type; true->to
+		   // 'cexternalentry'->nme.equalNCS then
+		      ExternalC->type; true->from
+		   else err; leave checkExternal
+		 if);
+	      if);
+	   (* Assignment of a string to the special pattern:
+	    * use the name contained in the string as function name!
+	    *)
+	   // AssignmentEvaluation## then
+	      ev[]->evas[];
+	      (if not(evas.ls##<=StringConst##) then
+		 'This should be a string!'->evas.ls.error; leave checkExternal
+	      if);
+	      evas.ls[]->sc[];
+	      sc.translate->sd.ctype;
+	      true->gotname;
+	      evas.rs[]->ev[];
+	      restart loop;
+	   else
+	      (* DEBUG 'Wrong evaluation type'->putline; *)
+	      err; leave checkExternal
+	 if);
+      if);
+      imp.next[]->imp[];
+
+      (if type<0 then
+	 'No type specified for this external!'->error; leave checkExternal
+      if);
+   else
+      ExternalC->type;
+      true->to;
+   if);
+
+   (if not gotname then
+      'No name given for external function!'->error; leave checkExternal
+   if);
+   (if to and (imp[]<>NONE) then
+      'Only 1 imperative allowed in call to external function!'->error;
+      leave checkExternal
+   if);
+   to->sd.toexternal;
+   from->sd.fromexternal;
+   type->sd.externaltype;
+
+   (* DEBUG 'Checking enter and exit lists of external'->putline; *)
+   (* LaTeX The enter and exit lists of an external may carry only simple
+    * types (like Integer or Real), and they must refer to attributes
+    * directly declared within the external.
+    *)
+   check: (# do
+      enterprt[]->checkExternalEnterExit
+         (# err::
+	    (#
+	    do
+	       'The enter list of an external may only contain number types!'
+	         ->error;
+	       leave check;
+	    #)
+	 #);
+      exitprt[]->checkExternalEnterExit
+         (# err::
+	    (#
+	    do
+	       'The exit list of an external may only contain number types!'
+	         ->error;
+	       leave check;
+	    #)
+	 #);
+   #);
+#)
+
+
+--- CompilerLib: Attributes ---
+checkExternalEnterExit:
+  (#
+     ev: ^Evaluation;
+     oev: ^ObjectEvaluation;
+     od: ^ObjectDescriptor;
+     ad: ^AttributeDenotation;
+     elist: ^EvalList;
+     err:<
+       (#
+       do
+	  INNER;
+	  'The enter or exit list of an external may only contain number types!'
+	    ->ev.error;
+       #);
+     onlyOne:< BooleanObject;
+     att: ^Attribute;
+  enter ev[]
+  do
+     test: (if ev[]<>NONE then
+	type: (if ev##<=EvalList## then
+	   (if onlyOne then
+	      'The exit list of an external may contain at most one element!'
+	        ->ev.error;
+	      leave test;
+	   if);
+	   ev[]->elist[];
+	   elist.ev.iterate
+	     (#
+	     do
+		el[]->&checkExternalEnterExit (# err:: (# do leave type #) #)
+	     #);
+	   leave test;
+	if);
+
+        (if not (ev##<=ObjectEvaluation##) then err; leave test if);
+	ev[]->oev[];
+	(if not (oev.obj##<=AttributeDenotation##) then err; leave test if);
+	oev.obj[]->ad[];
+	ad.resolve;
+	(if (ad.getpatt->od[])<>NONE then
+	   (if od.isbasic then
+	      (if od.private.sd.isexternal or od.private.sd.isboolean then
+		 err; leave test
+	      if);
+	   else
+	      (if not od.isrep then err; leave test if);
+	      (if (ad.att.att.getRepEl).od[]<>CharPattern[] then
+		 err; leave test
+	      if);
+	   if);
+	if);
+     if);
+  #);

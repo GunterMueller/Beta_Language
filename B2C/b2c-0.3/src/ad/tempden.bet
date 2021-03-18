@@ -1,0 +1,18 @@
+ORIGIN 'nameref';
+INCLUDE 'bitch';
+BODY 'tempdenbody';
+--- CompilerLib: Attributes ---
+(* Denote objects, who received their names from the compiler.
+ * One example are unnamed patterns or inserted items, but
+ * temporary variables to hold intermediate results also fall
+ * into this category: *)
+TemporaryDenotation: NameRef
+  (#
+     local: @boolean;
+     getcexpr:: (# noprec:: (# <<SLOT TemporaryDenotationNoPrec: DoPart>> #) #);
+     type:: TemporaryDenotation;
+     copy:: (# do local->cpy.local #);
+  enter (att.att[],local)
+  <<SLOT TemporaryDenotationDoPart: DoPart>>
+  exit this(TemporaryDenotation)[]
+  #);

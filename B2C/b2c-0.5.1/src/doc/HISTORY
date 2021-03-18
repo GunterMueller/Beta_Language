@@ -1,0 +1,93 @@
+v0.5.1:
+* Several portability bug fixes:
+  - Don't generate C code, that does arithmetic with void pointers.
+  - Don't put casts on objects, that may appear on the left side of an
+    assignment.  This fix may increase the number of type mismatch
+    warnings, until a general solution is found.
+  - Removed a superfluous semicolon to make a certain compiler happy,
+    that would otherwise spill out lots of "empty declaration" warnings.
+  - Changed the header of the LaTeX docs, in the hope, that the
+    "epsfig" macro will now be reliably included.
+  - Made `flex' the default lexer in the makefile `parse.make'.
+  - Fixed two problems in `parse.y'.
+
+
+v0.5:
+* Moved the definitions of `ReduceFunction' (now called `reducefn'),
+  `ReduceExit' and `ReduceExitSingle' out of the pattern `Evaluation'.
+* Less messy implementation of the `reduce' method of `EnterExitComplex'.
+* Support for passing string arguments to external C functions.
+* Implemented the FILE pattern, see `basiclib/v1.4/file.bet'.
+* New type of EXCEPTION handling.
+* `keyboard' and `screen' are now of type FILE.
+* Generally overworked `basiclib/v1.4/betaenv.bet'.
+* Moved the main #define's to turn debugging on/off to beta.h.
+* Several bug fixes:
+  - The return value of external functions was ignored.
+  - If file a.bet INCLUDE'd b.bet, that INCLUDE'd c.bet, and c.bet was updated,
+    a.bet was not recompiled.
+  - A few crashes, that were caused by illegal BETA input files.
+  - The evaluation `&(# do ... #)[]->referenceVar[]' caused a crash during
+    code generation.
+  - The evaluation `(A->B)>0' caused a crash during the reduction phase.
+
+
+v0.4: Mon, Feb 10 1997
+* Implemented computed remotes.
+* Fixed buggy algorithm for extending repetitions.
+* Fixed bug, that allowed to bind a virtual to a virtual.
+
+
+v0.3:
+* Updated some of the documentation.
+* Full support for virtual patterns.
+* General if imperative.
+* A btree container was added.
+* Explicite handling of the type of a numerical expression.
+* Migration to version 5.2 of the Mjolner BETA system.
+
+
+v0.2:
+* Changed semantics for virtual functions: the virtual creator function
+  now either creates an object or fills in a pattern variable according
+  to the virtual types.  The actual action depends on the parameters
+  passed:
+
+	struct object *V(struct object *enclosing, struct pvariable *pv);
+
+  If the pv argument is zero, an object is created and a point to it
+  is returned.  If pv is non-zero, information about the virtual
+  object is stored into it, and the object creator function returns
+  0.
+
+* The Object Creator functions now can actually call other
+  patterns.  If a LEAVE or RESTART imperative is triggered inside
+  such a pattern, and cannot be handled there, the creation of
+  the object will be aborted, and the Object Creator Function
+  returns 0.
+
+* Jiri Sitera <sitera@zcu.cz> added two changes:
+  - You can create a list of the slots and their bindings by
+    specifying the "-m" option to b2c.  The list is output in a
+    program named <job>.sb, where <job> is the first filename
+    specified to b2c.
+
+    As this process relies on the ".fm" files to be present for
+    each fragment of the current compile, and as these ".fm" files
+    are only created, if the "-m" option had been specified, you
+    may have to use the "-f" option along with "-m" to force a
+    recompile of everything.
+
+  - The storage of repetitions was changed to include another
+    field, alsize, to allow the storage of the repetition to be
+    allocated independently of its actual size.  That way, the
+    system can choose independently of the BETA application, in
+    which junks it extends a repetition's size.
+
+* Jan Okrouhly <okrouhly@zcu.cz> has created a garbage collector.
+
+
+v0.1:
+This was the first version, that I gave to other people by sending
+e-mail.
+

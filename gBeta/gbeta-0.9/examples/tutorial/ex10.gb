@@ -1,0 +1,15 @@
+(* FILE ex10.gb *)
+-- betaenv:descriptor --
+(# 
+   recur:
+     (# selfType: this(recur);
+        enough:< object;
+        depth: @integer
+     enter depth
+     do (if depth>4 then enough if);
+        depth+1->&selfType
+     #)
+do 
+   L: recur(# enough::(# do leave L #)#)
+#)
+

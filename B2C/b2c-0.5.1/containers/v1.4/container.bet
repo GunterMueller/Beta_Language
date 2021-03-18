@@ -1,0 +1,149 @@
+ORIGIN '../../basiclib/v1.4/betaenv';
+BODY 'private/containerbody';
+--- lib: Attributes ---
+(*
+ * (C) 1996 Kai Petzke, wpp@marie.physik.tu-berlin.de
+ *
+ * This shall get a freeware version of the container pattern, that the
+ * Mjolner system provides in ~beta/containers/v1.4/container.bet.
+ *
+ * Container is the general superpattern of patterns like "list" or
+ * "set", which provide easy-to-use interfaces for storing data.
+ *)
+container:
+  (#
+     <<SLOT containerLib: Attributes>>;
+
+     (**************************************************************
+      * Virtuals, that are intended to be bound by the user of a   *
+      * container:                                                 *
+      **************************************************************)
+     (* Type of objects, that this container can hold. *)
+     element:< Object;
+
+     (* Equality of objects.  This should return "true", if the objects
+      * `left' and `right' are considered to be equal.
+      * Default: test, if `left' and `right' point to the same object.
+      *)
+     equal:< BooleanValue
+       (# left,right: ^element
+       enter (left[],right[])
+       do (left[]=right[])->value; INNER
+       #);
+
+     (* elementPredicate: this is used in various operations, like
+      * scan, to determine, which elements of the container to
+      * include in the operation.   Default: use all elements.
+      *)
+     elementPredicate: BooleanValue
+       (# current: ^element enter current[] do true->value; INNER #);
+
+
+     (**************************************************************
+      * General methods for querying the state of the container.   *
+      * These virtuals are not intended for binding by the user of *
+      * the container; rather, the various subtypes of container   *
+      * (like `set' or `list') will specialize these:              *
+      **************************************************************)
+     (* is the container empty? *)
+     empty: BooleanValue (# do size=0->value #);
+
+     (* size: the number of elements currently stored in the container: *)
+     size:< IntegerValue;
+
+     (* capacity: the maximum number of elements.  Note, that some containers
+      * are able to increase this number, if necessary!  For other containers,
+      * like lists, this value is not usefull, in which case -1 is returned: *)
+     capacity:< IntegerValue;
+
+     (* Is there an element in the container, that equals elm? *)
+     has:< BooleanValue
+       (# elm: ^element; shortcut:< BooleanValue
+       enter elm[]
+       <<SLOT ContainerHas: DoPart>>
+       #);
+
+     (* Scan through the container, executing INNER for each element,
+      * that satisfies the `where' condition.  On ordered containers
+      * (like list), getPosition may be called from INNER to get the
+      * index of the current element.
+      *)
+     scan:
+       (#
+	  current: ^element;
+	  where:< elementPredicate;
+	  start:< Object;
+	  end:< Object;
+	  getPosition: @privateScan;
+       <<SLOT ContainerScan: DoPart>>
+       #);
+
+     (* `Find' is like `scan', except, that it aborts the search after
+      * the first element has been found.
+      *)
+     find:
+       (#
+	  current: ^element;
+	  predicate:< elementPredicate;
+	  start:< Object;
+	  end:< Object;
+	  notFound:< Notification;
+	  notFoundRaise: raise
+	    (#
+	    do
+	       INNER;
+	       'Element not found in container'->msg;
+	       notFound##->deliverTo;
+	    #);
+	  getPosition: @privateScan;
+       <<SLOT ContainerFind: DoPart>>
+       exit current[]
+       #);
+
+
+     (**************************************************************
+      * General methods for modifying the state of a container.    *
+      **************************************************************)
+     init:< Object;
+     clear:< Object;
+     (* Insert an element in the container at the default position.
+      * WARNING: This method is not present in the container pattern of
+      *          the Mjolner BETA system.
+      *)
+     insertMethod: (# elm: ^element enter elm[] do INNER #);
+     insert:< insertMethod;
+
+
+     (**************************************************************
+      * Exception Processing                                       *
+      **************************************************************)
+     emptyContainerError:< Notification;
+     emptyContainerRaise: raise
+       (#
+       do 'Empty container\n'->msg; INNER; emptyContainerError##->deliverTo
+       #);
+
+     illegalCellReference:< Exception;
+     illegalCellReferenceRaise: raise
+       (#
+       do
+          INNER;
+	  'Reference to nonexisting cell in container\n'->msg.append;
+	  illegalCellReference##->deliverTo;
+       #);
+
+
+     (* Private, container type dependant parts: *)
+     privateScan:<
+       (#
+	  pred: ^elementPredicate;
+          init:< Object;
+	  nxtel:< (# elm: ^Element; valid: @Boolean do INNER exit valid #);
+	  nxt: @nxtel;
+       do INNER
+       #);
+
+
+  do INNER
+  exit this(Container)[]
+  #)

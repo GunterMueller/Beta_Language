@@ -1,0 +1,58 @@
+ORIGIN 'bfile';
+INCLUDE '~beta/unixlib/current/errorscreen';
+INCLUDE '~beta/containers/current/hashTable';
+INCLUDE '~beta/containers/current/sets';
+INCLUDE '~beta/containers/current/seqContainers';
+
+--- lib: Attributes ---
+textpair: (# a,b: ^text enter (a[],b[]) exit (a[],b[],false) #);
+
+
+--- CompilerObjectList: ObjectDescriptor ---
+(* list of the object files *)
+multiSet (# element:: text; #)
+
+
+--- CompilerExternalList: ObjectDescriptor ---
+(* list of the required external calls *)
+queue (# element:: object; #)
+
+
+(* list of not yet processed filenames (that are those found in
+ * BODY directives) *)
+--- CompilerTodoList: ObjectDescriptor ---
+queue (# element:: textpair; #)
+
+
+--- CompilerFileList: ObjectDescriptor ---
+(* list of the files in the currently compiled source tree *)
+hashTable
+  (#
+     element:: BETAfile;
+     hashBasename:
+       (# t: ^text; value: @Integer
+       enter t[]
+       do 0->value; t.scanAll (# do value*259+ch->value #);
+       exit value
+       #);
+     hashFunction:: (# do e.basename[]->hashBasename->value #);
+     rangeInitial:: (# do 64->value #);
+  #)
+
+
+--- CompilerSlotList: ObjectDescriptor ---
+(* list of all available slots *)
+hashTable
+  (#
+     element:: Slot;
+     hashName:
+       (# t: ^text; value: @Integer
+       enter t[]
+       do 0->value; t.scanAll (# do value*259+(ch->ascii.upcase)->value #);
+          (* JS 'slotlisthashname ('->puttext; t[]->puttext;')= '->puttext;
+          value->putint;putline; *)
+       exit value
+       #);
+     hashFunction:: (# do e.t[]->hashName->value #);
+     rangeInitial:: (# do 500->value #);
+  #)

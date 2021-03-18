@@ -1,0 +1,45 @@
+ORIGIN 'bfile';
+--- Cintf: ObjectDescriptor ---
+(#
+   <<SLOT CintfLib: Attributes>>;
+   const: (# exit thisConst[] #);
+   void: (# exit thisVoid[] #);
+   voidfunc: (# exit thisVoidfunc[] #);
+   voidarglist: (# exit thisVoidarglist[] #);
+   emptystatement: (# exit thisEmptyStatement[] #);
+
+   (* Does your C compiler support ANSI style declarations? *)
+   ansidecl: @Boolean;
+
+   (* Set this to 'const ', if your compiler supports const values *)
+   thisConst: @text;
+
+   (* Shall we cast away the 'const' in initializations (usually, you
+    * should this set to true, if you use const values, and false otherwise *)
+   castaroundconst: @Boolean;
+
+   (* Set this to 'void', if your compiler supports that type, otherwise
+    * to 'char'.  This is used for pointers to unknown objects. *)
+   thisVoid: @text;
+
+   (* Type of functions, that return no value.  Use 'void', if supported by
+    * your compiler, otherwise use 'int' *)
+   thisVoidfunc: @text;
+
+   (* Type for empty argument lists.  Set this either to 'void' or the
+    * empty string *)
+   thisVoidarglist: @text;
+
+   (* Empty statement.  Some compilers will print warning messages about
+    * empty statements, if this property is left empty.  Then try setting
+    * it to something like "(void) 0" *)
+   thisEmptyStatement: @text;
+do
+   'const '->thisConst;
+   'void'->thisVoid;
+   'void'->thisVoidfunc;
+   'void'->thisVoidarglist;
+   ''->thisEmptyStatement;
+   true->ansidecl;
+   true->castaroundconst;
+#)

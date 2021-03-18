@@ -1,0 +1,39 @@
+(* FILE aex6.gb *)
+-- betaenv:descriptor --
+(#
+   (* In yet another variation on this theme, we have
+    * reached "the real thing," namely using dynamic 
+    * specialization of objects to make already
+    * existing objects (not predestined to it) play
+    * the two roles. 
+    *)
+   
+   actor: 
+     (# name:< string;
+        limps:< boolean;
+        deaf:< boolean;
+        speak: (# do '\n'+name+': '->stdio; INNER #);
+        answer: speak
+          (# do (if deaf then 'Er..?'->stdio else 'Yes, quite so.'->stdio if);
+             (if limps then '   .. Ouch, my leg!!'->stdio if)
+          #)
+     #);
+   play: 
+     (# role1:< actor(# name::(# do 'Hamlet'->value #)#);
+        role2:< actor(# name::(# do 'Ophelia'->value #)#);
+        r1: ^actor; 
+        r2: ^actor;
+     enter (r1[],r2[])
+     do (role1##,role2##)->(r1##,r2##);
+        r1.speak(# do 'Oh, I love You, '+r2.name+'!'->stdio #)
+          ->r2.answer;
+        r2.speak
+        (# do r1.name+', are you still seeing that Leigh woman?'->stdio #)
+          ->r1.answer
+     #);
+   LaurenceOlivier,Madonna: ^actor
+do
+   &actor(# deaf::(# do true->value #)#)[]->LaurenceOlivier[];
+   &actor(# limps::(# do true->value #)#)[]->Madonna[];
+   (LaurenceOlivier[],Madonna[])->play
+#)

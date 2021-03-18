@@ -1,0 +1,833 @@
+(* FILE "./gbeta2abeta/private/gbeta2abeta1body.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: gbeta2abeta1body.bet,v 1.8 2001/07/01 21:44:10 eernst Exp $
+ *)
+
+ORIGIN 'gbeta2abetaAutogen';
+INCLUDE '~beta/basiclib/numberio';
+INCLUDE '../../beta2abeta/private/betaastbody';
+INCLUDE '../../utils'
+
+-- gBeta2abetaLib:attributes --
+
+checkFocus:
+  (# focus: ^fragmentGraph.node;
+     mpsAst,mpsFather: ^ast;
+     frag: ^fragment
+  enter (focus[],mpsAst[])
+  do (if focus.group[]<>mpsAst.frag.father then
+         '----------'->putline;
+         (if mpsAst.frag[]<>NONE then
+             mpsAst.frag[]->frag[];
+             frag.fullname->putline
+         if);
+         focus.group.fullname->putline;
+         '----------'->putline;
+         'Focus did not correspond to syntax'
+           ->ib.internalError
+     if)
+  #);
+
+quote:
+  (# orig,t: ^text
+  enter orig[]
+  do orig.copy->t[];
+     '"'->t.prepend;
+     '"'->t.append
+  exit t[]
+  #);
+
+NamesAstext: textValue
+  (# l2nlst: ^interpreterbase.l2NameDclList
+  enter l2nlst[]
+  do '[ '->value[];
+     l2nlst.scan(# do current.value[]->value.append; ' '->value.append #);
+     ']'->value.append
+  #);
+
+unexpected:
+  (# msg: ^text
+  enter msg[]
+  do 'Unexpected astnode encountered ('->msg.prepend;
+     ')'->msg.append;
+     (failure,msg[])->stop
+  #);
+
+unsupported:
+  (# msg: ^text
+  enter msg[]
+  do 'Unsupported construct encountered ('->msg.prepend;
+     ')'->msg.append;
+     (failure,msg[])->stop
+  #);
+
+badAst:
+  (# mpsAst: ^ast
+  enter mpsAst[]
+  do ('Found AST node which is neither a SLOT nor as expected by the grammar'
+     ,mpsAst[])->ib.astError
+  #);
+
+badFrag:
+  (# ff: ^fragmentForm;
+     slot: ^slotDesc;
+     name,msg: ^text
+  enter (ff[],slot[])
+  do 'Fragment form "'->msg[];
+     ff.fullname->msg.puttext;
+     '"\ndoes not match syntax category for SLOT in\n"'->msg.puttext;
+     slot.frag.fullname->msg.puttext;
+     '"'->msg.puttext;
+     msg[]->ib.fragmentError
+  #);
+
+incompleteProgram:
+  (* This should perhaps be well-defined, allowed *)
+  (# mpsAst: ^ast
+  enter mpsAst[]
+  do ('Program is incomplete'
+     ,mpsAst[])->ib.astError
+  #);
+
+asl2_NameDcl: 
+  (# theNameDcl: ^NameDcl;
+     theNameDecl: ^NameDecl;
+     l2ndecl: ^interpreterbase.l2NameDcl;
+     dn: ^interpreterbase.declNode;
+     t: ^text
+  enter (theNameDcl[],dn[])
+  do (&ib.l2NameDcl[]).init->l2ndecl[];
+     (theNameDcl.getNameDecl->theNameDecl[]).getText->t[];
+     t->l2ndecl.value;
+     dn[]->l2ndecl.decl[];
+     theNameDcl[]->l2ndecl.mpsAst[]
+  exit l2ndecl[]
+  #);
+
+asl2_NameApl:
+  (# theNameApl: ^NameApl;
+     theNameAppl: ^NameAppl;
+     l2napl: ^interpreterbase.l2NameApl;
+     t: ^text
+  enter theNameApl[]
+  do (&ib.l2NameApl[]).init->l2napl[];
+     (theNameApl.getNameAppl->theNameAppl[]).getText->t[];
+     t->l2napl.value;
+     theNameApl[]->l2napl.mpsAst[]
+  exit l2napl[]
+  #);
+
+fill_l2list:
+  (# fetchSlot:
+       (# slot: ^slotDesc
+       enter slot[]
+       do (focus[],slot.name,-1)->graph.findSlots
+          (# foundAst: ^ast
+          do (if true 
+              // ff.root##<=expectedType## then
+                 ff.root[]->foundAst[];
+                 (dclNode[],foundAst[],expectedType##)
+                   ->astOrSlotToLevelTwo
+                   ->l2lst.append
+              // ff.root##<=unexpanded## then 
+                 (if ff.root##<=optional## then 
+                     (* !!! ignore optionals, seem to turn up everywhere *)
+                  else
+                     (dclNode[],ff.root[],expectedType##)
+                       ->astOrSlotToAst
+                       ->(dclNode[],foundAst[]);
+                     (dclNode[],foundAst[],expectedType##)
+                       ->astOrSlotToLevelTwo
+                       ->l2lst.append
+                 if)
+              // (AttributeDecl##<=expectedType##) and
+                 (ff.root##<=AttributesForm##) then 
+                 (# aform: ^AttributesForm
+                 do ff.root[]->aform[];
+                    (dclNode[],aform.getAttributes
+                    ,l2lst[],expectedType##)->&fill_l2list
+                 #)
+              // (ObjectDescriptor##<=expectedType##) and
+                 (ff.root##<=DescriptorForm##) then
+                 (# dform: ^DescriptorForm
+                 do ff.root[]->dform[];
+                    (dclNode[],dform.getObjectDescriptor,expectedType##)
+                      ->astOrSlotToLevelTwo
+                      ->l2lst.append
+                 #)
+              // (Imp##<=expectedType##) and 
+                 (ff.root##<=Imperatives##) then
+                 (# imps: ^Imperatives
+                 do ff.root[]->imps[];
+                    (dclNode[],imps[],l2lst[],expectedType##)
+                      ->&fill_l2list
+                 #)
+              // (ObjectSpecification##<=expectedType##) and 
+                 (ff.root##<=merge##) then
+                 (# mrg: ^merge
+                 do ff.root[]->mrg[];
+                    (dclNode[],mrg[],l2lst[],expectedType##)
+                      ->&fill_l2list
+                 #)
+              else
+                 ff.root[]->badAst
+             if)
+          #)
+       #);
+     focus: ^fragmentGraph.node;
+     theMpsList: ^list;
+     expectedType: ##ast;
+     l2lst: ^interpreterbase.l2list (* not-none, and initialized *)
+  enter (focus[],theMpsList[],l2lst[],expectedType##)
+  do (*test-focus (focus[],theMpsList[])->checkFocus;*)
+     theMpsList.newerScan
+     (# predefined::
+          (# unexpan: ^unexpanded
+          do (if current##<=unexpanded## then 
+                 current[]->unexpan[];
+                 (if unexpan.isSlot then 
+                     (* this is really an attributes SLOT! *)
+                     unexpan.theSlot->fetchSlot
+                  else
+                     (if unexpan##<=optional## then 
+                         (* !!! ignore *)
+                      else
+                         (* syntax contains regular unexpanded node *)
+                         theMpsList[]->incompleteProgram
+                     if)
+                 if)
+              else
+                 (* other predefined *)
+                 'beta2abetabody.bet/147'->notyet; (* !!! *)
+             if)
+          #)
+     do 
+        (focus[],current[],expectedType##)
+          ->astOrSlotToLevelTwo
+          ->l2lst.append
+     #)
+  #);
+
+fill_l2NameDclList:
+  (# fetchSlot:
+       (# slot: ^slotDesc;
+          l2ndcl: ^interpreterbase.l2NameDcl
+       enter slot[]
+       do 'beta2abetabody.bet/178'->notyet; (* !!! *)
+       exit l2ndcl[]
+       #);
+     theNames: ^Names;
+     l2ndlst: ^interpreterbase.l2NameDclList; (* not-none, and initialized *)
+     dn: ^interpreterbase.declNode
+  enter (theNames[],l2ndlst[],dn[])
+  do theNames.newerScan
+     (# predefined::
+          (# unexpan: ^unexpanded
+          do (if current##<=unexpanded## then 
+                 current[]->unexpan[];
+                 (if unexpan.isSlot then 
+                     (* this is really an attributes SLOT! *)
+                     unexpan.theSlot->fetchSlot->l2ndlst.append
+                  else
+                     (if unexpan##<=optional## then 
+                         (* !!! ignore *)
+                      else
+                         (* syntax contains regular unexpanded node *)
+                         theNames[]->incompleteProgram
+                     if)
+                 if)
+              else
+                 (* other predefined *)
+                 'beta2abetabody.bet/176'->notyet; (* !!! *)
+             if)
+          #)
+     do (current[],dn[])
+          ->asl2_NameDcl
+          ->l2ndlst.append 
+     #)
+  #);
+
+astOrSlotToAstBase:
+  (# focus: ^fragmentGraph.node;
+     inputAst: ^ast;
+     expectedType: ##ast;
+     unexpan: ^unexpanded;
+     slot: ^slotDesc;
+     ff: ^fragmentForm;
+     dclNode: ^fragmentGraph.node;
+     outputAst: ^ast
+  enter (focus[],inputAst[],expectedType##)
+  do (*test-focus (focus[],inputAst[])->checkFocus;*)
+     (if true 
+      // inputAst##<=expectedType## then 
+         focus[]->dclNode[];
+         inputAst[]->outputAst[]
+         
+      // inputAst##<=unexpanded## then 
+         inputAst[]->unexpan[];
+         (if unexpan.isSlot then 
+             unexpan.theSlot->slot[];
+             (focus[],slot.name,-1)->graph.findSlot
+             (# notFound::
+                  (# msg: ^text
+                  do 'Could not find a fragment form named "'->msg[];
+                     slot.name->msg.puttext;
+                     '"'->msg.put;
+                     msg[]->ib.fragmentError
+                  #);
+                ambiguous::
+                  (# msg: ^text
+                  do 'Conflict between two SLOT declarations:\n\t'->msg[];
+                     f1.fullname->msg.putline;
+                     '\t'->msg.puttext;
+                     f2.fullname->msg.putline;
+                     msg[]->ib.fragmentError
+                  #)
+             #)->(dclNode[],ff[]);
+             (if true 
+              // ff.root##<=expectedType## then 
+                 ff.root[]->outputAst[]
+              // ff.root##<=unexpanded## then
+                 (# recur: ##astOrSlotToAstBase
+                 do this(astOrSlotToAstBase)##->recur##;
+                    (focus[],inputAst[],expectedType##)
+                      ->&recur
+                      ->(dclNode[],outputAst[])
+                 #)
+              // (ObjectDescriptor##<=expectedType##) and 
+                 (ff.root##<=DescriptorForm##) then
+                 (# dform: ^DescriptorForm
+                 do ff.root[]->dform[];
+                    dform.getObjectDescriptor->outputAst[]
+                 #)
+              // (Attributes##<=expectedType##) and 
+                 (ff.root##<=AttributesForm##) then
+                 (# aform: ^AttributesForm
+                 do ff.root[]->aform[];
+                    aform.getAttributes->outputAst[]
+                 #)
+              else
+                 (ff[],slot[])->badFrag
+             if)
+          else
+             (if inputAst##<=optional## then 
+                 (* ignore *)
+              else
+                 (* real unexpanded *)
+                 INNER astOrSlotToAstBase
+             if)
+         if)
+     if)
+  exit (dclNode[],outputAst[])
+  #);
+
+astOrSlotToAst: astOrSlotToAstBase(# do unexpan[]->incompleteProgram #);
+astOrSlotOrMissingToAst: astOrSlotToAstBase(# do NONE->outputAst[] #);
+
+astOrSlotToLevelTwo:
+  (# focus: ^fragmentGraph.node;
+     mpsAst: ^ast;
+     expectedType: ##ast;
+     unexpan: ^unexpanded;
+     slot: ^slotDesc;
+     ff: ^fragmentForm;
+     dclNode: ^fragmentGraph.node;
+     l2ast: ^interpreterbase.l2AstNode
+  enter (focus[],mpsAst[],expectedType##)
+  do (*test-focus (focus[],mpsAst[])->checkFocus;*)
+     (if true
+      // mpsAst##<=expectedType## then
+         (* syntax present, transform *)
+         (focus[],mpsAst[])->asl2->l2ast[]
+      // mpsAst##<=unexpanded## then
+         (* syntax in SLOT? *)
+         mpsAst[]->unexpan[];
+         (if unexpan.isSlot then 
+             unexpan.theSlot->slot[];
+             (focus[],slot.name,-1)->graph.findSlot
+             (# notFound::
+                  (# msg: ^text
+                  do 'Could not find a fragment form named "'->msg[];
+                     slot.name->msg.puttext;
+                     '"'->msg.put;
+                     msg[]->ib.fragmentError
+                  #);
+                ambiguous::
+                  (# msg: ^text
+                  do 'Conflict between two SLOT declarations:\n\t'->msg[];
+                     f1.fullname->msg.putline;
+                     '\t'->msg.puttext;
+                     f2.fullname->msg.putline;
+                     msg[]->ib.fragmentError
+                  #)
+             #)->(dclNode[],ff[]);
+             (if true
+              // ff.root##<=expectedType## then 
+                 (dclNode[],ff.root[])
+                   ->asl2
+                   ->l2ast[]
+              // ff.root##<=unexpanded## then 
+                 (focus[],mpsAst[],expectedType##)
+                   ->&astOrSlotToLevelTwo
+                   ->l2ast[]
+              // (ObjectDescriptor##<=expectedType##) and 
+                 (ff.root##<=DescriptorForm##) then
+                 (# dform: ^DescriptorForm
+                 do ff.root[]->dform[];
+                    (dclNode[],dform.getObjectDescriptor,expectedType##)
+                      ->astOrSlotToLevelTwo
+                      ->l2ast[]
+                 #)
+              // (Attributes##<=expectedType##) and 
+                 (ff.root##<=AttributesForm##) then
+                 (# aform: ^AttributesForm
+                 do ff.root[]->aform[];
+                    (dclNode[],aform.getAttributes)
+                      ->asl2
+                      ->l2ast[]
+                 #)
+              else
+                 (ff[],slot[])->badFrag
+             if)
+          else
+             (if mpsAst##<=optional## then
+                 (* !!! ignore *)
+              else
+                 (* syntax contains regular unexpanded node *)
+                 mpsAst[]->incompleteProgram
+             if)
+         if)
+      else
+         mpsAst[]->badAst
+     if)
+  exit l2ast[]
+  #);
+
+astListOrOneSlotToLevelTwo:
+  (# focus: ^fragmentGraph.node;
+     mpsAst: ^ast;
+     expectedType,expectedElmType: ##ast;
+     unexpan: ^unexpanded;
+     slot: ^slotDesc;
+     dclNode: ^fragmentGraph.node;
+     ff: ^fragmentForm;
+     l2lst: ^interpreterbase.l2List
+  enter (focus[],mpsAst[],l2lst[],expectedType##,expectedElmType##)
+  do (*test-focus (focus[],mpsAst[])->checkFocus;*)
+     (if true
+      // mpsAst##<=expectedType## then
+         (* syntax present, transform *)
+         (focus[],mpsAst[],l2lst[],expectedElmType##)->fill_l2list
+      // mpsAst##<=unexpanded## then
+         (* syntax in SLOT? *)
+         mpsAst[]->unexpan[];
+         (if unexpan.isSlot then 
+             unexpan.theSlot->slot[];
+             (focus[],slot.name,-1)->graph.findSlot
+             (# notFound::
+                  (# msg: ^text
+                  do 'Could not find a fragment form named "'->msg[];
+                     slot.name->msg.puttext;
+                     '"'->msg.put;
+                     msg[]->ib.fragmentError
+                  #);
+                ambiguous::
+                  (# msg: ^text
+                  do 'Conflict between two SLOT declarations:\n\t'->msg[];
+                     f1.fullname->msg.putline;
+                     '\t'->msg.puttext;
+                     f2.fullname->msg.putline;
+                     msg[]->ib.fragmentError
+                  #)
+             #)->(dclNode[],ff[]);
+             (if true
+              // (ff.root##<=expectedType##) or
+                 (ff.root##<=unexpanded##) then
+                 (dclNode[],ff.root[],l2lst[],expectedType##
+                 ,expectedElmType##)->&astListOrOneSlotToLevelTwo
+              // (ObjectDescriptor##<=expectedType##) and 
+                 (ff.root##<=DescriptorForm##) then
+                 (# dform: ^DescriptorForm
+                 do ff.root[]->dform[];
+                    (dclNode[],dform.getObjectDescriptor,expectedType##)
+                      ->astOrSlotToLevelTwo
+                      ->l2lst.append
+                 #)
+              // (Attributes##<=expectedType##) and 
+                 (ff.root##<=AttributesForm##) then
+                 (# aform: ^AttributesForm
+                 do ff.root[]->aform[];
+                    (dclNode[],aform.getAttributes,l2lst[]
+                    ,expectedType##,expectedElmType##)
+                      ->&astListOrOneSlotToLevelTwo
+                 #)
+              else
+                 (ff[],slot[])->badFrag
+             if)
+          else
+             (if mpsAst##<=optional## then
+                 (* !!! ignore *)
+              else
+                 (* syntax contains regular unexpanded node *)
+                 mpsAst[]->incompleteProgram
+             if)
+         if)
+      else
+         mpsAst[]->badAst
+     if)
+  #);
+
+astListOrSlotsToLevelTwo:
+  (# focus: ^fragmentGraph.node;
+     mpsAst: ^ast;
+     expectedType,expectedElmType: ##ast;
+     unexpan: ^unexpanded;
+     slot: ^slotDesc;
+     dclNode: ^fragmentGraph.node;
+     ff: ^fragmentForm;
+     l2lst: ^interpreterbase.l2List
+  enter (focus[],mpsAst[],l2lst[],expectedType##,expectedElmType##)
+  do (*test-focus (focus[],mpsAst[])->checkFocus;*)
+     (if true
+      // mpsAst##<=expectedType## then
+         (* syntax present, transform *)
+         (focus[],mpsAst[],l2lst[],expectedElmType##)->fill_l2list
+      // mpsAst##<=unexpanded## then
+         (* syntax in SLOT? *)
+         mpsAst[]->unexpan[];
+         (if unexpan.isSlot then 
+             unexpan.theSlot->slot[];
+             (focus[],slot.name,-1)->graph.findSlots
+             (# 
+             do (if true
+                 // (ff.root##<=expectedType##) or
+                    (ff.root##<=unexpanded##) then
+                    (dclNode[],ff.root[],l2lst[],expectedType##
+                    ,expectedElmType##)->&astListOrSlotsToLevelTwo
+                 // (ObjectDescriptor##<=expectedType##) and 
+                    (ff.root##<=DescriptorForm##) then
+                    (# dform: ^DescriptorForm
+                    do ff.root[]->dform[];
+                       (dclNode[],dform.getObjectDescriptor,expectedType##)
+                         ->astOrSlotToLevelTwo
+                         ->l2lst.append
+                    #)
+                 // (Attributes##<=expectedType##) and 
+                    (ff.root##<=AttributesForm##) then
+                    (# aform: ^AttributesForm
+                    do ff.root[]->aform[];
+                       (dclNode[],aform.getAttributes,l2lst[]
+                       ,expectedType##,expectedElmType##)
+                         ->&astListOrSlotsToLevelTwo
+                    #)
+                 // (ObjectSpecification##<=expectedType##) and
+                    (ff.root##<=merge##) then
+                    (# mrg: ^merge
+                    do ff.root[]->mrg[];
+                       (dclNode[],mrg[],l2lst[]
+                       ,expectedType##,expectedElmType##)
+                         ->&astListOrSlotsToLevelTwo
+                    #)
+                 else
+                    (ff[],slot[])->badFrag
+                if)
+             #)
+          else
+             (if mpsAst##<=optional## then
+                 (* !!! ignore *)
+              else
+                 (* syntax contains regular unexpanded node *)
+                 mpsAst[]->incompleteProgram
+             if)
+         if)
+      else
+         mpsAst[]->badAst
+     if)
+  #);
+
+attributesOrSlotToLevelTwo:
+  (# fetchSlot:
+       (# slot: ^slotDesc
+       enter slot[]
+       do (focus[],slot.name,-1)->graph.findSlots
+          (# foundAst: ^ast
+          do (if true 
+              // ff.root##<=Attributes## then
+                 ff.root[]->foundAst[]
+              // ff.root##<=AttributesForm## then 
+                 ff.root[]->aform[];
+                 aform.getAttributes->foundAst[]
+              // ff.root##<=unexpanded## then 
+                 (dclNode[],ff.root[],Attributes##)
+                   ->astOrSlotToAst
+                   ->(dclNode[],foundAst[])
+              else
+                 ff.root[]->badAst
+             if);
+             (dclNode[],foundAst[],l2lst[])->&attributesOrSlotToLevelTwo
+          #)
+       #);
+     focus: ^fragmentGraph.node;
+     mpsAst,auxAst: ^ast;
+     aform: ^AttributesForm;
+     attr: ^Attributes;
+     unexpan: ^unexpanded;
+     l2lst: ^interpreterbase.l2List
+  enter (focus[],mpsAst[],l2lst[])
+  do (*test-focus (focus[],mpsAst[])->checkFocus;*)
+     (if true
+      // mpsAst##<=Attributes## then
+         (focus[],mpsAst[],l2lst[],AttributeDecl##)->fill_l2list
+      // mpsAst##<=AttributesForm## then 
+         mpsAst[]->aform[];
+         (focus[],aform.getAttributes,l2lst[])
+           ->&attributesOrSlotToLevelTwo
+      // mpsAst##<=unexpanded## then
+         mpsAst[]->unexpan[];
+         (if unexpan.isSlot then 
+             (* syntax in lib-SLOT *)
+             unexpan.theSlot->fetchSlot;
+             (* check whether there are attr.decls after the SLOT-appl *)
+             (if mpsAst.nextbrother<>NONE then
+                 (mpsAst.nextbrother).dump
+             if)
+          else
+             (if unexpan##<=optional## then 
+                 (* !!! ignore *)
+              else
+                 (* syntax contains regular unexpanded node *)
+                 mpsAst[]->incompleteProgram
+             if)
+         if)
+      else
+         mpsAst[]->badAst
+     if)
+  #);
+
+descriptorOrSlotToLevelTwo:
+  (# notFound:
+       (# name,msg: ^text
+       enter name[]
+       do 'Could not find a fragment form named "'->msg[];
+          name[]->msg.puttext;
+          '"'->msg.put;
+          msg[]->ib.fragmentError
+       #);
+     focus: ^fragmentGraph.node;
+     mpsAst: ^ast;
+     dform: ^DescriptorForm;
+     unexpan: ^unexpanded;
+     slot: ^slotDesc;
+     ff: ^fragmentForm;
+     foundSome: @boolean;
+     foundAst: ^ast;
+     l2ast: ^interpreterbase.l2AstNode
+  enter (focus[],mpsAst[])
+  do (*test-focus (focus[],mpsAst[])->checkFocus;*)
+     (if true
+      // mpsAst##<=ObjectDescriptor## then
+         (* syntax present, transform *)
+         (focus[],mpsAst[])->asl2->l2ast[]
+      // mpsAst##<=DescriptorForm## then
+         mpsAst[]->dform[];
+         (focus[],dform.getObjectDescriptor)
+           ->descriptorOrSlotToLevelTwo
+           ->l2ast[]
+      // mpsAst##<=unexpanded## then
+         (* syntax in SLOT? *)
+         mpsAst[]->unexpan[];
+         (if unexpan.isSlot then 
+             unexpan.theSlot->slot[];
+             false->foundSome;
+             (focus[],slot.name,-1)->graph.findSlots
+             (# ambiguous:
+                  (# f1,f2: ^fragmentForm;
+                     msg: ^text
+                  enter (f1[],f2[])
+                  do 'Conflict between two SLOT declarations:\n\t'->msg[];
+                     f1.fullname->msg.putline;
+                     '\t'->msg.puttext;
+                     f2.fullname->msg.putline;
+                     msg[]->ib.fragmentError
+                  #)
+             do (if true 
+                 // ff.root##<=ObjectDescriptor## then
+                    (if foundSome then 
+                        (foundAst.frag[],ff[])->ambiguous
+                     else
+                        true->foundSome;
+                        ff.root[]->foundAst[];
+                        (dclNode[],foundAst[])
+                          ->descriptorOrSlotToLevelTwo
+                          ->l2ast[]
+                    if)
+                 // ff.root##<=DescriptorForm## then 
+                    (if foundSome then 
+                        (foundAst.frag[],ff[])->ambiguous
+                     else
+                        true->foundSome;
+                        ff.root[]->dform[];
+                        dform.getObjectDescriptor->foundAst[];
+                        (dclNode[],foundAst[])
+                          ->descriptorOrSlotToLevelTwo
+                          ->l2ast[]
+                    if)
+                 // ff.root##<=unexpanded## then 
+                    (if foundSome then 
+                        (foundAst.frag[],ff[])->ambiguous
+                     else
+                        true->foundSome;
+                        (dclNode[],ff.root[],Attributes##)
+                          ->astOrSlotToAst
+                          ->descriptorOrSlotToLevelTwo
+                          ->l2ast[]
+                    if)
+                if)
+             #);
+             (if not foundSome then slot.name->notFound if)
+          else
+             (if unexpan##<=optional## then 
+                 (* !!! ignore *)
+              else
+                 (* syntax contains regular unexpanded node *)
+                 mpsAst[]->incompleteProgram
+             if)
+         if)
+      else
+         mpsAst[]->badAst
+     if)
+  exit l2ast[]
+  #);
+
+handleScopeSpec:
+  (# onDefault:< object;
+     onNameApl:< 
+       (# l2napl: ^interpreterbase.l2NameApl 
+       enter l2napl[] 
+       do INNER 
+       #);
+     onCount:< 
+       (# value: @integer 
+       enter value 
+       do INNER 
+       #);
+     handleUnexpanded:
+       (# unexpan: ^unexpanded
+       enter unexpan[]
+       do (if unexpan.isSlot then
+              (* lazy! who wants that, anyway? *)
+              'Sorry! Cannot handle a scope spec in a SLOT yet!'->notyet
+          if);
+          (* otherwise it is missing, take default actions *)
+          onDefault
+       #);
+     handleInteger:
+       (# theIntegerScopeSpec: ^IntegerScopeSpec;
+          theIntegerConst: ^IntegerConst;
+          theConst: ^Const;
+          t: ^text; (* used during "parsing" of the number syntax *)
+          number: @integer (* result of parsing the syntax *)
+       enter theIntegerScopeSpec[]
+       do (* extract the number-related syntax and its textual value *)
+          theIntegerScopeSpec.getIntegerConst->theIntegerConst[];
+          theIntegerConst.getConst->theConst[];
+          theConst.getText->t[];
+          (* interpret the textual value as a (non-neg. integer) number *)
+          ' '->t.put; 0->t.pos;
+          L: (if true then 
+                 t.getNumber
+                 (# softfail: 
+                      (* we cannot make this a fatal error in the 
+                       * parser by now, so we just make some
+                       * noise and choose a default value *)
+                      (# msg: ^text
+                      enter msg[]
+                      do t.lgth-1->t.lgth; (* delete the magic space again *)
+                         msg[]->screen.puttext;
+                         ' "'->screen.puttext;
+                         t[]->screen.puttext;
+                         '"; defaulting to the integer value 1.'
+                           ->screen.putline;
+                         1->number;
+                         leave L
+                      #);
+                    valueError::
+                      (# do 'Could not parse the number'->softfail #);
+                    syntaxError::
+                      (# do 'Could not parse the number'->softfail #);
+                    baseError::
+                      (# do 'Could not parse the number'->softfail #);
+                    integerValue::
+                      (# 
+                      do (if value>0 then 
+                             value->number
+                          else 
+                             'This should be a positive number:'->softfail
+                         if)
+                      #);
+                    basedValue::
+                      (# do 'Simple integer expected:'->softfail #);
+                    realValue::
+                      (# do 'Simple integer expected:'->softfail #)
+                 #)
+             if);
+          (* perform callback with the result, so submethod can use it *)
+          number->onCount
+       #);
+     handleNameApl:
+       (# theNameAplScopeSpec: ^NameAplScopeSpec
+       enter theNameAplScopeSpec[]
+       do (* extract the name apl and perform a callback with the result *)
+          theNameAplScopeSpec.getNameApl
+           ->asl2_NameApl
+           ->onNameApl
+       #);
+     maybe: ^ast
+  enter maybe[]
+  do (if true
+      // maybe##<=unexpanded## then maybe[]->handleUnexpanded
+      // maybe##<=IntegerScopeSpec## then maybe[]->handleInteger
+      // maybe##<=NameAplScopeSpec## then maybe[]->handleNameApl
+      else
+         (* internalError not available here.. *)
+         (failure,'Unexpected kind of scope spec')->stop
+     if)
+  #)
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

@@ -1,0 +1,146 @@
+
+
+
+
+
+
+
+<HTML>
+<HEAD><TITLE>gbeta Tutorial:: Concurrency</TITLE></HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF"
+  LINK="#0000FF" VLINK="#800080" ALINK="#FF00FF">
+<TABLE WIDTH="100%">
+<TR><TD ALIGN="right">
+<TABLE><TR ALIGN="center">
+  <TD><A HREF="tutorial_index10.html" TARGET="display"><IMG SRC="left.gif"></A></TD>
+  <TD><A HREF="tutorial_index12.html" TARGET="display"><IMG SRC="right.gif"></A></TD>
+</TR></TABLE></TD></TR>
+<TR><TD ALIGN="left"><H1>Tutorial: Concurrency</H1></TD></TR>
+</TABLE>
+<P><HR></P>
+<TABLE><TR><TD WIDTH="25%">&nbsp;</TD><TD WIDTH="50%">
+
+<P>
+Concurrency is a large and interesting topic, so this will only
+scratch the surface.
+</P>
+
+<H3>How does it look?</H3>
+<P>
+Concurrency is based on <EM>components</EM>, as introduced in the
+section about <A HREF="tutorial_index10.html" TARGET="display">co-routines</A>, but
+we need to use one of the <A HREF="tutorial_index16.html" TARGET="display">built-in attributes</A>
+of <CODE>component</CODE> in order to start a thread concurrently with
+respect to the rest of the program execution:
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>fork</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+It looks like e.g. <CODE>aCmp.fork</CODE>, where <CODE>aCmp</CODE>
+must be some specialization of the <CODE>component</CODE>
+<A HREF="tutorial_index16.html" TARGET="display">basic pattern</A>.  Similarly, to kill a running thread which
+is associated with a particular component, use: 
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>kill</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+like in <CODE>aCmp.kill</CODE>.  There ought to have been a similar
+command <CODE>suspend</CODE>, but since (for historical reasons) there
+is a special imperative <CODE>SUSPEND</CODE>, the grammar does not
+allow this.  Instead, temporarily, the following command has been 
+defined on components:
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>_suspend (* NB: partially implemented *)</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+The effect of <CODE>aCmp._suspend</CODE> would be to suspend that
+component, as if a <CODE>SUSPEND</CODE> imperative had been executed
+in that thread.  Please note that the current implementation of
+<CODE>aCmp._suspend</CODE> <EM>only</EM> supports suspending a
+component during its own execution, i.e. you cannot "suspend somebody
+else."  Finally, to handle run-time errors and manage threads in
+general, the following command has been defined but not implemented: 
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>status (* NB: not implemented *)</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+The purpose of evaluating <CODE>aCmp.status</CODE> is to detect
+whether <CODE>aCmp</CODE> is running, suspended, or terminated, and in
+case is has terminated, it should somehow deliver information about
+the termination status of the component.  This could be "Normal,"
+"Divide by zero," "NONE-Reference," or whatever might stop a thread.
+</P>
+
+<H3>Example 9</H3>
+<P>
+This example is probably best executed in running mode (don't give the
+<CODE>-i</CODE> option first), it gets too boring otherwise!
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE><SMALL>
+(* FILE ex9.gb *)
+-- betaenv:descriptor --
+(#
+   done: @integer
+     (# do value+1-&gt;value; (if value=3 then '\n'-&gt;stdio if)#);
+   cmp1: @|
+     (# do (for 50 repeat '.'-&gt;stdio for); done #);
+   cmp2: @|
+     (# do (for 100 repeat 'x'-&gt;stdio for); done #)
+do
+   cmp1.fork;
+   cmp2.fork;
+   (for i:75 repeat (if i mod 7 = 0 then '\nmain '-&gt;stdio if)for);
+   done
+#)</PRE></TD></TR>
+  </TABLE>
+</P>
+</P>
+
+<P>
+This actually finishes the main topics. The only things left now for
+the <A HREF="tutorial_index12.html" TARGET="display">next</A> and following sections are various odds and ends
+which are nevertheless needed. 
+</P>
+
+</TD><TD WIDTH="20%">&nbsp;</TD></TR></TABLE>
+<P><HR></P>
+<SMALL>
+  <I>
+    <CENTER>
+      <STRONG>Signed by: </STRONG>
+      <A HREF="mailto:eernst@cs.auc.dk">eernst@cs.auc.dk</A>.
+      Last Modified:  3-Jul-01
+<BR>
+    </CENTER>
+  </I>
+</SMALL>
+</BODY>
+</HTML>
+

@@ -1,0 +1,157 @@
+ORIGIN 'assignment';
+INCLUDE '../cintf';
+INCLUDE '../repetition';
+INCLUDE '../ad/indexed';
+INCLUDE '../ad/nameapl';
+--- AssignmentEvaluationCheckRep: ObjectDescriptor ---
+(#
+   ls,rs: @DirectIndexed;
+   newsize: ^Evaluation;
+   ltype,rtype: @integer;
+   ad: ^AttributeDenotation;
+   sd: ^StringDecl;
+   size,new: @Remote;
+   slice: ^RepetitionSlice;
+   t: @text;
+   loopindx: Evaluation
+     (#
+	DoDo::
+	  (#
+	  do
+	     '    for(i = '->t;
+	     t[]->size.getcexpr;
+	     t[]->c_file.cstream.puttext;
+	     '; --i >= 0; )\n'->c_file.cstream.puttext;
+	  #);
+     #);
+   loopslice: Evaluation
+     (#
+	DoDo::
+	  (#
+	  do
+	     '    for(i = '->t;
+	     t[]->slice.tovar.getcexpr;
+	     t[]->c_file.cstream.puttext;
+	     '; i-- >= '->c_file.cstream.puttext;
+	     t[]->slice.fromvar.getcexpr;
+	     t[]->c_file.cstream.puttext;
+	     '; )\n'->c_file.cstream.puttext;
+	  #);
+     #);
+   assev: @AssignmentEvaluation;
+   red: ^assev.reduce;
+do
+   (lfac.getad->ad[],'i')->ls;
+   (if ad.att.att##<=StringDecl## then
+      ad.att.att[]->sd[];
+      sd.str.length->&IntegerConst->newsize[];
+   else
+      'size'->size.str;
+      NONE->ad.copy->size.prec[];
+      repetition.size[]->size.att.att[];
+      repetition.size.names.ptr[]->size.nme[];
+      this(AssignmentEvaluation)[]->size.encl[];
+
+      (* Denote the size field of the repetition on the left side of
+       * the assignment: *)
+      (if lfac##<=RepetitionSlice## then
+	 lfac[]->slice[];
+	 (* In case, that a repetition slice (as in "rep[from:to]") is
+	  * copied: calculate new size of the repetition as: 1 + (to - from)
+	  *)
+	 (1->&IntegerConst,(
+	     (slice.tovar[],0)->&ObjectEvaluation,
+	     (slice.fromvar[],0)->&ObjectEvaluation
+	 )->&MinusExp)->&PlusExp->newsize[];
+      else
+	 (size[],0)->&ObjectEvaluation->newsize[]
+      if);
+   if);
+
+   (* Denote the "new" method of the right side repetition: *)
+   (rfac.getad->ad[],'i')->rs;
+   'new'->new.str;
+   NONE->ad.copy->new.prec[];
+   repetition.new[]->new.att.att[];
+   repetition.new.names.ptr[]->new.nme[];
+   this(AssignmentEvaluation)[]->new.encl[];
+   1->size.resolved->new.resolved;
+
+   (* Test the types of the left and right repetition.
+    * Insert qua checks, if required.  Note, that we have to
+    * check each repetition element!
+    *)
+   (* !!! This works only, because repetitions of non-trivial
+    *     static references are forbidden!
+    *)
+   (main[],(ls[],rs[],this(AssignmentEvaluation)[])->QuaCheck
+     (# noencl:: this(checkrep).ls.isstatic
+     do
+	(if slice[]<>NONE then
+	   &loopslice[]->newev[];
+	else
+	   &loopindx[]->newev[];
+	if);
+	ee.markRepQua
+     #)
+   )->EvaluationJoin->main[];
+
+   (* generate and execute the assignment:
+    *		newsize->thisenter.new
+    *)
+   (newsize[],(new[],0)->&ObjectEvaluation)->assev;
+   &assev.reduce[]->red[];
+   red;
+   (main[],(red.before[],red.main[])->EvaluationJoin)->EvaluationJoin->main[];
+   NONE->newsize[];	(* forget temporary variable *)
+
+   (* Now copy the data of the repetition, but don't copy zero length
+    * strings.
+    *)
+   cpy: (#
+     do
+        (if sd[]<>NONE then (if sd.str.length=0 then leave cpy if) if);
+	(thisexit[],thisenter[])->&CopyRepetition->newev[];
+	main[]->newev.next[];
+	newev[]->main[];
+     #);
+#)
+
+
+--- CompilerLib: Attributes ---
+CopyRepetition: Evaluation
+  (#
+     ls,rs: ^Factor;
+     DoDo::
+       (# t: @text; slice: ^RepetitionSlice;
+       do
+	  '    memcpy(('->c_file.cstream.puttext;
+	  cintf.void->c_file.cstream.puttext;
+	  ' *)'->c_file.cstream.puttext;
+	  ctype_repetitionptr->rs.DoCexpr;
+	  ', ('->c_file.cstream.puttext;
+	  cintf.void->c_file.cstream.puttext;
+	  ' *)'->c_file.cstream.puttext;
+	  (if ls##<=RepetitionSlice## then
+	     ls[]->slice[];
+	     ' ('->c_file.cstream.puttext;
+	     ctype_repetitionptr->ls.DoCexpr;
+	     '+'->c_file.cstream.puttext;
+	     ''->t;
+	     t[]->slice.fromvar.getcexpr;
+	     t[]->c_file.cstream.puttext;
+	     '-1), '->c_file.cstream.puttext;
+	  else
+	     ctype_repetitionptr->ls.DoCexpr;
+	     ', '->c_file.cstream.puttext;
+	  if);
+	  ctype_object->rs.DoCexpr;
+	  '.b_size * '->c_file.cstream.puttext;
+	  ctype_object->rs.DoCexpr;
+	  '.b_elsize);\n'->c_file.cstream.puttext;
+       #);
+  enter (ls[],rs[])
+  exit this(CopyRepetition)[]
+  #);
+
+

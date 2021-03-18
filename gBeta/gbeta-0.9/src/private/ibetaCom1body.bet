@@ -1,0 +1,2136 @@
+(* FILE "./private/ibetaCom1body.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaCom1body.bet,v 1.71 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN '../ibetaCommon';
+INCLUDE '../ibetaIter';
+INCLUDE 'basicinterplib';
+INCLUDE 'ibetaStaticlib';
+INCLUDE 'ibetaCommonlib';
+INCLUDE 'ibetaTwolib';
+INCLUDE 'ibetaSlicelib';
+
+(************************************************************* 
+ *                                                           * 
+ *                   l2ObjectSpecification                   * 
+ *                                                           * 
+ *************************************************************)
+
+-- ObjectSpecificationPrint:dopart --
+do
+   INNER;
+
+-- ObjectSpecificationGetType:dopart --
+do
+   (* NB: the following "optimization" has been commented out
+    * because it is not correct: it will create too complicated paths,
+    * such as {"a",<-2,"string"} in 028.gb where {<-1} had been
+    * more appropriate.  By the way, the speedup was not impressive
+    * anyway.
+    * 
+    * L: (if stype_cache[]<>NONE then
+    *           (if not stype_cache.knownStatically then 
+    *               {* use general algorithm *}
+    *               INNER;
+    *            else
+    *               {* type is stat-known, take local type and adjust *}
+    *               (# path: @runtimePath;
+    *               do (NONE,NONE,context.getInitialSyntax)->path.init;
+    *                  stype_cache.copy->stype[];
+    *                  (path[],scope.location)->context.assignPathToAst;
+    *                  path[]->stype.adjustPaths;
+    *               #);
+    *           if);
+    *        else
+    *           {* no local type computed as yet, use general algorithm *}
+    *           INNER;
+    *       if);
+    *)
+   
+   (* consistency check *)
+   (* (if context.getSyntax<>scope.location then
+    *     (if scope.location->context.setFocus then
+    *         {* !! OK, inconsistency repaired; consider printing a warning *}
+    *      else
+    *         {* Since this is a very important consistency 
+    *          * check we provide some information before
+    *          * stopping with an error message *}
+    *         (# line: (# do newline; (for 60 repeat '%'->put for)#);
+    *            msg: ^text
+    *         do line;
+    *            ('getStatictype of',0)->this(l2ObjectSpecification).observe;
+    *            ('        Location',0)->(scope.location).observe;
+    *            ('         Context',0)->context.observe;
+    *            line;
+    *            'Inconsistency between "context" and analyzed syntax'
+    *              ->internalError;
+    *         #)
+    *     if)
+    * if);
+    *)
+   
+   INNER;
+   (*test-obs  ('getStaticType of','s')->observe; *)
+   (*test-obs  ('','s')->stype.observe; *)
+
+-- ObjectSpecificationGetRawType:dopart --
+do
+   INNER;
+   (*test-obs  ('getRawStaticType of','s')->observe; *)
+   (*test-obs  ('','s')->stype.observe; *)
+
+-- ObjectSpecificationLocalType:dopart --
+do
+   (if stype_cache[]<>NONE then 
+       stype_cache[]->stype[];
+    else
+       (NONE,NONE,scope.location)->position.init;
+       this(l2ObjectSpecification)[]->scope.world.setAst;
+       INNER;
+       (*test-obs  ('localStaticType of','l')->observe; *)
+       (*test-obs  ('','l')->stype.observe; *)
+   if);
+
+-- ObjectSpecificationLocalTypeDefault:dopart --
+do 
+   (* for most cases, we just need a global lookup; this is it; 
+    * since the idea of having all this is to know that the value
+    * can be cached, we must remember to set up 'stype_cache' *)
+   (# context: ^staticContext;
+   do (position[],scope.world[],this(l2ObjectSpecification)[])
+        ->scope.getInitialContext
+        ->context[];
+      (context[],scope.world[],this(l2ObjectSpecification)[])
+        ->getStaticType
+        ->stype_cache[]
+        ->stype[];
+      INNER localStaticTypeG;
+   #);
+
+-- ObjectSpecificationGetSub:dopart --
+do
+   (* Works like this: 
+    * 
+    *   1. ensure that names have been bound to declarations
+    *      within this attribute denotation (bindnames)
+    * 
+    *   2. use context[] to obtain some decl_context[] 
+    *      describing the run-time context of the declaration
+    *      referred to by this attribute denotation
+    * 
+    *   3. get the static substance from that declaration or 
+    *      this-reference or whatever and put it into stsub[]
+    *)
+   
+   (* first a consistency check *)
+   (* (if context.getSyntax<>scope.location then
+    *     (if scope.location->context.setFocus then
+    *         {* !! OK, inconsistency repaired; consider printing a warning *}
+    *      else
+    *         {* Since this is a very important consistency 
+    *          * check we provide some information before
+    *          * stopping with an error message *}
+    *         (# line: (# do newline; (for 60 repeat '%'->put for)#);
+    *            msg: ^text
+    *         do line;
+    *            ('getStaticSubstance of',0)->this(l2ObjectSpecification).observe;
+    *            ('             Location',0)->(scope.location).observe;
+    *            ('              Context',0)->context.observe;
+    *            line;
+    *            'Inconsistency between "context" and analyzed syntax'
+    *              ->internalError;
+    *         #)
+    *     if)
+    * if);
+    *)
+   
+   (* .. then "1" *)
+   (context[],world[],usageAst[])->check; 
+   
+   (* .. and finally "2&3", please *)
+   INNER; 
+   
+   (*test-obs  ('getStaticSubstance of','S')->observe; *)
+   (*test-obs  ('','S')->stsub.observe; *)
+
+-- ObjectSpecificationGenerateGetPattern:dopart --
+do
+   (*check context[]->checkContext; *)
+   localStaticType->stype[];
+   (if staticPushPatternFlag
+       and (stype.kind=patternTypeKind)
+       and stype.knownStatically
+       and stype.hasExistingParts then
+       (* get hold of the static pattern, then create the run-time ptn *)
+       (context[],world[],usageAst[])->getStaticType->gensptype[];
+       (if staticPredefinedPatternFlag and gensptype.isPredefined then
+           program[]->gensptype.generateGetPredefinedPattern
+        else
+           ('ibetaCom1body.bet/189',gensptype[])
+             ->(&getStaticPatternCode[]).init
+             ->program.append
+       if)
+    else
+       INNER
+   if)
+
+-- ObjectSpecificationGenerateGetObject:dopart --
+do
+   (*check context[]->checkContext; *)
+   localStaticType->stype[];
+   (if staticCreateObjectFlag
+       and (stype.kind=patternTypeKind)
+       and stype.knownStatically
+       and stype.hasExistingParts then
+       (* get hold of the static pattern *)
+       (context[],world[],usageAst[])->getStaticType->gensptype[];
+       (* create run-time ptn from static pattern *)
+       (if staticPredefinedPatternFlag and gensptype.isPredefined then
+           program[]->gensptype.generateGetPredefinedObject
+        else
+           ('ibetaCom1body.bet/211',gensptype[])
+             ->(&createStaticObjectCode[]).init
+             ->program.append
+       if);
+       (objectTypeKind,usageAst[])
+         ->gensptype.coerce
+         ->gensptype[]
+       (* TYPE_COERCION: from pattern to object; no adjustments *)
+    else
+       INNER
+   if)
+
+-- ObjectSpecificationGenerateGetTmpObject:dopart --
+do
+   (*check context[]->checkContext; *)
+   localStaticType->stype[];
+   (if staticCreateObjectFlag
+       and (not computed)
+       and (stype.kind=patternTypeKind)
+       and stype.knownStatically
+       and stype.hasExistingParts then
+       (* get hold of the static pattern, then create the object *)
+       (# stocp: ^staticOCP;
+          framePos: @integer
+       do (context[],world[],usageAst[])
+            ->getStaticSubstance
+            ->stocp[];
+          (this(l2ObjectSpecification)[],cInfo.allocateTmp->framePos)
+            ->stocp.createTmpVersion
+            ->genstocp[];
+          (if staticPredefinedPatternFlag and stocp.sptype.isPredefined then
+              (framePos,program[])->stocp.sptype.generateGetPredefinedTmp
+           else
+              ('ibetaCom1body.bet/244',framePos,stocp.sptype[])
+                ->(&createStaticTmpCode[]).init
+                ->program.append
+          if)
+       #)
+    else
+       INNER
+   if)
+
+-- ObjectSpecificationExecute:dopart --
+do
+   (*test-trace  ('executing ospec','S')->trace; *)
+   INNER;
+
+-- ObjectSpecificationObtainObject:dopart --
+do
+   (*test-trace  ('getObject/ospec','S')->trace; *)
+   INNER;
+
+-- ObjectSpecificationObtainObjectRef:dopart --
+do
+   (*test-trace  ('getObjRef/ospec','S')->trace; *)
+   INNER;   
+
+-- ObjectSpecificationObtainPattern:dopart --
+do
+   (*test-trace  ('getPattn./ospec','S')->trace; *)
+   INNER;
+
+-- ObjectSpecificationObtainPatternRef:dopart --
+do
+   (*test-trace  ('getPatRef/ospec','S')->trace; *)
+   INNER;
+
+(************************************************************
+ *                                                          *
+ *                    l2ObjectDescriptor                    *
+ *                                                          *
+ ************************************************************)
+
+-- ObjectDescriptorInit:dopart --
+do
+   Prefix.init;
+
+-- ObjectDescriptorPrint:dopart --
+do
+   (if Prefix.size
+    // 0 then
+       (* no prefix *)
+       (dest[],indentation,false)->MainPart.print;
+    // 1 then 
+       (* single prefix *)
+       (dest[],indentation,false)->(Prefix.head).elm.print;
+       (dest[],indentation,true)->MainPart.print;
+    else 
+       (* multiple prefix *)
+       '\n(& '->output; 
+       (dest[],indentation+indent_delta,false,true)->Prefix.print;
+       '\n&)'->output; 
+       (dest[],indentation,true)->MainPart.print;
+   if);
+
+-- ObjectDescriptorScanImpl:dopart --
+do
+   Prefix.scan(# do (preCB[],postCB[])->current.scanImpl #);
+   (preCB[],postCB[])->MainPart.scanImpl;
+
+-- ObjectDescriptorCheck:dopart --
+do
+   (* relation between prefix and mainpart *)
+   Prefix.scan
+   (# stype: ^staticType;
+   do (context[],world[],usageAst[])
+        ->current.getStaticType
+        ->stype[];
+      (if stype##<=staticPatternType## then 
+          (* !! could restrict to certain type kinds here *)
+       else
+          (# msg,solution: ^text;
+          do 'Object descriptor prefix is '->msg[];
+             (stype.typename).withIndefArticle->msg.puttext;
+             'Use a pattern as a prefix in stead'->solution[];
+             (msg[],solution[],current[])->staticError;
+          #);
+      if);
+   #);
+
+-- ObjectDescriptorGetType:dopart --
+do
+   (*test-obs  ('GetType/context','g')->context.observe; *)
+   (if getVDecl<>NONE then
+       (* part of a virtual chain; we have to analyze the current
+        * object according to the full, statically known virtual
+        * type since name applications within the mainpart must
+        * be allowed to use everything *)
+       (context[],world[],usageAst[])
+         ->(getVDecl).theDeclNode.getStaticType
+         ->stype[]
+    else
+       (* ordinary, non-virtual object descriptor *)
+       (context[],world[],usageAst[])
+         ->getRawStaticType
+         ->stype[];
+       (* if located in a "|" declaration, add component slice *)
+       (if (father##<=l2StaticComponent##) or
+           (father##<=l2DynamicComponentGeneration##) then
+           (# sptype: ^staticPatternType
+           do (if stype##<=staticPatternType## then
+                  stype[]->sptype[];
+                  sptype.prefixWithComponent
+               else
+                  (# msg: ^text
+                  do 'Attempt to use '->msg[];
+                     (stype.typename).withIndefArticle->msg.puttext;
+                     ' with a component marker ("|")'->msg.puttext;
+                     (msg[],'Use an object(ref) or a pattern(ref)'
+                     ,usageAst[])->staticError
+                  #)
+              if)
+           #)
+       if)
+   if);
+   (*test-obs  ('GetType/result','g')->stype.observe; *)
+
+-- ObjectDescriptorGetRawType:dopart --
+do
+   (# pref_stype: ^staticType; (* tmpvar - static type of the prefix *)
+      acc_sptype: ^staticPatternType; (* used to collect the overall result *)
+   do
+      (* compute the prefix pattern, put it in 'acc_sptype' *)
+      (if Prefix.size
+       // 0 then
+          (* no prefix, start with an empty pattern type *)
+          (context.getInitialSyntax,patternTypeKind)
+            ->(&staticPatternType[]).init
+            ->acc_sptype[];
+          (* such a no-super type is known to have exactly one 
+           * mixin, and that mixin is known to be at the bottom *)
+          acc_sptype.makeKnownStatically
+       // 1 then
+          (* ordinary, singular prefix *)
+          (context[],world[],usageAst[])
+            ->(Prefix.head).elm.getRawStaticType
+            ->pref_stype[];
+          (if pref_stype.kind=patternTypeKind then
+              (* we have to copy because we are building a new
+               * pattern by adding a mixin *)
+              pref_stype.copy->acc_sptype[]
+           else
+              (patternTypeKind,usageAst[])
+                ->pref_stype.coerce
+                ->acc_sptype[];
+              (* TYPE_COERCION: obtained a pattern from a
+               * non-pattern; consider the cases:
+               * 
+               * object: the pattern is the pattern of the object,
+               *   and that is already what was described by
+               *   'prefType'; no other adjustment than the type
+               *   kind is needed here
+               * 
+               * objectRef: similar (+ possibly NONE-warn)
+               * 
+               * patternRef: similar to objectRef
+               * 
+               * pattern: impossible (if..)
+               *)
+          if)
+       else
+          (* full, multiple prefix; start with 'object' pattern *)
+          (context.getInitialSyntax,patternTypeKind)
+            ->(&staticPatternType[]).init
+            ->acc_sptype[];
+          (* assume statically known until somebody blows it *)
+          acc_sptype.makeKnownStatically;
+          (* collect contributions *)
+          Prefix.scan
+          (# next_sptype: ^StaticPatternType
+          do (* make sure we can see the whole world each time round *)
+             context.resetFocus;
+             (* compute next contribution *)
+             (context[],world[],usageAst[])
+               ->current.getRawStaticType
+               ->pref_stype[];
+             (* make it a pattern, put that pattern in 'next_sptype' *)
+             (if pref_stype.kind=patterntypeKind then
+                 (* no need to copy: 'merge' only affects 'sptype' *)
+                 pref_stype[]->next_sptype[]
+              else
+                 (patternTypeKind,usageAst[])
+                   ->pref_stype.coerce
+                   ->next_sptype[];
+                 (* TYPE_COERCION: we obtain a pattern from a 
+                  * non-pattern; cases:
+                  * 
+                  * object: the pattern is the pattern of the 
+                  *   object - no adjustment beyond the type 
+                  *   kind is needed
+                  * 
+                  * objectRef: similar
+                  * 
+                  * patternRef: similar
+                  * 
+                  * pattern: impossible (if..)
+                  *)
+             if);
+             (* merge 'next_sptype' unto the global result, 'acc_sptype' *)
+             (next_sptype[],this(l2ObjectDescriptor)[],usageAst[])
+               ->acc_sptype.mergeMustSucceed
+          #)
+      if);
+
+      (* at this point, 'acc_sptype' is the complete prefix pattern *)
+
+      (* finally, we can add the mixin of the main part *)
+      (context[],world[],MainPart[])->acc_sptype.mixin;
+
+      (* 'acc_sptype.staticallyKnown' can be left unchanged: since a
+       * statically known super makes super&known_mixin statically
+       * known, too, it is OK to leave it true; similarly, a
+       * by-upper-bound known super will never yield a statically
+       * known sub *)
+
+      (* if the prefix is staticallyKnown then we will
+       * know whether this main part will end up in the
+       * bottom position and otherwise which mixin will
+       * end up there, so staticallyKnownBottom can be
+       * preserved; if the prefix is _not_ staticallyKnown,
+       * then we cannot assume that this main part ends up
+       * in any particular position (even though it will be
+       * the bottommost mixin in all but a few pathological
+       * cases) so we have to nuke staticallyKnownBottom *)
+      (if not acc_sptype.staticallyKnown then
+          false->acc_sptype.staticallyKnownBottom
+      if);
+
+      (* if we know that the superpattern is identical-to
+       * or less-equal than something then the resulting
+       * pattern is at least less-equal than that something *)
+      (if acc_sptype.rinfo[]<>NONE then
+          acc_sptype.rinfo.scan(# do true->current.maybeless #)
+      if);
+
+      (* when the type is statically known, the bottom slice is, too;
+       * since the prefix should then have had this property already,
+       * we check it rather than set it *)
+      (if acc_sptype.staticallyKnown then
+          (if not acc_sptype.staticallyKnownBottom then
+              'objectDescriptorGetType: staticallyKnownBottom was not true'
+                ->internalError
+          if)
+      if);
+
+      (* deliver *)
+      acc_sptype[]->stype[]
+   #)
+
+-- ObjectDescriptorGetSub:dopart --
+do
+   (* we must build an "inaccessible" object, since 
+    * there is no path to an object descriptor as 
+    * such; for this we use an {impossible} path *)
+   (# stype: ^staticType;
+      path: ^runtimePath;
+   do
+      (* get the type of the descriptor *)
+      (context[],world[],usageAst[])
+        ->getStaticType
+        ->stype[];
+      
+      (* prepare the 'pathTo' *)
+      (NONE,NONE,context.getInitialSyntax)
+        ->(&runtimePath[]).init
+        ->path[];
+      path.addStepImpossible;
+      
+      (* put the pieces together; !! since there is no way to 
+       * denote this substance, we could not inherit from it, 
+       * but dynamic object-specialization could add further
+       * slices below the one for this MainPart; so we give 
+       * NONE for the "entryAst" argument to make it 
+       * dynamic-specialization safe, but could otherwise 
+       * give 'MainPart[]' *)
+      (context[],path[],NONE,usageAst[])
+        ->stype.staticInstantiate
+        ->stsub[]
+   #)
+
+-- ObjectDescriptorGenGetPattern:dopart --
+do
+   (# safe: @boolean;
+      prefix_sptype: ^staticPatternType
+   do (* determine and push the prefix pattern *)
+      (if Prefix.empty then
+          (* no prefix, push "object" *)
+          'ibetaCom1body.bet/427'
+            ->(&getObjectPatternCode[]).init
+            ->program.append;
+          true->safe
+       else
+          (* prefix present; determine what it is .. *)
+          (context[],world[],usageAst[],program[],cInfo[],false)
+            ->Prefix.generateGetPattern
+            ->prefix_sptype[];
+          (if prefix_sptype.staticallyKnown then
+               (* almost always safe.. *)
+               true->safe;;
+               (* but we might have some pathological way to 
+                * include this o.desc. into the prefix (or could 
+                * it actually be proved that this cannot happen?) *)
+               prefix_sptype.slices.scan
+               (# 
+               do (if this(l2ObjectDescriptor)[]->current.associated then
+                      (* oops! not safe after all *)
+                      false->safe
+                  if)
+               #)
+            else
+               (* a non-stat-known pattern could contain anything; however,
+                * we could actually test for _lower_ bounds (:>) 
+                * here and sometimes discover a few extra safe cases *)
+               false->safe
+           if)
+      if);
+      (if safe then 
+          (* this o.desc. is not in the prefix, so we can directly
+           * enhance the prefix pattern with the main part *)
+          ('ibetaCom1body.bet/439'
+          ,(context.pathTo.copyRTP,scope.location)
+            ->context.appendSuffixPathToAst
+          ,MainPart[])
+            ->(&addMainpartCode[]).init
+            ->program.append
+       else
+          (* danger: the prefix may already contain this o.desc., 
+           * so we have to use merging to avoid duplicating it *)
+          
+          (* push "object" *)
+          'ibetaCom1body.bet/450'
+            ->(&getObjectPatternCode[]).init
+            ->program.append;
+          (* add the new main part, yielding a singleton pattern *)
+          ('ibetaCom1body.bet/454'
+          ,(context.pathTo.copyRTP,scope.location)
+            ->context.appendSuffixPathToAst
+          ,MainPart[])
+            ->(&addMainpartCode[]).init
+            ->program.append;
+          (* then merge the patterns *)
+          'ibetaCom1body.bet/461'
+            ->(&mergePatternCode[]).init
+            ->program.append
+      if);
+      (* since this is a descriptor the type is of pattern kind: OK *)
+      (context[],world[],usageAst[])
+        ->getStaticType
+        ->gensptype[]
+   #)
+
+-- ObjectDescriptorGenGetObject:dopart --
+do
+   (context[],world[],usageAst[],program[],cInfo[],false)
+     ->generateGetPattern
+     ->gensptype[];
+   (* generate the object *)
+   'ibetaCom1body.bet/477'
+     ->(&createObjectCode[]).init
+     ->program.append;
+   (* the static type of the odesc. is always of pattern kind *)
+   (objectTypeKind,usageAst[])
+     ->gensptype.coerce
+     ->gensptype[];
+   (* TYPE_COERCION: the object is an instance of exactly the given 
+    * pattern; if the pattern is stat-known then the object is so, too - 
+    * hence we do not need to adjust staticallyKnown[Bottom] *)
+
+-- ObjectDescriptorGenGetTmp:dopart --
+do 
+   (if not computed then 
+       (# sptype: ^staticPatternType;
+          framePos: @integer
+       do (context[],world[],usageAst[],program[],cInfo[],false)
+            ->generateGetPattern
+            ->sptype[];
+          (context[],world[],usageAst[],this(l2ObjectDescriptor)[]
+          ,cInfo.allocateTmp->framePos) 
+            ->sptype.tmpInstantiate
+            ->genstocp[];
+          (* generate the object *)
+          ('ibetaCom1body.bet/497',framePos)
+            ->(&createTmpCode[]).init
+            ->program.append
+       #)
+    else
+          (* this would be needed with things like 'p(# exit x[] #).q', but 
+           * that did not make it into the grammar, because it creates 
+           * reduce/reduce conflicts and generally allows some _very_ 
+           * funny expressions that we probably don`t want to bother 
+           * anybody with anyway
+           *)
+       'Trying to generateGetTmp a computed object'
+         ->internalError
+   if)
+
+-- ObjectDescriptorExecute:dopart --
+do
+   (# l1obj: ^l1ObjectEntity
+   do (thrd[],unwind##,dContext[],renew,NONE)
+        ->obtainObject
+        ->l1obj[];
+      (thrd[],unwind##)
+        ->l1obj.execute
+   #)
+
+-- ObjectDescriptorObtainObject:dopart --
+do
+   (thrd[],unwind##,dContext[],renew,attr[])
+     ->obtainObjectRef
+     ->l1obj[]
+   (* no need to test for NONE: must be a fresh object *)
+
+-- ObjectDescriptorObtainObjectRef:dopart --
+do
+   (# l1pat: ^l1PatternEntity
+   do (thrd[],unwind##,dContext[],NONE)
+        ->obtainPattern
+        ->l1pat[];
+      (thrd[],unwind##,attr[])
+        ->l1pat.instantiate
+        ->l1obj[];
+      renew->l1obj.private.specializable
+   #)
+
+-- ObjectDescriptorObtainPattern:dopart --
+do
+   (thrd[],unwind##,dContext[],attr[])
+     ->obtainPatternRef
+     ->l1pat[]
+
+-- ObjectDescriptorObtainPatternRef:dopart --
+do
+   (* deal with prefix *)
+   (if Prefix.size
+    // 0 then
+       (* no prefix; implicit prefix is "object" *)
+       predefinedSubstance.private.objectPattern.copy->l1pat[]
+    // 1 then
+       (* single prefix *)
+       ((thrd[],unwind##,dContext[],NONE)->(Prefix.head).elm.obtainPattern)
+       .copy->l1pat[]
+    else
+       (* composite prefix; start with "object", merge on contrib.s *)
+       predefinedSubstance.private.objectPattern.copy->l1pat[];
+       Prefix.scan
+       (# 
+       do (thrd[],unwind##
+          ,(thrd[],unwind##,dContext[],NONE)->current.obtainPattern)
+            ->l1pat.merge
+       #)
+   if);
+   
+   (* add the main part *)
+   (MainPart[],dContext[])
+     ->(&compositePatternSlice[]).init
+     ->l1pat.addSlice;
+   
+   (* the value is now complete; announce it *)
+   (if attr[]<>NONE then l1pat[]->attr.to[] if)
+
+(*************************************************************
+ *                                                           *
+ *                        l2MainPart                         *
+ *                                                           *
+ *************************************************************)
+
+-- MainPartInit:dopart --
+do
+   Attributes.init; 
+   DoPartOpt.init; 
+   theScopeNode.init
+
+-- MainPartPrint:dopart --
+do
+   '('->output; '#'->output;
+   (if this(interpreterBase).private.showNumberSelector['m'+1] 
+       or printSemanticAttributes then 
+       (if mpsAst[]<>NONE then 
+           '`'->output;
+           mpsPosition->output
+       if)
+   if);
+   
+   (if not Attributes.empty then 
+       (dest[],indentation+indent_delta,true,true)->Attributes.print
+   if);
+   
+   (if EnterPartOpt[]<>NONE then
+       '\nenter '->output;
+       (dest[],indentation+indent_delta,false)->EnterPartOpt.print
+   if);
+   
+   (if not DoPartOpt.empty then
+       '\ndo '->output; (* !! depends on 'indent_delta' being 3! *)
+       (dest[],indentation+indent_delta,false,true)->DoPartOpt.print
+   if);
+
+   (if ExitPartOpt[]<>NONE then
+       '\nexit '->output;
+       (dest[],indentation+indent_delta,false)->ExitPartOpt.print
+   if);
+   '\n#'->output; ')'->output
+
+-- MainPartPrintCode:dopart --
+do
+   'MainPart("'->output;
+   (if mpsAst[]<>NONE then 
+       '`'->output; mpsPosition->output; '"'->output
+    else
+       'Encountered a MainPart with no syntax'
+         ->internalError
+   if);
+   Attributes.scan
+   (# do (dest[],indentation+indent_delta,false)->current.printCode #);
+   '\n|'->output; (* !! depends on 'indent_delta' being 3! *)
+   DoPartOpt.scan
+   (# do (dest[],indentation+indent_delta,true)->current.printCode #);
+   '\n)'->output
+
+-- MainPartScanImpl:dopart --
+do
+   (preCB[],postCB[])->Attributes.scanImpl;
+   (if EnterPartOpt[]<>NONE then (preCB[],postCB[])->EnterPartOpt.scanImpl if);
+   (preCB[],postCB[])->DoPartOpt.scanImpl;
+   (if ExitPartOpt[]<>NONE then (preCB[],postCB[])->ExitPartOpt.scanImpl if)
+
+-- MainPartObserveSemAtt:dopart --
+do
+   (* id *)
+   (dest[],indentation,false)->printShort;
+   
+   (* type *)
+   '\ntype  = '->output;
+   (dest[],indentation+8,false)->(localStaticType).print;
+   
+   (* world view *)
+   (dest[],indentation,true)->theScopeNode.world.print
+
+-- MainPartCheck:dopart --
+do
+   (* attributes OK if internally OK *)
+   (if EnterPartOpt[]<>NONE then 
+       (* check that the enter-part "could be assigned to" *)
+       (context[],world[])->EnterPartOpt.getStaticTransientIn
+   if);
+   (* do-part OK if internally correct *)
+   (if ExitPartOpt[]<>NONE then
+       (* check that the exit-part "could be evaluated" *)
+       (context[],world[])->ExitPartOpt.getStaticTransientOut
+   if)
+
+-- MainPartScopeGetIC:dopart --
+do
+   (* An old comment that gives kind of an overview, even 
+    * though the code that implements these things has been 
+    * moved elsewhere, mainly:
+    * 
+    * This is the most important getInitialContext;
+    * for any name application in a main part, we need
+    * the initial context associated with that main part
+    * as an initial universe in which we can search the
+    * declaration of that name.  The initial universe consists 
+    * of the names declared syntactically within this main
+    * part along with the names declared in main parts of the
+    * prefix chain.  The prefix chain is constructed by 
+    * looking up the meaning of the prefix of the main part in
+    * the context of the enclosing object (where this prefix is 
+    * positioned syntactically and according to the scope rules).  
+    * That gives rise to a static type of the prefix, which is 
+    * then enhanced to a static substance by mounting it as 
+    * the continuation of the search path from the static slice 
+    * of this main part ("this main part delivers the head of
+    * the list, the prefix delivers the tail"). 
+    *)
+   (if (position[]->world.find->stcon[])<>NONE then 
+       (* found, set focus to my syntax *)
+       (if not (this(l2MainPart)[]->stcon.setFocus) then 
+           'Inconsistent static "world" (wrong position)'
+             ->internalError;
+       if)
+    else
+       (* not found, create *)
+       (# context: ^staticContext;
+          l2desc: ^l2ObjectDescriptor;
+          stocp: ^staticOCP;
+          worldPos: ^runtimePath;
+          stype: ^staticType;
+          sptype: ^staticPatternType;
+          pSlice: ^patternStaticSlice
+       do
+          (* get hold of enclosing entities *)
+          position.copyRTP->worldPos[];
+          (scope.location,false)->worldPos.addStepOut;
+          (worldPos[],world[],usageAst[])
+            ->enclosing.getInitialContext
+            ->context[];
+
+          (* add the substance for this main part *)
+
+          (* .. first get hold of the type *)
+          father[]->l2desc[];
+
+          (* .. get the static type of the descriptor; is always a pattern *)
+          (context[],world[],this(l2MainPart)[])
+            ->l2desc.getStaticType
+            ->stype[];
+          (objectTypeKind,this(l2Mainpart)[])
+            ->stype.coerce
+            ->sptype[];
+          (* TYPE_COERCION: was pattern, is now some instance of this 
+           * pattern or a subpattern of it, so we lose stat-known *)
+          sptype.makeNotKnownStatically;
+
+          (* .. construct and position the new substance *)
+          (worldPos.getInitialSyntax,sptype[])
+            ->(&staticOCP[]).init
+            ->stocp[];
+          position.deliverCopy->stocp.pathTo.assign;
+
+          (* .. get hold of "my" slice *)
+          (if stocp.sptype.slices.empty then 
+              (* certainly, this(l2MainPart) should have been there!? *)
+              'Main part seems to have empty static type'
+                ->internalError
+           else
+              stocp.sptype.slices.first->pSlice[];
+              
+              (* !! NB: Until swap (inverse merge) was introduced, the
+               * following check had always been performed, and it
+               * had always succeeded.  So swap suddenly makes it
+               * possible to create a main part (in a virtual) which
+               * is _not_ the most specific element in its type.  With
+               * swap we have to remove this test.
+               * 
+               * (if not (this(l2MainPart)[]->pSlice.associated) then
+               *     {* paranoid! *}
+               *     'Main part has wrong local static type'
+               *       ->internalError
+               * if)
+               * 
+               * Think about it, if there is something similar that we
+               * can test and which _should_ actually hold..
+               *)
+
+              L: (if not (this(l2MainPart)[]->pSlice.associated) then
+                     pSlice.scanForward
+                     (#
+                     do (if this(l2MainPart)[]->current.associated then
+                            current[]->pSlice[];
+                            leave L
+                        if)
+                     #);
+                     (* this point only reached when search failed *)
+                     'Main part not found in its own static type'
+                       ->internalError
+                 if);
+
+              (* searches for names always start here *)
+              pSlice[]->stocp.sptype.startSlice[];
+
+              (* since this is a context, 'pathTo' goes here, exactly *)
+              pSlice[]->stocp.destSlice[];
+
+              (* Set focus to the this main part initially *)
+              pSlice[]->stocp.focus[]
+          if);
+
+          (* set up the relative type information which allows us to
+           * recognize that this is the type of a particular enclosing
+           * object, hence allowing us to know that another type will 
+           * grow exactly like this one if it is the _same_ object *)
+          (if sptype.rinfo[]<>NONE then
+              (* insert a new rinfo in front of the others *)
+              (# rinfo: ^relativeType
+              do &relativeType[]->rinfo[];
+                 sptype.rinfo[]->rinfo.glueSucc;
+                 rinfo[]->sptype.rinfo[]
+              #)
+           else
+              &relativeType[]->sptype.rinfo[];
+          if);
+          (* now the first rinfo is the new one, whether or not it is alone *)
+          (stocp[],NONE,false)->sptype.rinfo.init;
+
+          (* .. finally make the new substance known to the world *)
+          stocp[]->world.enhance;
+
+          (* deliver result *)
+          stocp[]->stcon[]
+       #)
+   if)
+
+-- MainPartScopeFind:dopart --
+do
+   NONE->l2ndcl[];
+   (if private.dcls.range<10 then 
+       L: (for i:private.dcls.range repeat
+               (if (name[],private.dcls[i][])
+                     ->this(interpreterBase).private.theNameEqual then
+                   private.dcls[i][]->l2ndcl[];
+                   leave L
+               if)
+          for)
+    else
+       (* "big" name space, binary search *)
+       (# lo,mid,hi,r: @integer;
+          theStrCmp: @strcmp
+       do (1,private.dcls.range+1)->(lo,hi);
+          (* INVARIANT: (name \in dcls) => (name \in dcls[lo:hi-1]) *)
+          L: (if lo<hi then
+                 (lo+hi) div 2 -> mid;
+                 (if (name[],private.dcls[mid].value[])->theStrCmp
+                  // -1 then mid->hi; restart L
+                  // 1 then mid+1->lo; restart L
+                  else (* // 0 *) private.dcls[mid][]->l2ndcl[]
+                 if)
+             if)
+       #)
+   if)
+
+(*************************************************************
+ *                                                           *
+ *                   l2AttributeDenotation                   *
+ *                                                           *
+ *************************************************************)
+
+-- AttributeDenotationPrint:dopart --
+do
+   INNER;
+   (if private.showNumberSelector['A'+1] then
+       (if father[]<>NONE then
+           (if not (father##<=l2AttributeDenotation##) then 
+               (if mpsAst[]<>NONE then
+                   '`'->output;
+                   mpsPosition->output
+               if)
+           if)
+       if)
+   if)
+
+-- AttributeDenotationGetType:dopart --
+do
+   (context[],world[],usageAst[])->check;
+   INNER
+
+-- AttributeDenotationGetRawType:dopart --
+do
+   (context[],world[],usageAst[])
+     ->getStaticType
+     ->stype[]
+
+-- AttributeDenotationGetQuaType:dopart --
+do
+   (context[],world[],usageAst[])->check;
+   INNER
+
+-- AttributeDenotationCheck:dopart --
+do
+   bindNames;
+   INNER
+
+-- AttributeDenotationBindNames:dopart --
+do
+   (if not namesBound then 
+       (*test-obs  ('(bind','B')->observe; *)
+       (*test-obs  'B'->observeIndent; *)
+       
+       (* each 'bindnames' execution has _one_ staticContextDB; 
+        * the 'world' of this 'bindnames' is then threaded through 
+        * all subsequent part-analyses that contribute to this 
+        * analysis; the only other place where worlds originate
+        * is 'localStaticType'--also an entire analysis as seen 
+        * from one point in the syntax *)
+       (NONE,NONE,scope.location)->position.init;
+       this(l2AttributeDenotation)[]->scope.world.setAst;
+       
+       (* ensure that top-level name applications in this 
+        * attr.deno. are decorated with references to their 
+        * corresponding declarations, how to find the entity
+        * referred to, and what its type is as seen from here *)
+       INNER;
+       
+       (*test-obs  'B'->observeOutdent; *)
+       (*test-obs  ('bind)','B')->observe; *)
+       true->namesBound
+   if)
+
+-- AttributeDenotationGetCplr:dopart --
+do
+   (* just a hook for observation etc. *)
+   (*check context[]->checkContext; *)
+   INNER
+
+-- AttributeDenotationGetEnterCplr:dopart --
+do
+   (*check context[]->checkContext; *)
+   INNER 
+   
+   (* If the implicit [] semantics then this dopart should not be 
+    * 'INNER' but instead this block which handles the implicit 
+    * [] for all kinds of attribute denotations and lets subclasses
+    * handle the normal case (where there is no implicit []): 
+    * 
+    * (# stype: ^staticType;
+    *    sptype: ^staticPatternType
+    * do (context[],world[],usageAst[])
+    *      ->getStaticType
+    *      ->stype[];
+    *    (if stype##<=staticPatternType## then
+    *        stype[]->sptype[];
+    *        (if sptype.isDave then
+    *            (if sptype.kind=objectRefTypeKind then
+    *                {* eligible for implicit [] semantics *}
+    *                &enterOnceCompiler
+    *                (# generate::
+    * (# do (context[],world[],this(l2AttributeDenotation)[]
+    *                        ,program[],cInfo[])
+    *                          ->generatePutObject
+    *                          ->(&staticORefTransient[]).init
+    *                          ->stran[]
+    *                     #)
+    *                #)[]->nc[]
+    *             else
+    *                (# msg: ^text
+    *                do 'Attempt to (implicitly) reference-assign to '->msg[];
+    *                   (sptype.typename).withIndefArticle->msg.puttext;
+    *                   (msg[]
+    *                   ,'Only a variable object can be reference assigned'
+    *                   ,usageAst[])->staticError
+    *                #)
+    *            if)
+    *         else              
+    *            INNER getEnterCompiler
+    *        if)
+    *     else
+    *        INNER getEnterCompiler
+    *    if)
+    * #)
+    *)
+
+-- AttributeDenotationGetExitCplr:dopart --
+do
+   (* just a hook for observation etc. *)
+   (*check context[]->checkContext; *)
+   INNER
+
+-- AttributeDenotationGetEnterExitCplr:dopart --
+do
+   (*check context[]->checkContext; *)
+   INNER
+   
+   (* If the implicit [] semantics then this dopart should not be 
+    * 'INNER' but instead this block which handles the implicit 
+    * [] for all kinds of attribute denotations and lets subclasses
+    * handle the normal case (where there is no implicit []): 
+    * 
+    * (# stype: ^staticType;
+    *    sptype: ^staticPatternType
+    * do (context[],world[],usageAst[])
+    *      ->getStaticType
+    *      ->stype[];
+    *    (if stype##<=staticPatternType## then
+    *        stype[]->sptype[];
+    *        (if sptype.isDave then
+    *            (if sptype.kind=objectRefTypeKind then
+    *                {* eligible for implicit [] semantics *}
+    *                &enterOnceCompiler
+    *                (# generate::
+    * (# do (context[],world[],usageAst[],program[],cInfo[])
+    *                          ->generatePutObject
+    *                          ->(&staticORefTransient[]).init
+    *                          ->stran[]
+    *                     #)
+    *                #)[]->nc[];
+    *                &exitOnceCompiler
+    *                (# generate::
+    *                     (# do (context[],world[],usageAst[],program[]
+    *                        ,cInfo[],true,false)
+    *                          ->generateGetObject
+    *                          ->(&staticORefTransient[]).init
+    *                          ->stran[]
+    *                     #)
+    *                #)[]->xc[]
+    *             else
+    *                (# msg: ^text
+    * do 'Attempt to (implicit) ref-assign-then-evaluate '->msg[];
+    *                   (sptype.typename).withIndefArticle->msg.puttext;
+    *                   (msg[]
+    *                   ,'Only a variable object can be reference assigned'
+    *                   ,usageAst[])->staticError
+    *                #)
+    *            if)
+    *         else              
+    *            INNER getEnterExitCompiler
+    *        if)
+    *     else
+    *        INNER getEnterExitCompiler
+    *    if)
+    * #)
+    *)
+
+-- AttributeDenotationGenerateGetTmpObject:dopart --
+do
+   (if computed then 
+       (context[],world[],usageAst[],program[],cInfo[])
+         ->generateGetComputedObject
+         ->genstocp[]
+    else
+       INNER
+   if)
+
+-- AttributeDenotationGenerateGetQualification:dopart --
+do
+   (* just a hook for observation etc. *)
+   (*check context[]->checkContext; *)
+   INNER
+
+-- AttributeDenotationGeneratePutObject:dopart --
+do
+   (* just a hook for observation etc. *)
+   (*check context[]->checkContext; *)
+   INNER
+
+-- AttributeDenotationGeneratePutPattern:dopart --
+do
+   (* just a hook for observation etc. *)
+   (*check context[]->checkContext; *)
+   INNER
+
+-- AttributeDenotationExecute:dopart --
+do
+   (*lazy*) (if not namesBound then bindnames if);
+   (# l1ent: ^l1Entity
+   do (thrd[],unwind##,dContext[])
+        ->lookup
+        ->l1ent[];
+      (if l1ent##<=l1ObjectRefEntity## then
+          (if renew then 
+              (* instantiate and assign the result to this o-ref *)
+              (# l1oref: ^l1ObjectRefEntity;
+                 attr: ^l1MapElement;
+                 l2sdcl: ^l2SimpleDecl;
+                 l2ditem: ^l2DynamicItem;
+                 l1pat: ^l1PatternEntity
+              do l1ent[]->l1oref[];
+                 (thrd[],unwind##,dContext[])
+                   ->lookupAttr
+                   ->attr[];
+                 (if attr.from.decl.kind=simpleDeclDeclKind then 
+                     attr.from.decl.location->l2sdcl[];
+                     (if l2sdcl.ReferenceSpecification##
+                         <= l2DynamicItem## then 
+                         l2sdcl.ReferenceSpecification[]->l2ditem[];
+                         (thrd[],unwind##,dContext[],NONE)
+                           ->l2ditem.AttributeDenotation.obtainPattern
+                           ->l1pat[];
+                         (thrd[],unwind##,NONE(* !!! attr? *))
+                           ->l1pat.instantiate
+                           ->l1oref.value[];
+                         true->l1oref.value.private.specializable
+                      else
+                         'DynamicRef declared in non-DynamicItem'
+                           ->internalError
+                     if)
+                  else
+                     'ObjRef seems to be declared in non-SimpleDecl'
+                       ->internalError
+                 if)
+              #)
+          if)
+      if);
+      (thrd[],unwind##)->l1ent.execute
+   #)
+
+-- AttributeDenotationObtainObject:dopart --
+do
+   (*lazy*) (if not namesBound then bindnames if);
+   (thrd[],unwind##,dContext[],renew,attr[])
+     ->obtainObjectRef
+     ->l1obj[];
+   (if l1obj[]=NONE then 
+       ('Trying to access an object via a NONE reference'
+       ,thrd[],unwind##)->refNoneError
+   if)
+
+-- AttributeDenotationObtainObjectRef:dopart --
+do
+   (*lazy*) (if not namesBound then bindnames if);
+   (# fail:
+        (# msg: ^text
+        enter msg[]
+        do 'Trying to get an object reference from '->msg.prepend; 
+           (msg[],thrd[],unwind##)->kindError
+        #);
+      stype: ^staticType;
+      sptype: ^staticPatternType;
+      l1ent: ^l1Entity;
+      l1oref: ^l1ObjectRefEntity;
+      l1pat: ^l1PatternEntity;
+      l1pref: ^l1PatternRefEntity
+   do 
+      (* we only need the local static type to determine the _kind_ *)
+      localStaticType->stype[];
+      (if stype.kind 
+          
+       // objectTypeKind then 
+          (if not renew then
+              (thrd[],unwind##,dContext[])->lookup->l1ent[];
+              (if l1ent##<=l1ObjectEntity## then
+                  l1ent[]->l1obj[];
+                  (* !! this is too late, there may be "dynamic 
+                   * cycles" that we might avoid by setting up
+                   * this aliasing attribute earlier! *)
+                  (if attr[]<>NONE then l1obj[]->attr.to[] if)
+               else
+                  'Static type said object, but entity was non-object'
+                    ->internalError
+              if)
+           else
+              (* static analysis should prevent this! *)
+              'Trying to renew an object'
+                ->internalError
+          if)
+          
+       // objectRefTypeKind then 
+          (thrd[],unwind##,dContext[])->lookup->l1ent[];
+          (if l1ent##<=l1ObjectRefEntity## then
+              l1ent[]->l1oref[];
+              (if not renew then 
+                  l1oref.value[]->l1obj[];
+                  (* !! this is too late, there may be "dynamic 
+                   * cycles" that we might avoid by setting up
+                   * this aliasing attribute earlier! *)
+                  (if attr[]<>NONE then l1obj[]->attr.to[] if)
+               else
+                  (* instantiate and assign the result to this o-ref *)
+                  (# attr: ^l1MapElement;
+                     l2sdcl: ^l2SimpleDecl;
+                     l2ditem: ^l2DynamicItem;
+                     l1pat: ^l1PatternEntity
+                  do (* !! performance alert: we just looked it up before *)
+                     (thrd[],unwind##,dContext[])
+                       ->lookupAttr
+                       ->attr[];
+                     (if attr.from.decl.kind=simpleDeclDeclKind then 
+                         attr.from.decl.location->l2sdcl[];
+                         (if l2sdcl.ReferenceSpecification##
+                             <= l2DynamicItem## then 
+                             l2sdcl.ReferenceSpecification[]->l2ditem[];
+                             (thrd[],unwind##,attr.context,NONE)
+                               ->l2ditem.AttributeDenotation.obtainPattern
+                               ->l1pat[];
+                             (thrd[],unwind##,NONE(* !!! attr? *))
+                               ->l1pat.instantiate
+                               ->l1oref.value[]
+                               ->l1obj[];
+                             true->l1obj.private.specializable
+                          else
+                             'DynamicRef declared in non-DynamicItem'
+                               ->internalError
+                         if)
+                      else
+                         'ObjRef seems to be declared in non-SimpleDecl'
+                           ->internalError
+                     if)
+                  #)
+              if)
+           else
+              'Static type said object-ref, but entity was non-object-ref'
+                ->internalError
+          if)
+          
+       // patternTypeKind then 
+          (* !! we could have a do-not-renew and fail here if true *)
+          (thrd[],unwind##,dContext[])->lookup->l1ent[];
+          (if l1ent##<=l1PatternEntity## then
+              l1ent[]->l1pat[];
+              (thrd[],unwind##,attr[])
+                ->l1pat.instantiate
+                ->l1obj[];
+              renew->l1obj.private.specializable
+           else
+              'Static type said pattern, but entity was non-pattern'
+                ->internalError
+          if)
+          
+       // patternRefTypeKind then 
+          (* !! we could have a do-not-renew and fail here if true *)
+          (thrd[],unwind##,dContext[])->lookup->l1ent[];
+          (if l1ent##<=l1PatternRefEntity## then
+              l1ent[]->l1pref[];
+              (if l1pref.value[]<>NONE then
+                  (thrd[],unwind##,attr[])
+                    ->l1pref.value.instantiate
+                    ->l1obj[];
+                  renew->l1obj.private.specializable
+               else
+                  ('Trying to obtain object ref from NONE pattern ref'
+                  ,thrd[],unwind##)->refNoneError
+              if)
+           else
+              'Static type said pattern-ref, but entity was non-pattern-ref'
+                ->internalError
+          if)
+          
+       // repetitionTypeKind then 'a repetition'->fail
+       // boolSourceTypeKind then 'a boolean source'->fail
+       // intSourceTypeKind then 'an integer source'->fail
+       // intSinkTypeKind then 'an integer sink'->fail
+       // labelTypeKind then 'a label'->fail
+       else
+          'Unexpected type kind for obtaining an object reference'
+            ->internalError
+      if)
+   #)
+
+-- AttributeDenotationObtainPattern:dopart --
+do
+   (*lazy*) (if not namesBound then bindnames if);
+   (thrd[],unwind##,dContext[],attr[])
+     ->obtainPatternRef
+     ->l1pat[];
+   (if l1pat[]=NONE then 
+       ('Trying to access a pattern via a NONE reference'
+       ,thrd[],unwind##)->refNoneError
+   if)
+
+-- AttributeDenotationObtainPatternRef:dopart --
+do
+   (*lazy*) (if not namesBound then bindnames if);
+   (# fail:
+        (# msg: ^text
+        enter msg[]
+        do 'Trying to get a pattern reference from '->msg.prepend; 
+           (msg[],thrd[],unwind##)->kindError
+        #);
+      stype: ^staticType;
+      sptype: ^staticPatternType;
+      l1ent: ^l1Entity;
+      l1oref: ^l1ObjectRefEntity;
+      l1obj: ^l1ObjectEntity;
+      l1pref: ^l1PatternRefEntity
+   do 
+      (* we only need the local static type to determine the _kind_ *)
+      localStaticType->stype[];
+      (if stype.kind 
+          
+       // objectTypeKind then 
+          (thrd[],unwind##,dContext[])->lookup->l1ent[];
+          (if l1ent##<=l1ObjectEntity## then
+              l1ent[]->l1obj[];
+              l1obj.private.pattern[]->l1pat[];
+              (if attr[]<>NONE then l1pat[]->attr.to[] if)
+           else
+              'Static type said object, but entity was non-object'
+                ->internalError
+          if)
+          
+       // objectRefTypeKind then 
+          (thrd[],unwind##,dContext[])->lookup->l1ent[];
+          (if l1ent##<=l1ObjectRefEntity## then
+              l1ent[]->l1oref[];
+              (if l1oref.value[]<>NONE then 
+                  l1oref.value.private.pattern[]->l1pat[];
+                  (if attr[]<>NONE then l1pat[]->attr.to[] if)
+               else
+                  ('Trying to get pattern of object via NONE reference'
+                  ,thrd[],unwind##)->refNoneError
+              if)
+           else
+              'Static type said object-ref, but entity was non-object-ref'
+                ->internalError
+          if)
+          
+       // patternTypeKind then 
+          (thrd[],unwind##,dContext[])->lookup->l1ent[];
+          (if l1ent##<=l1PatternEntity## then
+              l1ent[]->l1pat[];
+              (if attr[]<>NONE then l1pat[]->attr.to[] if)
+           else
+              'Static type said pattern, but entity was non-pattern'
+                ->internalError
+          if)
+          
+       // patternRefTypeKind then 
+          (thrd[],unwind##,dContext[])->lookup->l1ent[];
+          (if l1ent##<=l1PatternRefEntity## then
+              l1ent[]->l1pref[];
+              l1pref.value[]->l1pat[];
+              (if attr[]<>NONE then l1pat[]->attr.to[] if)
+           else
+              'Static type said pattern-ref, but entity was non-pattern-ref'
+                ->internalError
+          if)
+          
+       // repetitionTypeKind then 'a repetition'->fail (* !! *)
+       // boolSourceTypeKind then 'a boolean source'->fail
+       // intSourceTypeKind then 'an integer source'->fail
+       // intSinkTypeKind then 'an integer sink'->fail
+       // labelTypeKind then 'a label'->fail
+       else
+          'Unexpected type kind for execution'
+            ->internalError
+      if)
+   #)
+
+-- AttributeDenotationLookup:dopart --
+do
+   (*lazy*) (if not namesBound then bindnames if);
+   (*test-trace  ('lookup attr.den','l')->trace; *)
+   INNER
+
+-- AttributeDenotationLookupAttr:dopart --
+do
+   (*lazy*) (if not namesBound then bindnames if);
+   (*test-trace  ('lookup aden.att','l')->trace; *)
+   INNER
+
+(*************************************************************
+ *                                                           *
+ *                         l2NameApl                         *
+ *                                                           *
+ *************************************************************)
+
+-- NameAplInit:dopart --
+do
+   (* NB: 'scope' is not yet defined! We set 
+    * up rtp.initialsyntax in bindnames *)
+   (NONE,NONE,this(l2NameApl)[])->rtp.init; 
+   freshNameAplStatus->status
+
+-- NameAplPrint:dopart --
+do
+   (if printSemanticAttributes then 
+       (if status
+        // freshNameAplStatus then value[]->output; '?'->output
+        // halfbakedNameAplStatus then value[]->output; '*'->output
+        // doneNameAplStatus then
+           (dest[],indentation,false)->rtp.printButOne;
+           value[]->output;
+           (* '!'->output; *)
+       if)
+    else
+       value[]->output
+   if);
+   (if private.showNumberSelector['a'+1] then 
+       (if mpsAst[]<>NONE then 
+           '`'->output;
+           mpsPosition->output
+       if)
+   if)
+
+-- NameAplBindNames:dopart --
+do
+   (* called when this name application is alone or first in
+    * an attribute denotation, or when it is the name-apl in
+    * a THIS/INNER/LEAVE/RESTART construct; in all cases, the
+    * name is to be searched globally, and the static 
+    * knowledge is derived from the viewpoint 'here', i.e. 
+    * from the position of this name appl in the syntax *)
+
+   (# l2ndcl: ^l2NameDcl;               (* what we found *)
+      decl_context: ^staticContext      (* context for my name decl *)
+   do
+      (if status
+       // freshNameAplStatus then
+          halfbakedNameAplStatus->status;
+
+          (* ----- set up the apl-dcl binding ----- *)
+
+          (* init *)
+          (position[],scope.world[],this(l2NameApl)[])
+            ->scope.getInitialContext
+            ->decl_context[];
+
+          (* traverse enclosing scopes as necessary: global search *)
+          L: (#
+             do (*test-obs  ('decl_context','b')->decl_context.observe; *)
+                
+                (value[],this(l2NameApl)[])
+                  ->decl_context.lookupName
+                  ->l2ndcl[];
+
+                (if l2ndcl[]=NONE then
+                    (* not found, try next enclosing scope *)
+                    (scope.world[],this(l2NameApl)[])
+                      ->decl_context.getEnclosing
+                      ->decl_context[];
+                    (if decl_context[]<>NONE then
+                        (* another context obtained *)
+                        restart L
+                     else
+                        (* no more enclosing scopes, search failed *)
+                        this(l2NameApl)[]->staticUndefinedError
+                        (* !! Alternatively: mark name for dynamic lookup *)
+                    if)
+                 else
+                    (* l2ndcl[]<>NONE, so the search succeeded *)
+                    
+                    (* check fragment visibility of 'l2ndcl' from here *)
+                    (if (l2ndcl.mpsAst[]=NONE) or 
+                        (mpsAst.frag.father=l2ndcl.mpsAst.frag.father) then
+                        (* same fragment or 'l2ndcl' predefined: OK *)
+                     else
+                        (* different fragments *)
+                        (if not 
+                            ((mpsAst.frag.father,l2ndcl.mpsAst.frag.father)
+                              ->fragmentVisible) then
+                            (* no access to this dcl: continue search *)
+                            (scope.world[],this(l2NameApl)[])
+                              ->decl_context.getEnclosing
+                              ->decl_context[];
+                            (if decl_context[]<>NONE then
+                                (* another context obtained *)
+                                restart L
+                             else
+                                (* no more enclosing scopes, search failed *)
+                                this(l2NameApl)[]->staticUndefinedError
+                                (* !! Or: mark name for dynamic lookup *)
+                            if)
+                        if)
+                    if);
+                    
+                    (* visibility is OK, proceed *)
+                    l2ndcl[]->decl[];
+                    
+                    (* set up 'rtp' except last step *)
+                    (rtp[],l2ndcl.scope.location)
+                      ->decl_context.assignPathToAst;
+                    
+                    (* last step of 'rtp' depends on kind of declared entity *)
+                    (decl[],decl.decl.isIndirect,decl.decl.isRepeated)
+                      ->rtp.addStepLookup;
+                    
+                    (* decorate with static type as seen from this nameApl *)
+                    (decl_context[],scope.world[],this(l2NameApl)[])
+                      ->decl.decl.getStaticType
+                      ->stype[]
+                if)
+             #);
+
+          (* that is it! *)
+          doneNameAplStatus->status
+
+       // halfbakedNameAplStatus then
+          ('Circular dependency among name declarations'
+          ,'Change inheritance hierarchy or part object declarations'
+          ,this(l2NameApl)[])->staticError
+
+       // doneNameAplStatus then
+          (* no action *)
+
+       else
+          'l2nameApl with unrecognized status'
+            ->internalError
+      if)
+   #)
+
+-- NameAplGetType:dopart --
+do
+   (# decl_context: ^staticContext
+   do
+      (* follow 'rtp' to find the static substance that holds
+       * the corresponding declaration 'decl' *)
+      (context[],world[],usageAst[])
+        ->staticWalkToDecl
+        ->decl_context[];
+      
+      (* the static type of this name appl. is then the static
+       * type of its declaration, as seen in the context 'declsub' *)
+      (decl_context[],world[],usageAst[])
+        ->decl.decl.getStaticType
+        ->stype[]
+   #)
+
+-- NameAplGetQuaType:dopart --
+do
+   (# decl_context: ^staticContext
+   do (* find the context for the declaration *)
+      (context[],world[],usageAst[])
+        ->staticWalkToDecl
+        ->decl_context[];
+      (* get that qualification type *)
+      (decl_context[],world[],usageAst[])
+        ->decl.decl.getStaticQuaType
+        ->(qual[],qualExact)
+   #)
+
+-- NameAplLocalType:dopart --
+do
+   (* the local type of this name appl is computed just 
+    * like in the other object specifications as long 
+    * as it is a stand alone name; but for the back-end 
+    * of a remote we must allow the front-end attribute 
+    * denotation to establish the correct local context;
+    * in return remote sets up the 'stype_cache' for
+    * this name application *)
+   (# l2aden: ^l2AttributeDenotation;
+      context: ^staticContext
+   do 
+      findGlobalLookupNode->l2aden[];
+      (if l2aden[]=this(l2NameApl)[] then 
+          (* perform a normal global lookup *)
+          (position[],scope.world[],this(l2NameApl)[])
+            ->scope.getInitialContext
+            ->context[];
+          (context[],scope.world[],this(l2NameApl)[])
+            ->getStaticType
+            ->stype_cache[]
+            ->stype[]
+       else
+          (* last segment of (computed) remote, let 'l2aden' do the job *)
+          l2aden.localStaticType->stype[]
+      if)
+   #)
+
+-- NameAplGetSub:dopart --
+do
+   (# decl_stsub: ^staticSubstance
+   do 
+      (* find out what we know about the world where my name decl lives *)
+      (context[],world[],usageAst[])
+        ->staticWalkToDecl
+        ->decl_stsub[];
+      
+      (* use this to obtain knowledge about the declared entity *)
+      (decl_stsub[],world[],usageAst[])
+        ->decl.getStaticSubstance
+        ->stsub[]
+   #)
+
+-- NameAplStaticWalkToDecl:dopart --
+do
+   (if scope.location->from.setFocus then
+       (from[],world[],rtp[],usageAst[])
+         ->staticWalkButOneMustSucceed
+         ->to[]
+    else
+       'Bad context for name apl static walk'
+         ->internalError
+   if)
+
+-- NameAplStaticVisitToDecl:dopart --
+do
+   (from[],world[],rtp[],usageAst[],visitor[])->staticVisit
+   (# fail:
+        (# t: ^text;
+           exc: ^exception
+        enter t[]
+        do &visitor.impossible[]->exc[];
+           t->exc.msg;
+           exc
+        #);
+      badContext::(# do 'bad context'->fail #);
+      badPath::(# do 'bad path '->fail #);
+      endsInNone::(# do 'path ends in NONE'->fail #)
+   #)->to[]
+
+-- NameAplObserveSemAtt:dopart --
+do
+   (* id *)
+   '"'->output;
+   value[]->output;
+   
+   (* status *)
+   '" ('->output;
+   (if status
+    // freshNameAplStatus then 'fresh'->output
+    // halfbakedNameAplStatus then 'halfbaked'->output
+    // doneNameAplStatus then 'done'->output
+   if);
+   ')'->output;
+   
+   (* decl *)
+   '\ndecl  = '->output;
+   (if decl[]<>NONE then 
+       (if decl.mpsAst[]<>NONE then 
+           '`'->output;
+           decl.mpsPosition->output
+        else
+           '(mpsast is NONE)'->output
+       if)
+    else
+       'NONE'->output
+   if);
+   
+   (* stype *)
+   '\nstype = '->output;
+   (if stype[]=NONE then 
+       'NONE'->output
+    else
+       (dest[],indentation+8,false)->stype.print
+   if);
+   
+   (* rtp *)
+   '\nrtp   = '->output;
+   (dest[],indentation+8,false)->rtp.print
+
+-- NameAplGetCplr:dopart --
+do
+   (*lazy*) (if not namesBound then bindnames if);
+   (# napl_stsub: ^staticSubstance
+   do (context[],world[],usageAst[])
+        ->getStaticSubstance
+        ->napl_stsub[];
+      (world[],this(l2NameApl)[],usageAst[])
+        ->napl_stsub.getCompiler
+        ->ec[]
+   #)
+
+-- NameAplGetEnterCplr:dopart --
+do
+   (*lazy*) (if not namesBound then bindnames if);
+   (# napl_stsub: ^staticSubstance
+   do (context[],world[],usageAst[])
+        ->getStaticSubstance
+        ->napl_stsub[];
+      (world[],this(l2NameApl)[],usageAst[],this(getEnterCompiler).execute)
+        ->napl_stsub.getEnterCompiler
+        ->nc[]
+   #)
+
+-- NameAplGetExitCplr:dopart --
+do
+   (*lazy*) (if not namesBound then bindnames if);
+   (# napl_stsub: ^staticSubstance
+   do (context[],world[],usageAst[])
+        ->getStaticSubstance
+        ->napl_stsub[];
+      (world[],this(l2NameApl)[],usageAst[])
+        ->napl_stsub.getExitCompiler
+        ->xc[]
+   #)
+
+-- NameAplGetEnterExitCplr:dopart --
+do
+   (*lazy*) (if not namesBound then bindnames if);
+   (# napl_stsub: ^staticSubstance
+   do (context[],world[],usageAst[])
+        ->getStaticSubstance
+        ->napl_stsub[];
+      (world[],this(l2NameApl)[],usageAst[])
+        ->napl_stsub.getEnterExitCompiler
+        ->(nc[],xc[])
+   #)
+
+-- NameAplGenGetPattern:dopart --
+do
+   (*lazy*) (if not namesBound then bindnames if);
+   (# napl_stsub: ^staticSubstance;
+      napl_stocp: ^staticOCP
+   do (context[],world[],usageAst[]) 
+        ->getStaticSubstance
+        ->napl_stsub[];
+      (if napl_stsub##<=staticOCP## then
+          napl_stsub[]->napl_stocp[];
+          (program[],cInfo[],noneAllowed,usageAst[])
+            ->napl_stocp.generateGetPattern
+            ->gensptype[]
+       else
+          (# msg: ^text
+          do 'Attempt to obtain a pattern from '->msg[];
+             (napl_stsub.typename).withIndefArticle->msg.puttext;
+             (msg[],'Use an object(ref) or a pattern(ref)'
+             ,usageAst[])->staticError
+          #)
+      if)
+   #)
+
+-- NameAplGenGetQua:dopart --
+do
+   (*lazy*) (if not namesBound then bindnames if);
+   (# fail:
+        (# msg: ^text
+        do 'Attempt to obtain the qualification of '->msg[];
+           (napl_stsub.typename).withIndefArticle->msg.puttext;
+           (msg[],'Use an object(ref) or a pattern(ref)'
+           ,usageAst[])->staticError
+        #);
+      napl_stsub: ^staticSubstance;
+      napl_stocp: ^staticOCP;
+      ignore_exact: @boolean (* ignored because we do not ref-assign here *)
+   do
+      (context[],world[],usageAst[]) 
+        ->getStaticSubstance
+        ->napl_stsub[];
+      (if napl_stsub##<=staticOCP## then
+          napl_stsub[]->napl_stocp[];
+          (if napl_stocp.sptype.kind
+           // objectRefTypeKind // patternRefTypeKind then
+              (* OK *)
+           else
+              fail
+          if);
+          ('ibetaCom1body.bet/1840',napl_stocp.pathTo[]
+          ,decl[],napl_stocp.sptype[])
+            ->(&getQualificationCode[]).init
+            ->program.append;
+          (context[],world[],usageAst[])
+            ->getStaticQuaType
+            ->(gensptype[],ignore_exact)
+       else
+          fail
+      if)
+   #)
+
+-- NameAplGenGetObject:dopart --
+do
+   (*lazy*) (if not namesBound then bindnames if);
+   (# napl_stsub: ^staticSubstance;
+      napl_stocp: ^staticOCP;
+      sptype: ^staticPatternType;
+      stdSolution:
+        (# do (program[],cInfo[],noneAllowed,usageAst[])
+             ->napl_stocp.generateGetObject
+             ->gensptype[]
+        #)
+   do (context[],world[],usageAst[])
+        ->getStaticSubstance
+        ->napl_stsub[];
+      (if napl_stsub##<=staticOCP## then
+          napl_stsub[]->napl_stocp[];
+          (if napl_stocp.sptype.kind
+           // patternTypeKind // patternRefTypeKind then
+              (* renew makes no difference, ignore it *)
+              stdSolution
+           // objectTypeKind then
+              (* renew not allowed *)
+              (if renew then
+                  (# msg,solution: ^text
+                  do 'Attempt to renew an object (using \'&\')'->msg[];
+                     'Use a pattern, a pattern ref, or '->solution[];
+                     'an object ref with \'&\''->solution.puttext;
+                     (msg[],solution[],usageAst[])->staticError
+                  #)
+               else
+                  stdSolution
+              if)
+           // objectRefTypeKind then
+              (if renew then
+                  (context[],world[],usageAst[],program[],cInfo[])
+                    ->generateGetQualification
+                    ->sptype[];
+                  'ibetaCom1body.bet/1462'
+                    ->(&createObjectCode[]).init
+                    ->program.append;
+                  ('ibetaCom1body.bet/1465'
+                  ,((context[],world[],usageAst[])
+                    ->getStaticSubstance).pathTo[]
+                  ,sptype[])
+                    ->(&putKeepObjectRefCode[]).init
+                    ->program.append;
+                  (context[],world[],usageAst[])
+                    ->getStaticType
+                    ->gensptype[]
+               else
+                  stdSolution
+              if)
+          if)
+       else
+          (# msg: ^text
+          do 'Attempt to obtain an object from '->msg[];
+             (napl_stsub.typename).withIndefArticle->msg.puttext;
+             (msg[],'Use an object(ref) or a pattern(ref)'
+             ,usageAst[])->staticError
+          #)
+      if)
+   #)
+
+-- NameAplGenGetTmp:dopart --
+do
+   (*lazy*) (if not namesBound then bindnames if);
+   (# napl_stsub: ^staticSubstance;
+      napl_stocp: ^staticOCP;
+      sptype: ^staticPatternType;
+      stocp: ^staticOCP;
+      framePos: @integer;
+      stdSolution:
+        (# do (program[],cInfo[],usageAst[],this(l2NameApl)[])
+             ->napl_stocp.generateGetTmpObject
+             ->genstocp[]
+        #)
+   do (context[],world[],usageAst[])
+        ->getStaticSubstance
+        ->napl_stsub[];
+      (if napl_stsub##<=staticOCP## then
+          napl_stsub[]->napl_stocp[];
+          (if napl_stocp.sptype.kind
+           // patternTypeKind // patternRefTypeKind then
+              (* renew makes no difference, ignore it *)
+              stdSolution
+           // objectTypeKind then
+              (* renew not allowed *)
+              (if renew then 
+                  (# msg,solution: ^text
+                  do 'Attempt to renew an object (using \'&\')'->msg[];
+                     'Use a pattern, a pattern ref, or '->solution[];
+                     'an object ref with \'&\''->solution.puttext;
+                     (msg[],solution[],usageAst[])->staticError
+                  #)
+               else
+                  stdSolution
+              if)
+           // objectRefTypeKind then
+              (if renew then
+                  (context[],world[],usageAst[])
+                    ->getStaticSubstance
+                    ->stocp[];
+                  (* we choose this n.apl. as canonical representative 
+                   * for the temporary even though the 'decl' node seems
+                   * the obvious choice; the problem is that multiple uses
+                   * of renew in the same imp. (like "(&x,&x)->y") would 
+                   * lead us to confuse the two-or-more new objects created 
+                   * by those multiple "renews"; on the other hand, since 
+                   * this is an object.ref we could not assume that two 
+                   * different n.apls resolving to the same decl. would be 
+                   * the same object anyway, so nothing is lost *)
+                  (this(l2NameApl)[],cInfo.allocateTmp->framePos)
+                    ->stocp.createTmpVersion
+                    ->genstocp[];
+                  (context[],world[],usageAst[],program[],cInfo[])
+                    ->generateGetQualification
+                    ->sptype[];
+                  ('ibetaCom1body.bet/1525',framePos)
+                    ->(&createTmpCode[]).init
+                    ->program.append;
+                  ('ibetaCom1body.bet/1531',stocp.pathTo[],sptype[],framePos)
+                    ->(&putKeepTmpRefCode[]).init
+                    ->program.append;
+               else
+                  stdSolution
+              if)
+          if)
+       else
+          (# msg: ^text
+          do 'Attempt to obtain an object from '->msg[];
+             (napl_stsub.typename).withIndefArticle->msg.puttext;
+             (msg[],'Use an object(ref) or a pattern(ref)'
+             ,usageAst[])->staticError
+          #)
+      if)
+   #)
+
+-- NameAplGenPutPattern:dopart --
+do
+   (*lazy*) (if not namesBound then bindnames if);
+   (# fail:
+        (# msg: ^text
+        do 'Attempt to pattern-assign to '->msg[];
+           (stsub.typename).withIndefArticle->msg.puttext;
+           (msg[]
+           ,'Use a pattern variable as the target of pattern assignments'
+           ,usageAst[])->staticError
+        #);
+      stsub: ^staticSubstance;
+      stocp: ^staticOCP;
+      ignore_exact: @boolean
+   do (context[],world[],usageAst[])
+        ->getStaticSubstance
+        ->stsub[];
+      (if stsub##<=staticOCP## then
+          stsub[]->stocp[];
+          (if stocp.sptype.kind=patternRefTypekind then
+              (context[],world[],usageAst[])
+                ->getStaticQuaType
+                ->(gensptype[],ignore_exact);
+              ('ibetaCom1body.bet/1942'
+              ,stocp.pathTo[],gensptype[])
+                ->(&putPatternCode[]).init
+                ->program.append
+           else
+              fail
+          if)
+       else
+          fail
+      if)
+   #)
+
+-- NameAplGenPutObject:dopart --
+do
+   (*lazy*) (if not namesBound then bindnames if);
+   (# fail:
+        (# msg: ^text
+        do 'Attempt to reference-assign to '->msg[];
+           (stsub.typename).withIndefArticle->msg.puttext;
+           (msg[]
+           ,'Use an object reference as the target of reference assignments'
+           ,usageAst[])->staticError
+        #);
+      stsub: ^staticSubstance;
+      stocp: ^staticOCP
+   do (context[],world[],usageAst[])
+        ->getStaticSubstance
+        ->stsub[];
+      (if stsub##<=staticOCP## then
+          stsub[]->stocp[];
+          (if stocp.sptype.kind=objectRefTypekind then
+              (* find the static knowledge of the assigned attribute *)
+              (context[],world[],usageAst[])
+                ->getStaticQuaType
+                ->(gensptype[],qualExact);
+              (* generate the byte code to perform the reference assignment *)
+              ('ibetaCom1body.bet/1979'
+              ,stocp.pathTo[],gensptype[])
+                ->(&putObjectRefCode[]).init
+                ->program.append;
+           else
+              fail
+          if)
+       else
+          fail
+      if)
+   #)
+
+-- NameAplAccessible:dopart --
+do
+   (* if, e.g., rtp is {'x'} then we pass through a pointer and the
+    * entity is not uniquely determined; rtp knows about this *)
+   rtp.isDirectlyAccessible->value
+
+-- NameAplExistAccess:dopart --
+do
+   (* !! it seems likely that there could never be an rtp for a name 
+    * apl that fails to lead to an existing, accessible entity (because
+    * every name is looked up by simple up/down/out-then-lookup paths), 
+    * so we might be able to simplify this to 'true->value' *)
+   rtp.existingAccessible->value
+
+-- NameAplLookup:dopart --
+do
+   (* since a stand-alone name apl must be lookup-able also 
+    * with 'for' substances etc. we must use lookupname on the entity *)
+   (# fail: 
+        (# 
+        do 'Trying to walk an "impossible" run-time path'
+             ->internalError
+        #);
+      target_dContext: ^substanceSlice
+   do 
+      (thrd[],unwind##,dContext[])
+        ->rtp.performDynamicButOne(# impossible::(# do fail #)#)
+        ->target_dContext[];
+      (thrd[],unwind##,decl[])
+        ->target_dContext.lookupName
+        ->l1ent[];
+      (* 'target_dContext' said "not found" but we cannot *)
+      (if l1ent[]=NONE then fail if)
+   #)
+
+-- NameAplLookupAttr:dopart --
+do
+   (# fail: 
+        (# 
+        do 'Trying to walk an "impossible" run-time path'
+             ->internalError
+        #);
+      target_dContext: ^substanceSlice
+   do (thrd[],unwind##,dContext[])
+        ->rtp.performDynamicButOne(# impossible::(# do fail #)#)
+        ->target_dContext[];
+      (thrd[],unwind##,decl[])
+        ->target_dContext.lookupAttr
+        ->attr[];
+      (* 'target_dContext' said "not found" but we are not allowed to *)
+      (if attr[]=NONE then fail if)
+   #)
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

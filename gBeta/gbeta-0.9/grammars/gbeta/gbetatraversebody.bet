@@ -1,0 +1,1243 @@
+ORIGIN 'gbetatraverse';
+
+--LIB: attributes--
+
+GrammarPath: (# exit '~/gbeta-0.9/grammars/gbeta/gbeta' #);
+BobsTab:     (# exit '~/gbeta-0.9/grammars/gbeta/gbeta-parser.btab' #);
+
+-- do_BetaForm_body: DoPart --
+do (if B.symbol
+    // gbeta.DescriptorForm then
+       B[] -> do_DescriptorForm;
+    // gbeta.AttributesForm then
+       B[] -> do_AttributesForm;
+    if);
+
+-- do_DescriptorForm_body: DoPart --
+do D.getObjectDescriptor -> do_ObjectDescriptor;
+
+-- do_AttributesForm_body: DoPart --
+do A.getAttributes -> do_Attributes;
+
+-- do_ObjectDescriptor_body: DoPart --
+do O.getPrefixOpt -> do_PrefixOpt;
+   O.getMainPart -> do_MainPart;
+
+-- do_MainPart_body: DoPart --
+do (if M.symbol
+    // gbeta.LongMainPart then
+       M[] -> do_LongMainPart;
+    // gbeta.ShortMainPart then
+       M[] -> do_ShortMainPart;
+    if);
+
+-- do_LongMainPart_body: DoPart --
+do L.getAttributes -> do_Attributes;
+   L.getActionPart -> do_ActionPart;
+
+-- do_ShortMainPart_body: DoPart --
+do S.getAttributes -> do_Attributes;
+   S.getActionPart -> do_ActionPart;
+
+-- do_Attributes_body: DoPart --
+do A.newscan
+   (#
+   do current[] -> do_AttributeDecl;
+   #);
+
+-- do_PrefixOpt_body: DoPart --
+do (if a.kind<>ast.kinds.optional then
+       a[] -> do_Prefix;
+   if);
+
+-- do_Prefix_body: DoPart --
+do (if P.symbol
+    // gbeta.SimplePrefix then
+       P[] -> do_SimplePrefix;
+    // gbeta.CompositePrefix then
+       P[] -> do_CompositePrefix;
+    if);
+
+-- do_SimplePrefix_body: DoPart --
+do S.getAttributeDenotation -> do_AttributeDenotation;
+
+-- do_CompositePrefix_body: DoPart --
+do C.getMerge -> do_Merge;
+
+-- do_AttributeDeclOpt_body: DoPart --
+do (if a.kind<>ast.kinds.optional then
+       a[] -> do_AttributeDecl;
+   if);
+
+-- do_AttributeDecl_body: DoPart --
+do (if A.symbol
+    // gbeta.PatternDecl then
+       A[] -> do_PatternDecl;
+    // gbeta.SimpleDecl then
+       A[] -> do_SimpleDecl;
+    // gbeta.RepetitionDecl then
+       A[] -> do_RepetitionDecl;
+    // gbeta.VirtualDecl then
+       A[] -> do_VirtualDecl;
+    // gbeta.BindingDecl then
+       A[] -> do_BindingDecl;
+    // gbeta.FinalDecl then
+       A[] -> do_FinalDecl;
+    // gbeta.ErrorDecl then
+       A[] -> do_ErrorDecl;
+    if);
+
+-- do_PatternDecl_body: DoPart --
+do P.getNames -> do_Names;
+   P.getMerge -> do_Merge;
+
+-- do_SimpleDecl_body: DoPart --
+do S.getNames -> do_Names;
+   S.getReferenceSpecification -> do_ReferenceSpecification;
+
+-- do_RepetitionDecl_body: DoPart --
+do R.getNames -> do_Names;
+   R.getIndex -> do_Index;
+   R.getReferenceSpecification -> do_ReferenceSpecification;
+
+-- do_VirtualDecl_body: DoPart --
+do V.getNames -> do_Names;
+   V.getDisownOpt -> do_DisownOpt;
+   V.getMerge -> do_Merge;
+   V.getRestrictionOpt -> do_RestrictionOpt;
+
+-- do_BindingDecl_body: DoPart --
+do B.getNames -> do_Names;
+   B.getSwapOpt -> do_SwapOpt;
+   B.getDisownOpt -> do_DisownOpt;
+   B.getMerge -> do_Merge;
+   B.getRestrictionOpt -> do_RestrictionOpt;
+
+-- do_FinalDecl_body: DoPart --
+do F.getNames -> do_Names;
+   F.getSwapOpt -> do_SwapOpt;
+   F.getMerge -> do_Merge;
+
+-- do_DisownOpt_body: DoPart --
+do (if a.kind<>ast.kinds.optional then
+       a[] -> do_Disown;
+   if);
+
+-- do_Disown_body: DoPart --
+do 
+
+-- do_SwapOpt_body: DoPart --
+do (if a.kind<>ast.kinds.optional then
+       a[] -> do_Swap;
+   if);
+
+-- do_Swap_body: DoPart --
+do 
+
+-- do_RestrictionOpt_body: DoPart --
+do (if a.kind<>ast.kinds.optional then
+       a[] -> do_RestrictionPart;
+   if);
+
+-- do_RestrictionPart_body: DoPart --
+do R.getRestrictions -> do_Restrictions;
+
+-- do_Restrictions_body: DoPart --
+do R.newscan
+   (#
+   do current[] -> do_Restriction;
+   #);
+
+-- do_Restriction_body: DoPart --
+do R.getAttributeDenotation -> do_AttributeDenotation;
+
+-- do_VariablePattern_body: DoPart --
+do V.getAttributeDenotation -> do_AttributeDenotation;
+
+-- do_ReferenceSpecification_body: DoPart --
+do (if R.symbol
+    // gbeta.StaticItem then
+       R[] -> do_StaticItem;
+    // gbeta.VirtualStaticItem then
+       R[] -> do_VirtualStaticItem;
+    // gbeta.FinalStaticItem then
+       R[] -> do_FinalStaticItem;
+    // gbeta.DynamicItem then
+       R[] -> do_DynamicItem;
+    // gbeta.StaticComponent then
+       R[] -> do_StaticComponent;
+    // gbeta.DynamicComponent then
+       R[] -> do_DynamicComponent;
+    // gbeta.VariablePattern then
+       R[] -> do_VariablePattern;
+    if);
+
+-- do_StaticItem_body: DoPart --
+do S.getMerge -> do_Merge;
+
+-- do_VirtualStaticItem_body: DoPart --
+do V.getDisownOpt -> do_DisownOpt;
+   V.getAttributeDenotation -> do_AttributeDenotation;
+
+-- do_FinalStaticItem_body: DoPart --
+do F.getMerge -> do_Merge;
+
+-- do_DynamicItem_body: DoPart --
+do D.getExactOpt -> do_ExactOpt;
+   D.getAttributeDenotation -> do_AttributeDenotation;
+
+-- do_ExactOpt_body: DoPart --
+do (if a.kind<>ast.kinds.optional then
+       a[] -> do_Exact;
+   if);
+
+-- do_Exact_body: DoPart --
+do 
+
+-- do_StaticComponent_body: DoPart --
+do S.getMerge -> do_Merge;
+
+-- do_DynamicComponent_body: DoPart --
+do D.getExactOpt -> do_ExactOpt;
+   D.getAttributeDenotation -> do_AttributeDenotation;
+
+-- do_ObjectSpecification_body: DoPart --
+do (if O.symbol
+    // gbeta.ObjectDescriptor then
+       O[] -> do_ObjectDescriptor;
+       (* sub-alternation <AttributeDenotation>: *)
+    // gbeta.NameApl then
+       O[] -> do_NameApl;
+    // gbeta.Remote then
+       O[] -> do_Remote;
+    // gbeta.ComputedRemote then
+       O[] -> do_ComputedRemote;
+    // gbeta.Indexed then
+       O[] -> do_Indexed;
+    // gbeta.ThisObject then
+       O[] -> do_ThisObject;
+    // gbeta.QualifiedAttrDen then
+       O[] -> do_QualifiedAttrDen;
+    // gbeta.RemotePrimitive then
+       O[] -> do_RemotePrimitive;
+       (* End sub-alternation <AttributeDenotation> *)
+    if);
+
+-- do_Merge_body: DoPart --
+do M.newscan
+   (#
+   do current[] -> do_ObjectSpecification;
+   #);
+
+-- do_Index_body: DoPart --
+do (if I.symbol
+    // gbeta.SimpleIndex then
+       I[] -> do_SimpleIndex;
+    // gbeta.NamedIndex then
+       I[] -> do_NamedIndex;
+    if);
+
+-- do_NamedIndex_body: DoPart --
+do N.getNameDcl -> do_NameDcl;
+   N.getEvaluation -> do_Evaluation;
+
+-- do_ActionPart_body: DoPart --
+do A.getEnterPartOpt -> do_EnterPartOpt;
+   A.getDoPartOpt -> do_DoPartOpt;
+   A.getExitPartOpt -> do_ExitPartOpt;
+
+-- do_EnterPartOpt_body: DoPart --
+do (if a.kind<>ast.kinds.optional then
+       a[] -> do_EnterPart;
+   if);
+
+-- do_DoPartOpt_body: DoPart --
+do (if a.kind<>ast.kinds.optional then
+       a[] -> do_DoPart;
+   if);
+
+-- do_ExitPartOpt_body: DoPart --
+do (if a.kind<>ast.kinds.optional then
+       a[] -> do_ExitPart;
+   if);
+
+-- do_EnterPart_body: DoPart --
+do E.getEvaluation -> do_Evaluation;
+
+-- do_DoPart_body: DoPart --
+do D.getImperatives -> do_Imperatives;
+
+-- do_ExitPart_body: DoPart --
+do E.getEvaluation -> do_Evaluation;
+
+-- do_Imperatives_body: DoPart --
+do I.newscan
+   (#
+   do current[] -> do_Imp;
+   #);
+
+-- do_ImpOpt_body: DoPart --
+do (if a.kind<>ast.kinds.optional then
+       a[] -> do_Imp;
+   if);
+
+-- do_Imp_body: DoPart --
+do (if I.symbol
+    // gbeta.LabelledImp then
+       I[] -> do_LabelledImp;
+    // gbeta.LeaveImp then
+       I[] -> do_LeaveImp;
+    // gbeta.RestartImp then
+       I[] -> do_RestartImp;
+    // gbeta.InnerImp then
+       I[] -> do_InnerImp;
+    // gbeta.SuspendImp then
+       I[] -> do_SuspendImp;
+       (* sub-alternation <Evaluation>: *)
+       (* sub-alternation <Expression>: *)
+       (* sub-alternation <RelationalExp>: *)
+    // gbeta.EqExp then
+       I[] -> do_EqExp;
+    // gbeta.LtExp then
+       I[] -> do_LtExp;
+    // gbeta.LeExp then
+       I[] -> do_LeExp;
+    // gbeta.GtExp then
+       I[] -> do_GtExp;
+    // gbeta.GeExp then
+       I[] -> do_GeExp;
+    // gbeta.NeExp then
+       I[] -> do_NeExp;
+       (* End sub-alternation <RelationalExp> *)
+       (* sub-alternation <SimpleExp>: *)
+       (* sub-alternation <AddExp>: *)
+    // gbeta.PlusExp then
+       I[] -> do_PlusExp;
+    // gbeta.MinusExp then
+       I[] -> do_MinusExp;
+    // gbeta.OrExp then
+       I[] -> do_OrExp;
+    // gbeta.XorExp then
+       I[] -> do_XorExp;
+       (* End sub-alternation <AddExp> *)
+       (* sub-alternation <SignedTerm>: *)
+    // gbeta.UnaryPlusExp then
+       I[] -> do_UnaryPlusExp;
+    // gbeta.UnaryMinusexp then
+       I[] -> do_UnaryMinusexp;
+       (* End sub-alternation <SignedTerm> *)
+       (* sub-alternation <Term>: *)
+       (* sub-alternation <MulExp>: *)
+    // gbeta.TimesExp then
+       I[] -> do_TimesExp;
+    // gbeta.RealDivExp then
+       I[] -> do_RealDivExp;
+    // gbeta.IntDivExp then
+       I[] -> do_IntDivExp;
+    // gbeta.ModExp then
+       I[] -> do_ModExp;
+    // gbeta.AndExp then
+       I[] -> do_AndExp;
+    // gbeta.PrimitiveExp then
+       I[] -> do_PrimitiveExp;
+       (* End sub-alternation <MulExp> *)
+       (* sub-alternation <Factor>: *)
+    // gbeta.TextConst then
+       I[] -> do_TextConst;
+    // gbeta.IntegerConst then
+       I[] -> do_IntegerConst;
+    // gbeta.NotExp then
+       I[] -> do_NotExp;
+    // gbeta.NoneExp then
+       I[] -> do_NoneExp;
+       (* sub-alternation <Transaction>: *)
+       (* sub-alternation <Reference>: *)
+    // gbeta.ObjectDenotation then
+       I[] -> do_ObjectDenotation;
+       (* sub-alternation <DynamicObjectGeneration>: *)
+    // gbeta.DynamicItemGeneration then
+       I[] -> do_DynamicItemGeneration;
+    // gbeta.DynamicComponentGeneration then
+       I[] -> do_DynamicComponentGeneration;
+       (* End sub-alternation <DynamicObjectGeneration> *)
+    // gbeta.ComputedObjectEvaluation then
+       I[] -> do_ComputedObjectEvaluation;
+    // gbeta.RepetitionSlice then
+       I[] -> do_RepetitionSlice;
+       (* End sub-alternation <Reference> *)
+    // gbeta.ObjectReference then
+       I[] -> do_ObjectReference;
+    // gbeta.EvalList then
+       I[] -> do_EvalList;
+    // gbeta.StructureReference then
+       I[] -> do_StructureReference;
+    // gbeta.Primitive then
+       I[] -> do_Primitive;
+    // gbeta.Address then
+       I[] -> do_Address;
+    // gbeta.ForImp then
+       I[] -> do_ForImp;
+    // gbeta.SimpleIfImp then
+       I[] -> do_SimpleIfImp;
+    // gbeta.GeneralIfImp then
+       I[] -> do_GeneralIfImp;
+       (* End sub-alternation <Transaction> *)
+    // gbeta.UnaryPrimitiveExp then
+       I[] -> do_UnaryPrimitiveExp;
+       (* End sub-alternation <Factor> *)
+       (* End sub-alternation <Term> *)
+       (* End sub-alternation <SimpleExp> *)
+       (* End sub-alternation <Expression> *)
+    // gbeta.AssignmentEvaluation then
+       I[] -> do_AssignmentEvaluation;
+       (* End sub-alternation <Evaluation> *)
+    // gbeta.WhileImp then
+       I[] -> do_WhileImp;
+    // gbeta.WhenImp then
+       I[] -> do_WhenImp;
+    // gbeta.CodeImp then
+       I[] -> do_CodeImp;
+    // gbeta.ErrorImp then
+       I[] -> do_ErrorImp;
+    if);
+
+-- do_LabelledImp_body: DoPart --
+do L.getNameDcl -> do_NameDcl;
+   L.getImp -> do_Imp;
+
+-- do_ForImp_body: DoPart --
+do F.getIndex -> do_Index;
+   F.getRepDo -> do_RepDo;
+   F.getImperatives -> do_Imperatives;
+
+-- do_RepDo_body: DoPart --
+do (if R.symbol
+    // gbeta.Rep then
+       R[] -> do_Rep;
+    // gbeta.Doit then
+       R[] -> do_Doit;
+    if);
+
+-- do_Rep_body: DoPart --
+do 
+
+-- do_Doit_body: DoPart --
+do 
+
+-- do_WhileImp_body: DoPart --
+do W.getEvaluation -> do_Evaluation;
+   W.getRepDo -> do_RepDo;
+   W.getImperatives -> do_Imperatives;
+
+-- do_GeneralIfImp_body: DoPart --
+do G.getEvaluation -> do_Evaluation;
+   G.getAlternatives -> do_Alternatives;
+   G.getElsePartOpt -> do_ElsePartOpt;
+
+-- do_SimpleIfImp_body: DoPart --
+do S.getEvaluation -> do_Evaluation;
+   S.getImperatives -> do_Imperatives;
+   S.getElsePartOpt -> do_ElsePartOpt;
+
+-- do_WhenImp_body: DoPart --
+do W.getNameDcl -> do_NameDcl;
+   W.getAttributeDenotation -> do_AttributeDenotation;
+   W.getWhenAlternatives -> do_WhenAlternatives;
+   W.getElsePartOpt -> do_ElsePartOpt;
+
+-- do_LeaveImp_body: DoPart --
+do L.getScopeSpecOpt -> do_ScopeSpecOpt;
+
+-- do_RestartImp_body: DoPart --
+do R.getScopeSpecOpt -> do_ScopeSpecOpt;
+
+-- do_InnerImp_body: DoPart --
+do I.getScopeSpecOpt -> do_ScopeSpecOpt;
+
+-- do_ScopeSpecOpt_body: DoPart --
+do (if a.kind<>ast.kinds.optional then
+       a[] -> do_ScopeSpec;
+   if);
+
+-- do_ScopeSpec_body: DoPart --
+do (if S.symbol
+    // gbeta.IntegerScopeSpec then
+       S[] -> do_IntegerScopeSpec;
+    // gbeta.NameAplScopeSpec then
+       S[] -> do_NameAplScopeSpec;
+    if);
+
+-- do_IntegerScopeSpec_body: DoPart --
+do I.getIntegerConst -> do_IntegerConst;
+
+-- do_NameAplScopeSpec_body: DoPart --
+do N.getNameApl -> do_NameApl;
+
+-- do_SuspendImp_body: DoPart --
+do 
+
+-- do_CodeImp_body: DoPart --
+do C.getCodeItems -> do_CodeItems;
+
+-- do_Alternatives_body: DoPart --
+do A.newscan
+   (#
+   do current[] -> do_Alternative;
+   #);
+
+-- do_Alternative_body: DoPart --
+do A.getSelections -> do_Selections;
+   A.getImperatives -> do_Imperatives;
+
+-- do_Selections_body: DoPart --
+do S.newscan
+   (#
+   do current[] -> do_Selection;
+   #);
+
+-- do_Selection_body: DoPart --
+do (if S.symbol
+    // gbeta.CaseSelection then
+       S[] -> do_CaseSelection;
+    if);
+
+-- do_CaseSelection_body: DoPart --
+do C.getEvaluation -> do_Evaluation;
+
+-- do_WhenAlternatives_body: DoPart --
+do W.newscan
+   (#
+   do current[] -> do_WhenAlternative;
+   #);
+
+-- do_WhenAlternative_body: DoPart --
+do W.getExactOpt -> do_ExactOpt;
+   W.getAttributeDenotation -> do_AttributeDenotation;
+   W.getImperatives -> do_Imperatives;
+
+-- do_ElsePartOpt_body: DoPart --
+do (if a.kind<>ast.kinds.optional then
+       a[] -> do_ElsePart;
+   if);
+
+-- do_ElsePart_body: DoPart --
+do E.getImperatives -> do_Imperatives;
+
+-- do_Evaluations_body: DoPart --
+do E.newscan
+   (#
+   do current[] -> do_Evaluation;
+   #);
+
+-- do_Evaluation_body: DoPart --
+do (if E.symbol
+       (* sub-alternation <Expression>: *)
+       (* sub-alternation <RelationalExp>: *)
+    // gbeta.EqExp then
+       E[] -> do_EqExp;
+    // gbeta.LtExp then
+       E[] -> do_LtExp;
+    // gbeta.LeExp then
+       E[] -> do_LeExp;
+    // gbeta.GtExp then
+       E[] -> do_GtExp;
+    // gbeta.GeExp then
+       E[] -> do_GeExp;
+    // gbeta.NeExp then
+       E[] -> do_NeExp;
+       (* End sub-alternation <RelationalExp> *)
+       (* sub-alternation <SimpleExp>: *)
+       (* sub-alternation <AddExp>: *)
+    // gbeta.PlusExp then
+       E[] -> do_PlusExp;
+    // gbeta.MinusExp then
+       E[] -> do_MinusExp;
+    // gbeta.OrExp then
+       E[] -> do_OrExp;
+    // gbeta.XorExp then
+       E[] -> do_XorExp;
+       (* End sub-alternation <AddExp> *)
+       (* sub-alternation <SignedTerm>: *)
+    // gbeta.UnaryPlusExp then
+       E[] -> do_UnaryPlusExp;
+    // gbeta.UnaryMinusexp then
+       E[] -> do_UnaryMinusexp;
+       (* End sub-alternation <SignedTerm> *)
+       (* sub-alternation <Term>: *)
+       (* sub-alternation <MulExp>: *)
+    // gbeta.TimesExp then
+       E[] -> do_TimesExp;
+    // gbeta.RealDivExp then
+       E[] -> do_RealDivExp;
+    // gbeta.IntDivExp then
+       E[] -> do_IntDivExp;
+    // gbeta.ModExp then
+       E[] -> do_ModExp;
+    // gbeta.AndExp then
+       E[] -> do_AndExp;
+    // gbeta.PrimitiveExp then
+       E[] -> do_PrimitiveExp;
+       (* End sub-alternation <MulExp> *)
+       (* sub-alternation <Factor>: *)
+    // gbeta.TextConst then
+       E[] -> do_TextConst;
+    // gbeta.IntegerConst then
+       E[] -> do_IntegerConst;
+    // gbeta.NotExp then
+       E[] -> do_NotExp;
+    // gbeta.NoneExp then
+       E[] -> do_NoneExp;
+       (* sub-alternation <Transaction>: *)
+       (* sub-alternation <Reference>: *)
+    // gbeta.ObjectDenotation then
+       E[] -> do_ObjectDenotation;
+       (* sub-alternation <DynamicObjectGeneration>: *)
+    // gbeta.DynamicItemGeneration then
+       E[] -> do_DynamicItemGeneration;
+    // gbeta.DynamicComponentGeneration then
+       E[] -> do_DynamicComponentGeneration;
+       (* End sub-alternation <DynamicObjectGeneration> *)
+    // gbeta.ComputedObjectEvaluation then
+       E[] -> do_ComputedObjectEvaluation;
+    // gbeta.RepetitionSlice then
+       E[] -> do_RepetitionSlice;
+       (* End sub-alternation <Reference> *)
+    // gbeta.ObjectReference then
+       E[] -> do_ObjectReference;
+    // gbeta.EvalList then
+       E[] -> do_EvalList;
+    // gbeta.StructureReference then
+       E[] -> do_StructureReference;
+    // gbeta.Primitive then
+       E[] -> do_Primitive;
+    // gbeta.Address then
+       E[] -> do_Address;
+    // gbeta.ForImp then
+       E[] -> do_ForImp;
+    // gbeta.SimpleIfImp then
+       E[] -> do_SimpleIfImp;
+    // gbeta.GeneralIfImp then
+       E[] -> do_GeneralIfImp;
+       (* End sub-alternation <Transaction> *)
+    // gbeta.UnaryPrimitiveExp then
+       E[] -> do_UnaryPrimitiveExp;
+       (* End sub-alternation <Factor> *)
+       (* End sub-alternation <Term> *)
+       (* End sub-alternation <SimpleExp> *)
+       (* End sub-alternation <Expression> *)
+    // gbeta.AssignmentEvaluation then
+       E[] -> do_AssignmentEvaluation;
+    if);
+
+-- do_AssignmentEvaluation_body: DoPart --
+do A.getEvaluation -> do_Evaluation;
+   A.getTransaction -> do_Transaction;
+
+-- do_Transaction_body: DoPart --
+do (if T.symbol
+       (* sub-alternation <Reference>: *)
+    // gbeta.ObjectDenotation then
+       T[] -> do_ObjectDenotation;
+       (* sub-alternation <DynamicObjectGeneration>: *)
+    // gbeta.DynamicItemGeneration then
+       T[] -> do_DynamicItemGeneration;
+    // gbeta.DynamicComponentGeneration then
+       T[] -> do_DynamicComponentGeneration;
+       (* End sub-alternation <DynamicObjectGeneration> *)
+    // gbeta.ComputedObjectEvaluation then
+       T[] -> do_ComputedObjectEvaluation;
+    // gbeta.RepetitionSlice then
+       T[] -> do_RepetitionSlice;
+       (* End sub-alternation <Reference> *)
+    // gbeta.ObjectReference then
+       T[] -> do_ObjectReference;
+    // gbeta.EvalList then
+       T[] -> do_EvalList;
+    // gbeta.StructureReference then
+       T[] -> do_StructureReference;
+    // gbeta.Primitive then
+       T[] -> do_Primitive;
+    // gbeta.Address then
+       T[] -> do_Address;
+    // gbeta.ForImp then
+       T[] -> do_ForImp;
+    // gbeta.SimpleIfImp then
+       T[] -> do_SimpleIfImp;
+    // gbeta.GeneralIfImp then
+       T[] -> do_GeneralIfImp;
+    if);
+
+-- do_Reference_body: DoPart --
+do (if R.symbol
+    // gbeta.ObjectDenotation then
+       R[] -> do_ObjectDenotation;
+       (* sub-alternation <DynamicObjectGeneration>: *)
+    // gbeta.DynamicItemGeneration then
+       R[] -> do_DynamicItemGeneration;
+    // gbeta.DynamicComponentGeneration then
+       R[] -> do_DynamicComponentGeneration;
+       (* End sub-alternation <DynamicObjectGeneration> *)
+    // gbeta.ComputedObjectEvaluation then
+       R[] -> do_ComputedObjectEvaluation;
+    // gbeta.RepetitionSlice then
+       R[] -> do_RepetitionSlice;
+    if);
+
+-- do_DynamicObjectGeneration_body: DoPart --
+do (if D.symbol
+    // gbeta.DynamicItemGeneration then
+       D[] -> do_DynamicItemGeneration;
+    // gbeta.DynamicComponentGeneration then
+       D[] -> do_DynamicComponentGeneration;
+    if);
+
+-- do_ObjectDenotation_body: DoPart --
+do O.getMerge -> do_Merge;
+
+-- do_ComputedObjectEvaluation_body: DoPart --
+do C.getReference -> do_Reference;
+
+-- do_ObjectReference_body: DoPart --
+do O.getReference -> do_Reference;
+
+-- do_StructureReference_body: DoPart --
+do S.getMerge -> do_Merge;
+
+-- do_EvalList_body: DoPart --
+do E.getEvaluations -> do_Evaluations;
+
+-- do_DynamicItemGeneration_body: DoPart --
+do D.getMerge -> do_Merge;
+
+-- do_DynamicComponentGeneration_body: DoPart --
+do D.getMerge -> do_Merge;
+
+-- do_Primitive_body: DoPart --
+do P.getSimpleEntry -> do_SimpleEntry;
+
+-- do_Address_body: DoPart --
+do A.getAttributeDenotation -> do_AttributeDenotation;
+
+-- do_AttributeDenotation_body: DoPart --
+do (if A.symbol
+    // gbeta.NameApl then
+       A[] -> do_NameApl;
+    // gbeta.Remote then
+       A[] -> do_Remote;
+    // gbeta.ComputedRemote then
+       A[] -> do_ComputedRemote;
+    // gbeta.Indexed then
+       A[] -> do_Indexed;
+    // gbeta.ThisObject then
+       A[] -> do_ThisObject;
+    // gbeta.QualifiedAttrDen then
+       A[] -> do_QualifiedAttrDen;
+    // gbeta.RemotePrimitive then
+       A[] -> do_RemotePrimitive;
+    if);
+
+-- do_Remote_body: DoPart --
+do R.getAttributeDenotation -> do_AttributeDenotation;
+   R.getNameApl -> do_NameApl;
+
+-- do_ComputedRemote_body: DoPart --
+do C.getEvaluations -> do_Evaluations;
+   C.getNameApl -> do_NameApl;
+
+-- do_Indexed_body: DoPart --
+do I.getAttributeDenotation -> do_AttributeDenotation;
+   I.getEvaluation -> do_Evaluation;
+
+-- do_ThisObject_body: DoPart --
+do T.getScopeSpecOpt -> do_ScopeSpecOpt;
+
+-- do_QualifiedAttrDen_body: DoPart --
+do Q.getAttributeDenotation -> do_AttributeDenotation;
+   Q.getMerge -> do_Merge;
+
+-- do_RemotePrimitive_body: DoPart --
+do R.getAttributeDenotation -> do_AttributeDenotation;
+   R.getNameApl -> do_NameApl;
+
+-- do_Expression_body: DoPart --
+do (if E.symbol
+       (* sub-alternation <RelationalExp>: *)
+    // gbeta.EqExp then
+       E[] -> do_EqExp;
+    // gbeta.LtExp then
+       E[] -> do_LtExp;
+    // gbeta.LeExp then
+       E[] -> do_LeExp;
+    // gbeta.GtExp then
+       E[] -> do_GtExp;
+    // gbeta.GeExp then
+       E[] -> do_GeExp;
+    // gbeta.NeExp then
+       E[] -> do_NeExp;
+       (* End sub-alternation <RelationalExp> *)
+       (* sub-alternation <SimpleExp>: *)
+       (* sub-alternation <AddExp>: *)
+    // gbeta.PlusExp then
+       E[] -> do_PlusExp;
+    // gbeta.MinusExp then
+       E[] -> do_MinusExp;
+    // gbeta.OrExp then
+       E[] -> do_OrExp;
+    // gbeta.XorExp then
+       E[] -> do_XorExp;
+       (* End sub-alternation <AddExp> *)
+       (* sub-alternation <SignedTerm>: *)
+    // gbeta.UnaryPlusExp then
+       E[] -> do_UnaryPlusExp;
+    // gbeta.UnaryMinusexp then
+       E[] -> do_UnaryMinusexp;
+       (* End sub-alternation <SignedTerm> *)
+       (* sub-alternation <Term>: *)
+       (* sub-alternation <MulExp>: *)
+    // gbeta.TimesExp then
+       E[] -> do_TimesExp;
+    // gbeta.RealDivExp then
+       E[] -> do_RealDivExp;
+    // gbeta.IntDivExp then
+       E[] -> do_IntDivExp;
+    // gbeta.ModExp then
+       E[] -> do_ModExp;
+    // gbeta.AndExp then
+       E[] -> do_AndExp;
+    // gbeta.PrimitiveExp then
+       E[] -> do_PrimitiveExp;
+       (* End sub-alternation <MulExp> *)
+       (* sub-alternation <Factor>: *)
+    // gbeta.TextConst then
+       E[] -> do_TextConst;
+    // gbeta.IntegerConst then
+       E[] -> do_IntegerConst;
+    // gbeta.NotExp then
+       E[] -> do_NotExp;
+    // gbeta.NoneExp then
+       E[] -> do_NoneExp;
+       (* sub-alternation <Transaction>: *)
+       (* sub-alternation <Reference>: *)
+    // gbeta.ObjectDenotation then
+       E[] -> do_ObjectDenotation;
+       (* sub-alternation <DynamicObjectGeneration>: *)
+    // gbeta.DynamicItemGeneration then
+       E[] -> do_DynamicItemGeneration;
+    // gbeta.DynamicComponentGeneration then
+       E[] -> do_DynamicComponentGeneration;
+       (* End sub-alternation <DynamicObjectGeneration> *)
+    // gbeta.ComputedObjectEvaluation then
+       E[] -> do_ComputedObjectEvaluation;
+    // gbeta.RepetitionSlice then
+       E[] -> do_RepetitionSlice;
+       (* End sub-alternation <Reference> *)
+    // gbeta.ObjectReference then
+       E[] -> do_ObjectReference;
+    // gbeta.EvalList then
+       E[] -> do_EvalList;
+    // gbeta.StructureReference then
+       E[] -> do_StructureReference;
+    // gbeta.Primitive then
+       E[] -> do_Primitive;
+    // gbeta.Address then
+       E[] -> do_Address;
+    // gbeta.ForImp then
+       E[] -> do_ForImp;
+    // gbeta.SimpleIfImp then
+       E[] -> do_SimpleIfImp;
+    // gbeta.GeneralIfImp then
+       E[] -> do_GeneralIfImp;
+       (* End sub-alternation <Transaction> *)
+    // gbeta.UnaryPrimitiveExp then
+       E[] -> do_UnaryPrimitiveExp;
+       (* End sub-alternation <Factor> *)
+       (* End sub-alternation <Term> *)
+       (* End sub-alternation <SimpleExp> *)
+    if);
+
+-- do_RelationalExp_body: DoPart --
+do (if R.symbol
+    // gbeta.EqExp then
+       R[] -> do_EqExp;
+    // gbeta.LtExp then
+       R[] -> do_LtExp;
+    // gbeta.LeExp then
+       R[] -> do_LeExp;
+    // gbeta.GtExp then
+       R[] -> do_GtExp;
+    // gbeta.GeExp then
+       R[] -> do_GeExp;
+    // gbeta.NeExp then
+       R[] -> do_NeExp;
+    if);
+
+-- do_SimpleExp_body: DoPart --
+do (if S.symbol
+       (* sub-alternation <AddExp>: *)
+    // gbeta.PlusExp then
+       S[] -> do_PlusExp;
+    // gbeta.MinusExp then
+       S[] -> do_MinusExp;
+    // gbeta.OrExp then
+       S[] -> do_OrExp;
+    // gbeta.XorExp then
+       S[] -> do_XorExp;
+       (* End sub-alternation <AddExp> *)
+       (* sub-alternation <SignedTerm>: *)
+    // gbeta.UnaryPlusExp then
+       S[] -> do_UnaryPlusExp;
+    // gbeta.UnaryMinusexp then
+       S[] -> do_UnaryMinusexp;
+       (* End sub-alternation <SignedTerm> *)
+       (* sub-alternation <Term>: *)
+       (* sub-alternation <MulExp>: *)
+    // gbeta.TimesExp then
+       S[] -> do_TimesExp;
+    // gbeta.RealDivExp then
+       S[] -> do_RealDivExp;
+    // gbeta.IntDivExp then
+       S[] -> do_IntDivExp;
+    // gbeta.ModExp then
+       S[] -> do_ModExp;
+    // gbeta.AndExp then
+       S[] -> do_AndExp;
+    // gbeta.PrimitiveExp then
+       S[] -> do_PrimitiveExp;
+       (* End sub-alternation <MulExp> *)
+       (* sub-alternation <Factor>: *)
+    // gbeta.TextConst then
+       S[] -> do_TextConst;
+    // gbeta.IntegerConst then
+       S[] -> do_IntegerConst;
+    // gbeta.NotExp then
+       S[] -> do_NotExp;
+    // gbeta.NoneExp then
+       S[] -> do_NoneExp;
+       (* sub-alternation <Transaction>: *)
+       (* sub-alternation <Reference>: *)
+    // gbeta.ObjectDenotation then
+       S[] -> do_ObjectDenotation;
+       (* sub-alternation <DynamicObjectGeneration>: *)
+    // gbeta.DynamicItemGeneration then
+       S[] -> do_DynamicItemGeneration;
+    // gbeta.DynamicComponentGeneration then
+       S[] -> do_DynamicComponentGeneration;
+       (* End sub-alternation <DynamicObjectGeneration> *)
+    // gbeta.ComputedObjectEvaluation then
+       S[] -> do_ComputedObjectEvaluation;
+    // gbeta.RepetitionSlice then
+       S[] -> do_RepetitionSlice;
+       (* End sub-alternation <Reference> *)
+    // gbeta.ObjectReference then
+       S[] -> do_ObjectReference;
+    // gbeta.EvalList then
+       S[] -> do_EvalList;
+    // gbeta.StructureReference then
+       S[] -> do_StructureReference;
+    // gbeta.Primitive then
+       S[] -> do_Primitive;
+    // gbeta.Address then
+       S[] -> do_Address;
+    // gbeta.ForImp then
+       S[] -> do_ForImp;
+    // gbeta.SimpleIfImp then
+       S[] -> do_SimpleIfImp;
+    // gbeta.GeneralIfImp then
+       S[] -> do_GeneralIfImp;
+       (* End sub-alternation <Transaction> *)
+    // gbeta.UnaryPrimitiveExp then
+       S[] -> do_UnaryPrimitiveExp;
+       (* End sub-alternation <Factor> *)
+       (* End sub-alternation <Term> *)
+    if);
+
+-- do_AddExp_body: DoPart --
+do (if A.symbol
+    // gbeta.PlusExp then
+       A[] -> do_PlusExp;
+    // gbeta.MinusExp then
+       A[] -> do_MinusExp;
+    // gbeta.OrExp then
+       A[] -> do_OrExp;
+    // gbeta.XorExp then
+       A[] -> do_XorExp;
+    if);
+
+-- do_SignedTerm_body: DoPart --
+do (if S.symbol
+    // gbeta.UnaryPlusExp then
+       S[] -> do_UnaryPlusExp;
+    // gbeta.UnaryMinusexp then
+       S[] -> do_UnaryMinusexp;
+    if);
+
+-- do_Term_body: DoPart --
+do (if T.symbol
+       (* sub-alternation <MulExp>: *)
+    // gbeta.TimesExp then
+       T[] -> do_TimesExp;
+    // gbeta.RealDivExp then
+       T[] -> do_RealDivExp;
+    // gbeta.IntDivExp then
+       T[] -> do_IntDivExp;
+    // gbeta.ModExp then
+       T[] -> do_ModExp;
+    // gbeta.AndExp then
+       T[] -> do_AndExp;
+    // gbeta.PrimitiveExp then
+       T[] -> do_PrimitiveExp;
+       (* End sub-alternation <MulExp> *)
+       (* sub-alternation <Factor>: *)
+    // gbeta.TextConst then
+       T[] -> do_TextConst;
+    // gbeta.IntegerConst then
+       T[] -> do_IntegerConst;
+    // gbeta.NotExp then
+       T[] -> do_NotExp;
+    // gbeta.NoneExp then
+       T[] -> do_NoneExp;
+       (* sub-alternation <Transaction>: *)
+       (* sub-alternation <Reference>: *)
+    // gbeta.ObjectDenotation then
+       T[] -> do_ObjectDenotation;
+       (* sub-alternation <DynamicObjectGeneration>: *)
+    // gbeta.DynamicItemGeneration then
+       T[] -> do_DynamicItemGeneration;
+    // gbeta.DynamicComponentGeneration then
+       T[] -> do_DynamicComponentGeneration;
+       (* End sub-alternation <DynamicObjectGeneration> *)
+    // gbeta.ComputedObjectEvaluation then
+       T[] -> do_ComputedObjectEvaluation;
+    // gbeta.RepetitionSlice then
+       T[] -> do_RepetitionSlice;
+       (* End sub-alternation <Reference> *)
+    // gbeta.ObjectReference then
+       T[] -> do_ObjectReference;
+    // gbeta.EvalList then
+       T[] -> do_EvalList;
+    // gbeta.StructureReference then
+       T[] -> do_StructureReference;
+    // gbeta.Primitive then
+       T[] -> do_Primitive;
+    // gbeta.Address then
+       T[] -> do_Address;
+    // gbeta.ForImp then
+       T[] -> do_ForImp;
+    // gbeta.SimpleIfImp then
+       T[] -> do_SimpleIfImp;
+    // gbeta.GeneralIfImp then
+       T[] -> do_GeneralIfImp;
+       (* End sub-alternation <Transaction> *)
+    // gbeta.UnaryPrimitiveExp then
+       T[] -> do_UnaryPrimitiveExp;
+       (* End sub-alternation <Factor> *)
+    if);
+
+-- do_MulExp_body: DoPart --
+do (if M.symbol
+    // gbeta.TimesExp then
+       M[] -> do_TimesExp;
+    // gbeta.RealDivExp then
+       M[] -> do_RealDivExp;
+    // gbeta.IntDivExp then
+       M[] -> do_IntDivExp;
+    // gbeta.ModExp then
+       M[] -> do_ModExp;
+    // gbeta.AndExp then
+       M[] -> do_AndExp;
+    // gbeta.PrimitiveExp then
+       M[] -> do_PrimitiveExp;
+    if);
+
+-- do_EqExp_body: DoPart --
+do E.getOperand1 -> do_SimpleExp;
+   E.getOperand2 -> do_SimpleExp;
+
+-- do_LtExp_body: DoPart --
+do L.getOperand1 -> do_SimpleExp;
+   L.getOperand2 -> do_SimpleExp;
+
+-- do_LeExp_body: DoPart --
+do L.getOperand1 -> do_SimpleExp;
+   L.getOperand2 -> do_SimpleExp;
+
+-- do_GtExp_body: DoPart --
+do G.getOperand1 -> do_SimpleExp;
+   G.getOperand2 -> do_SimpleExp;
+
+-- do_GeExp_body: DoPart --
+do G.getOperand1 -> do_SimpleExp;
+   G.getOperand2 -> do_SimpleExp;
+
+-- do_NeExp_body: DoPart --
+do N.getOperand1 -> do_SimpleExp;
+   N.getOperand2 -> do_SimpleExp;
+
+-- do_PlusExp_body: DoPart --
+do P.getSimpleExp -> do_SimpleExp;
+   P.getTerm -> do_Term;
+
+-- do_MinusExp_body: DoPart --
+do M.getSimpleExp -> do_SimpleExp;
+   M.getTerm -> do_Term;
+
+-- do_OrExp_body: DoPart --
+do O.getSimpleExp -> do_SimpleExp;
+   O.getTerm -> do_Term;
+
+-- do_XorExp_body: DoPart --
+do X.getSimpleExp -> do_SimpleExp;
+   X.getTerm -> do_Term;
+
+-- do_UnaryPlusExp_body: DoPart --
+do U.getTerm -> do_Term;
+
+-- do_UnaryMinusExp_body: DoPart --
+do U.getTerm -> do_Term;
+
+-- do_TimesExp_body: DoPart --
+do T.getTerm -> do_Term;
+   T.getFactor -> do_Factor;
+
+-- do_RealDivExp_body: DoPart --
+do R.getTerm -> do_Term;
+   R.getFactor -> do_Factor;
+
+-- do_IntDivExp_body: DoPart --
+do I.getTerm -> do_Term;
+   I.getFactor -> do_Factor;
+
+-- do_ModExp_body: DoPart --
+do M.getTerm -> do_Term;
+   M.getFactor -> do_Factor;
+
+-- do_AndExp_body: DoPart --
+do A.getTerm -> do_Term;
+   A.getFactor -> do_Factor;
+
+-- do_PrimitiveExp_body: DoPart --
+do P.getTerm -> do_Term;
+   P.getNameApl -> do_NameApl;
+   P.getFactor -> do_Factor;
+
+-- do_Factor_body: DoPart --
+do (if F.symbol
+    // gbeta.TextConst then
+       F[] -> do_TextConst;
+    // gbeta.IntegerConst then
+       F[] -> do_IntegerConst;
+    // gbeta.NotExp then
+       F[] -> do_NotExp;
+    // gbeta.NoneExp then
+       F[] -> do_NoneExp;
+       (* sub-alternation <Transaction>: *)
+       (* sub-alternation <Reference>: *)
+    // gbeta.ObjectDenotation then
+       F[] -> do_ObjectDenotation;
+       (* sub-alternation <DynamicObjectGeneration>: *)
+    // gbeta.DynamicItemGeneration then
+       F[] -> do_DynamicItemGeneration;
+    // gbeta.DynamicComponentGeneration then
+       F[] -> do_DynamicComponentGeneration;
+       (* End sub-alternation <DynamicObjectGeneration> *)
+    // gbeta.ComputedObjectEvaluation then
+       F[] -> do_ComputedObjectEvaluation;
+    // gbeta.RepetitionSlice then
+       F[] -> do_RepetitionSlice;
+       (* End sub-alternation <Reference> *)
+    // gbeta.ObjectReference then
+       F[] -> do_ObjectReference;
+    // gbeta.EvalList then
+       F[] -> do_EvalList;
+    // gbeta.StructureReference then
+       F[] -> do_StructureReference;
+    // gbeta.Primitive then
+       F[] -> do_Primitive;
+    // gbeta.Address then
+       F[] -> do_Address;
+    // gbeta.ForImp then
+       F[] -> do_ForImp;
+    // gbeta.SimpleIfImp then
+       F[] -> do_SimpleIfImp;
+    // gbeta.GeneralIfImp then
+       F[] -> do_GeneralIfImp;
+       (* End sub-alternation <Transaction> *)
+    // gbeta.UnaryPrimitiveExp then
+       F[] -> do_UnaryPrimitiveExp;
+    if);
+
+-- do_RepetitionSlice_body: DoPart --
+do R.getAttributeDenotation -> do_AttributeDenotation;
+   R.getLow -> do_Evaluation;
+   R.getHigh -> do_Evaluation;
+
+-- do_NotExp_body: DoPart --
+do N.getFactor -> do_Factor;
+
+-- do_NoneExp_body: DoPart --
+do 
+
+-- do_UnaryPrimitiveExp_body: DoPart --
+do U.getNameApl -> do_NameApl;
+   U.getFactor -> do_Factor;
+
+-- do_Names_body: DoPart --
+do N.newscan
+   (#
+   do current[] -> do_NameDcl;
+   #);
+
+-- do_NameDcl_body: DoPart --
+do N.getNameDecl -> do_NameDecl;
+
+-- do_NameApl_body: DoPart --
+do N.getNameAppl -> do_NameAppl;
+
+-- do_SimpleEntry_body: DoPart --
+do (if a.kind<>ast.kinds.optional then
+       a[] -> do_TextConst;
+   if);
+
+-- do_TextConst_body: DoPart --
+do T.getString -> do_String;
+
+-- do_IntegerConst_body: DoPart --
+do I.getConst -> do_Const;
+
+-- do_SimpleIndex_body: DoPart --
+do S.getEvaluation -> do_Evaluation;
+
+-- do_CodeItems_body: DoPart --
+do C.newscan
+   (#
+   do current[] -> do_CodeItem;
+   #);
+
+-- do_CodeItem_body: DoPart --
+do (if C.symbol
+    // gbeta.CodeString then
+       C[] -> do_CodeString;
+    // gbeta.CodeConst then
+       C[] -> do_CodeConst;
+    if);
+
+-- do_CodeString_body: DoPart --
+do C.getString -> do_String;
+
+-- do_CodeConst_body: DoPart --
+do C.getConst -> do_Const;
+
+-- do_ErrorDecl_body: DoPart --
+do 
+
+-- do_ErrorImp_body: DoPart --
+do 
+
+-- gbeta_init_body: DoPart --
+do ast.astLevelInit;
+   (* Alternative to using findGrammar: *)
+   ('gbeta', '.gb', GrammarPath->ast.expandToFullPath)
+     -> ast.registergrammar;
+   gbeta.init; 
+   BobsTab -> ast.expandToFullPath -> gbeta.parser.initialize
+   (# #);

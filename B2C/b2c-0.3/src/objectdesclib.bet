@@ -1,0 +1,17 @@
+ORIGIN 'objectdesc';
+INCLUDE 'specialdesc';
+INCLUDE 'ad/nameapl';
+INCLUDE 'ad/rename';
+--- ObjectDescriptorLib: Attributes ---
+getcdecl:
+  (# t: @text; writeable: @Boolean
+  enter writeable
+  do
+     (if private.sd[]<>NONE then
+	private.sd.ctype->t
+     else
+	(if writeable then 'struct I'->t else 'struct O'->t if);
+	private.mapname[]->t.append
+     if)
+  exit t[]
+  #);

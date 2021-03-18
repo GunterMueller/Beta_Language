@@ -1,0 +1,187 @@
+ORIGIN '../evaluationlib';
+INCLUDE 'type';
+INCLUDE '../attden';
+INCLUDE '../label';
+INCLUDE '../objectdesc';
+INCLUDE '../specialdesc';
+INCLUDE '../ctype';
+(*
+ * Basic evaluations, that are generated, when standard BETA expressions
+ * (like ObjectEvaluation) are reduced.
+ *)
+--- CompilerLib: Attributes ---
+EnterExit: AnyDenotation
+  (#
+     isenter: @Boolean;
+     type:: (# do evtype_unreduced->value #);
+     reduce::<
+       (#
+	  recurse:
+	    (# od: ^ObjectDescriptor; ev: ^Evaluation; red: ^ev.reduce;
+	    enter od[]
+	    do
+	       (if od[]<>NONE then
+		  od.private.super[]->&recurse;
+		  (if od.isbasic or od.isrep then
+		     ad[]->&EnterExitSimple->enteropt[]->exitopt[];
+		  else
+		     (if isenter then
+			od.private.enterprt[]->ev[];
+		     else
+			od.private.exitprt[]->ev[];
+		     if);
+
+		     (if ev[]=NONE then leave recurse if);
+		     &ev.reduce[]->red[];
+
+		     (* DEBUG
+		     (# t: @text;
+		     do
+			'EnterExit: calling reduce for: '->t;
+			t[]->ad.getcexpr;
+			t[]->putline;
+		     #);
+		     *)
+
+		     ad[]->red;
+
+		     (* DEBUG
+		     (if (red.before[]=NONE) and (red.enteropt[]=NONE)
+			and (red.main[]=NONE) and (red.exitopt[]=NONE) then
+			'EnterExit: reduce returned nothing!'->putline;
+		     if);
+		     *)
+
+		     (* enter and exit lists are ordered backwards! *)
+		     (before[],red.before[])->EvaluationJoin->before[];
+		     (red.enteropt[],enteropt[])->EvaluationJoin->enteropt[];
+		     (main[],red.main[])->EvaluationJoin->main[];
+		     (red.exitopt[],exitopt[])->EvaluationJoin->exitopt[];
+		  if)
+	       if);
+	    #);
+       do
+	  (* !!! enable recursion detection one day!
+	  (if inenter then
+	     'Illegal recursion of enter lists!'->error;
+	     leave getenter
+	  if);
+	  *)
+	  ad.getpatt->recurse; INNER
+       #);
+  enter ad[]
+  do INNER
+  #);
+
+EnterExitComplex: EnterExit (# enter isenter exit this(EnterExitComplex)[] #);
+
+EnterExitSimple: AnyDenotation
+  (#
+     type:: (# od: ^ObjectDescriptor <<SLOT EnterExitSimpleType: DoPart>> #);
+     reduce:: (# do this(EnterExitSimple)[]->enteropt[]->exitopt[] #);
+     assignable:: (# do true->value #);
+  enter ad[]
+  exit this(EnterExitSimple)[]
+  #);
+
+CallPattern: AnyDenotation
+  (#
+     DoDo:: (# od: ^ObjectDescriptor <<SLOT CallPatternDoDo: DoPart>> #);
+     lab: ^Label;
+  enter ad[]
+  do currentLabel.l[]->lab[]
+  exit this(CallPattern)[]
+  #);
+
+CallExternal: EnterExit
+  (#
+     origad: ^AttributeDenotation;
+     exitvalueisused: @Boolean;
+     args: @EvaluationPtr;
+     MainPart: @Evaluation
+       (#
+	  DoDo:: (# od: ^ObjectDescriptor <<SLOT CallExternalDoDo: DoPart>> #);
+	  DoCexpr::
+	    (# od: ^ObjectDescriptor <<SLOT CallExternalDoCexpr: DoPart>> #);
+       #);
+     ExitExternal: @EnterExitComplex
+       (# reduce:: (# do (exitopt[]<>NONE)->exitvalueisused #) #);
+     checkExtra:
+       (# od: ^ObjectDescriptor <<SLOT CallExternalCheckExtra: DoPart>> #);
+  enter origad[]
+  do
+     true->isenter;
+     (ad[],false)->ExitExternal;
+     NONE->args;
+     false->exitvalueisused;
+     checkExtra##->c_file.todoExtra;
+  exit this(CallExternal)[]
+  #);
+
+
+--- EnterExitSimpleType: DoPart ---
+do
+   evtype_integer->value;
+   (if (ad.getpatt->od[])<>NONE then
+      (if od.private.sd[]<>NONE then
+	 (if od[]=BooleanPattern[] then evtype_boolean->value if);
+	 (if od[]=CharPattern[] then evtype_char->value if);
+	 (if od[]=RealPattern[] then evtype_real->value if);
+      else
+         (if od.isrep then evtype_rep->value if)
+      if)
+   if)
+
+
+--- CallPatternDoDo: DoPart ---
+do
+   getod->od[];
+   (if od.private.funcname[]=NONE then
+      '    if('->c_file.cstream.puttext;
+      ctype_patternptr->DoCexpr;
+      '->function) if(!(*'->c_file.cstream.puttext;
+      ctype_patternptr->DoCexpr;
+      '->function)('->c_file.cstream.puttext;
+   else
+      '    if(!F'->c_file.cstream.puttext;
+      od.private.funcname[]->c_file.cstream.puttext;
+      '((struct O'->c_file.cstream.puttext;
+      od.private.funcname[]->c_file.cstream.puttext;
+      ' *)'->c_file.cstream.puttext;
+   if);
+   ctype_objectptr->DoCexpr;
+   (if lab[]<>NONE then
+      ')) goto L'->c_file.cstream.puttext;
+      lab.testOD->c_file.cstream.putint;
+      ';\n'->c_file.cstream.puttext;
+   else
+      ')) return 0;\n'->c_file.cstream.puttext;
+   if);
+
+
+--- CallExternalDoDo: DoPart ---
+do
+   (if not exitvalueisused then
+      '    '->c_file.cstream.puttext; DoCexpr; ';\n'->c_file.cstream.puttext
+   if)
+
+
+--- CallExternalDoCexpr: DoPart ---
+do
+   this(CallExternal).getod->od[];
+   od.private.sd.ctype[]->c_file.cstream.puttext;
+   '('->c_file.cstream.put;
+   args.recurse
+     (# rc:: (# do el.DoCexpr #); middle:: (# do ','->c_file.cstream.put #)
+     #);
+   ')'->c_file.cstream.put;
+
+
+--- CallExternalCheckExtra: DoPart ---
+do
+   getod->od[];
+   (if (args=NONE) and (od[]<>NONE) then
+      (if od.private.enterprt[]<>NONE then
+	 'External called without parameters!'->origad.error
+      if)
+   if)

@@ -1,0 +1,40 @@
+ORIGIN '../attributelib';
+INCLUDE '../attributebitch';
+INCLUDE '../evaluationlib';
+INCLUDE '../namebitch';
+INCLUDE '../ad/nameapl';
+INCLUDE '../ad/special';
+INCLUDE '../imp/eval';
+(* Repetitions *)
+--- RepetitionDeclDoPart: DoPart ---
+do
+   (#
+      assev: @AssignmentEvaluation;
+      evimp: @EvaluationImp;
+      newod: @ObjectDescriptor;
+   do
+      'ptr'->nme;
+      '@ptr'->nme.str;
+      (nme[],os[],type)->sd;
+      (ev[],('$size'->&NameApl,0)->&ObjectEvaluation)->assev->evimp;
+      (&RepetitionDenotation, sd[], NONE, evimp[], NONE)->newod->od[]->os[];
+      this(RepetitionDecl)[]->od.encl[];
+      0->type;
+      (* !!! there is a problem in here:
+       *     The ObjectSpecification/ObjectDescriptor of this declaration
+       *     (Variable os[]) and the Evaluation (Variable ev[]), that
+       *     specifies the initial repetition size, are transferred to
+       *     the repetition's ObjectDescriptor.  If ev[] or os[] contain
+       *     a reference to a variable or method called "new", they will
+       *     refer to the repetition's new method - which is probably not
+       *     the intended operation.
+       *)
+   #);
+
+
+--- RepetitionDeclPrint: DoPart ---
+do '['->s.append; s[]->ev.print; '] '->s.append;
+
+
+--- RepetitionDeclPrintos: DoPart ---
+do s[]->sd.os.print; true->value

@@ -1,0 +1,189 @@
+ORIGIN 'betaenv';
+BODY 'private/filebody';
+--- lib: attributes ---
+(* The general purpose `file' pattern.  Specializations of this shall be
+ * created for various operating systems, but aren't available, yet.
+ *)
+file: stream
+  (#
+     <<SLOT FileLib: Attributes>>;
+     private: @<<SLOT FilePrivate: ObjectDescriptor>>;
+
+
+     (* the standard stream methods *)
+     eos:: (# <<SLOT FileEOS: DoPart>> #);
+     peek:: (# <<SLOT FilePeek: DoPart>> #);
+     get:: (# <<SLOT FileGet: DoPart>> #);
+     put:: (# <<SLOT FilePut: DoPart>> #);
+     puttext:: (# i: @integer <<SLOT FilePuttext: DoPart>> #);
+     reset:: (# <<SLOT FileReset: DoPart>> #);
+     setpos:: (# mode:@integer enter mode <<SLOT FileSetPos: DoPart>> exit p #);
+     length:: (# <<SLOT FileLength: DoPart>> #);
+
+
+     (* Specific methods of `file' streams.  The name after the open (like
+      * `read' or `write') specifies for which operations the file shall
+      * be opened.  The difference between `write' and `append' is, that
+      * the later will position the file at its end.  The same effect could
+      * also be achieved with a seek.
+      *)
+     openRead: (# <<SLOT FileOpenRead: DoPart>> #);
+     openWrite: (# <<SLOT FileOpenWrite: DoPart>> #);
+     openAppend: (# <<SLOT FileOpenAppend: DoPart>> #);
+     openReadWrite: (# <<SLOT FileOpenReadWrite: DoPart>> #);
+     openReadAppend: (# <<SLOT FileOpenReadAppend: DoPart>> #);
+     flush: (# <<SLOT FileFlush: DoPart>> #);
+     close: (# <<SLOT FileClose: DoPart>> #);
+
+
+     (* If this is bound to TrueObject, the file input/output won't be
+      * buffered.  This is a non-standard extension! *)
+     unbuffered:< BooleanValue;
+
+
+     (* The file's name *)
+     entryDesc:< diskEntry;
+     entry: @entryDesc;
+     name: (# enter entry.path exit entry.path #);
+
+
+     (* Exception handling, as usual *)
+     fileRaise: streamRaise
+       (# do INNER; 'File Exception'->msg.putline; fileError##->deliverTo #);
+     fileError:< exception;
+
+     openRaise: fileRaise
+       (#
+       do INNER; 'File cannot be opened!'->msg.putline; openError##->deliverTo
+       #);
+     openError:< exception;
+
+     accessRaise: openRaise
+       (# do INNER; 'Permission denied!'->msg.putline; accessError##->deliverTo
+       #);
+     accessError:< exception;
+
+     fileExistsRaise: openRaise
+       (#
+       do
+	  INNER;
+	  'File already exists!'->msg.putline;
+	  fileExistsError##->deliverTo
+       #);
+     fileExistsError:< exception;
+
+     noSuchFileRaise: openRaise
+       (#
+       do
+	  INNER;
+	  'No such file or directory!'->msg.putline;
+	  noSuchFileError##->deliverTo;
+       #);
+     noSuchFileError:< exception;
+
+     writeRaise: fileRaise
+       (#
+       do
+	  INNER;
+	  'Cannot write data block!'->msg.putline;
+	  writeError##->deliverTo;
+       #);
+     writeError:< exception;
+
+     readRaise: fileRaise
+       (#
+       do
+	  INNER;
+	  'Cannot read data block!'->msg.putline;
+	  readError##->deliverTo;
+       #);
+     readError:< exception;
+  #);
+
+
+(* Legal constants for mode in `file.setpos': *)
+FromBeginning: (# exit 0 #);
+FromCurrent:   (# exit 1 #); 
+FromEnd:       (# exit 2 #);
+
+
+(* Disk entry, that is a file, directory or special file. *)
+DiskEntry:
+  (#
+     <<SLOT DiskEntryLib: Attributes>>;
+     private: @<<SLOT DiskEntryPrivate: ObjectDescriptor>>;
+     
+     (* store a path *)
+     path: @pathDesc;
+     pathDesc:<
+       (#
+	  (* The head of the path, with the last directory component clipped *)
+	  (*
+	  head:< (# t: ^text <<SLOT DiskEntryPathHead: DoPart>> exit t[] #);
+	  *)
+
+          (* The name-part of the path, which is the last component. *)
+          name: @nameDesc;
+          nameDesc:< 
+            (#
+	       (* The prefix of the name, that is anything before the last dot.
+	        * Example: the prefix of `b2c.lst' is `b2c': *)
+	       (*
+	       prefix:<
+                 (# t: ^text <<SLOT DiskEntryNamePref: DoPart>> exit t[] #);
+	       *)
+
+	       (* The extension - that is anything behind the last dot. *)
+	       (*
+               extension:<
+                 (# t: ^text <<SLOT DiskEntryNameExtension: DoPart>> exit t[]#);
+	       *)
+
+	       (* As before, but with the dot (.) *)
+	       (*
+               suffix:<
+                 (# t: ^text <<SLOT DiskEntryNameSuffix: DoPart>> exit t[] #);
+	       *)
+
+	       (* The full name part *)
+	       (*
+               get:< (# t: ^text <<SLOT DiskEntryName: DoPart>> exit t[] #);
+	       *)
+	    (*
+            exit get
+	    *)
+            #);
+
+          (* set or get the entire path *)
+          set:< (# t: ^text enter t[] <<SLOT DiskEntryPathSet: DoPart>> #);
+          get:< (# t: ^text <<SLOT DiskEntryPathGet: DoPart>> exit t[] #);
+       enter set
+       do INNER
+       exit get
+       #);
+
+
+     (* not yet implemented operations:
+     exists:
+     modtime:
+     touch:
+     rename:
+     size:
+     readable:
+     writeable:
+     isFile:
+     isDirectory:
+     *)
+
+
+     (* disk entry exceptions *)
+     DiskEntryRaise: raise
+       (#
+       do
+	  INNER;
+	  'DiskEntry error'->msg.putline;
+	  DiskEntryError##->deliverTo;
+       #);
+     DiskEntryError:< exception;
+  do INNER
+  #);

@@ -1,0 +1,22 @@
+ORIGIN '../objectdesc';
+INCLUDE 'funcdecl';
+INCLUDE '../cintf';
+--- ObjectDescriptorDoFunctionHead: DoPart ---
+do
+   'int F'->c_file.cstream.puttext;
+   mapname[]->c_file.cstream.puttext;
+   mapname[]->cintf.funcdef;
+   (if (encl##<=Fragment##) and not (funcname[]=mapname[]) then
+      '    return F'->c_file.cstream.puttext;
+      funcname[]->c_file.cstream.puttext;
+      '((struct O'->c_file.cstream.puttext;
+      funcname[]->c_file.cstream.puttext;
+      ' *) th);\n}'->c_file.cstream.putline;
+      'int S'->c_file.cstream.puttext;
+      mapname[]->c_file.cstream.puttext;
+      mapname[]->cintf.funcdef;
+   if);
+
+
+--- ObjectDescriptorDoFunctionTail: DoPart ---
+do '    return 1;\n}\n'->c_file.cstream.puttext;

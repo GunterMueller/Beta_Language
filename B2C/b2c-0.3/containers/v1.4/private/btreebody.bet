@@ -1,0 +1,370 @@
+ORIGIN '../btree';
+--- BtreeStorage: ObjectDescriptor ---
+(# root: ^privateCell; size: @integer #)
+
+--- BtreeCell: ObjectDescriptor ---
+(#
+   <<SLOT BtreeNodeLib: Attributes>>;
+   left,right,bottom: ^privateCell;
+   elm: ^element;
+   depth: @integer;
+#)
+
+--- BtreeClear: DoPart ---
+do NONE->storage.root[]; 0->storage.size
+
+--- BtreeInit: DoPart ---
+do NONE->storage.root[]; 0->storage.size; INNER
+
+--- BtreeSize: DoPart ---
+do storage.size->value
+
+--- BtreeFindOne: DoPart ---
+do
+   NONE->current[];
+   storage.root[]->n[];
+   l: (if n[]<>NONE then
+      (if ((key[],n.elm[])->cmp)=0 then n.elm[]->current[]; INNER; leave l if);
+      (if cmp.value<0 then n.left[]->n[] else n.right[]->n[] if);
+      restart l;
+   else
+      notFound;
+   if);
+
+--- BtreeHas: DoPart ---
+do
+   true->value;
+   false->this(has).value;
+   storage.root[]->n[];
+   l: (if n[]<>NONE then
+      (if ((elm[],n.elm[])->cmp)=0 then true->this(has).value; leave l if);
+      (if cmp.value<0 then n.left[]->n[] else n.right[]->n[] if);
+      restart l;
+   if);
+
+--- BtreeNodeLib: Attributes ---
+(* re-balance the tree, if the left node has two overweight, when
+ * compared to the right *)
+left_overweight:
+  (# active: ^privateCell; ad: @integer
+  do
+     -1->ad;
+     (if (left.right[]->active[])<>NONE then active.depth->ad if);
+     (if (left.left[]=NONE) or (left.left.depth < ad) then
+	ad->left.depth->depth;
+	active.left[]->left.right[];
+	(if left.right[]<>NONE then left[]->left.right.bottom[] if);
+	left[]->active.left[];
+	active[]->left.bottom[];
+     else
+	left[]->active[];
+	ad+1->depth;
+     if);
+     depth+1->active.depth;
+     active.right[]->left[];
+     (if left[]<>NONE then this(privateCell)[]->left.bottom[] if);
+     this(privateCell)[]->active.right[];
+     bottom[]->active.bottom[];
+     (if bottom[]<>NONE then
+	(if bottom.left[]=this(privateCell)[] then
+	   active[]->bottom.left[]
+	else
+	   active[]->bottom.right[]
+	if);
+     else
+	active[]->storage.root[]
+     if);
+     active[]->bottom[];
+  exit active[]
+  #);
+
+(* re-balance the tree, if the right node has two overweight, when
+ * compared to the left *)
+right_overweight:
+  (# active: ^privateCell; ad: @integer
+  do
+     -1->ad;
+     (if (right.left[]->active[])<>NONE then active.depth->ad if);
+     (if (right.right[]=NONE) or (right.right.depth < ad) then
+	ad->right.depth->depth;
+	active.right[]->right.left[];
+	(if right.left[]<>NONE then right[]->right.left.bottom[] if);
+	right[]->active.right[];
+	active[]->right.bottom[];
+     else
+	right[]->active[];
+	ad+1->depth;
+     if);
+     depth+1->active.depth;
+     active.left[]->right[];
+     (if right[]<>NONE then this(privateCell)[]->right.bottom[] if);
+     this(privateCell)[]->active.left[];
+     bottom[]->active.bottom[];
+     (if bottom[]<>NONE then
+	(if bottom.left[]=this(privateCell)[] then
+	   active[]->bottom.left[]
+	else
+	   active[]->bottom.right[]
+	if);
+     else
+	active[]->storage.root[]
+     if);
+     active[]->bottom[];
+  exit active[]
+  #);
+
+--- BtreeInsert: ObjectDescriptor ---
+(#
+   cmp: @compare;
+   new: @
+     (# active: ^privateCell
+     do
+	&privateCell[]->active[];
+	root[]->active.bottom[];
+	elm[]->active.elm[];
+	storage.size+1->storage.size;
+     exit active[]
+     #);
+   root: ^privateCell; sign,depl,depr: @integer
+do
+   ins: (if (storage.root[]->root[])=NONE then
+      new->storage.root[];
+   else
+      (* step into the tree *)
+      l: (if ((elm[],root.elm[])->cmp->sign)=0 then
+	 (if unique then &alreadyThere; leave ins if);
+	 (* Insert the new element on the subtree, whose depth is smaller. *)
+	 (if root.left[]=NONE then new->root.left[]; leave l if);
+	 (if root.right[]=NONE then new->root.right[]; leave l if);
+	 (if root.left.depth < root.right.depth then
+	    root.left[]->root[];
+	 else
+	    root.right[]->root[];
+	 if);
+	 restart l;
+      else
+	 (if sign<0 then
+	    (if root.left[]=NONE then new->root.left[]; leave l if);
+	    root.left[]->root[];
+	 else
+	    (if root.right[]=NONE then new->root.right[]; leave l if);
+	    root.right[]->root[];
+	 if);
+	 restart l;
+      if);
+      1->root.depth;
+
+      (* step out again, thereby re-balancing subtrees, if required *)
+      l: (if root.bottom[]<>NONE then
+	 root.bottom[]->root[];
+	 -1->depr->depl;
+	 (if root.left[]<>NONE then root.left.depth->depl if);
+	 (if root.right[]<>NONE then root.right.depth->depr if);
+	 (if (depl<root.depth) and (depr<root.depth) then leave l if);
+	 root.depth+1->root.depth;
+	 (if depl > (depr+1) then root.left_overweight->root[]; leave l if);
+	 (if depr > (depl+1) then root.right_overweight->root[]; leave l if);
+	 restart l;
+      if);
+   if);
+#)
+
+
+--- BtreeDelete: ObjectDescriptor ---
+(#
+   cmp: @compare;
+   root,over,todel,bot: ^privateCell; sign,depl,depr: @integer
+do
+   storage.root[]->root[];
+   del: (if root[]<>NONE then
+      (* step into the tree *)
+      (if ((elm[],root.elm[])->cmp->sign)<>0 then
+	 (if sign<0 then root.left[]->root[] else root.right[]->root[] if);
+	 restart del;
+      if);
+
+      (* We found the node, that is to be deleted.  Walk up the tree on
+       * the left or right side, until we find a leaf, that is just
+       * before or just after the current element in the list *)
+      storage.size-1 -> storage.size;
+      root[]->todel[];
+      (* !!! use block if later *)
+      (if root.left[]=NONE then
+	 root.right[]->over[];
+      else
+	 (if root.right[]=NONE then
+	    root.left[]->over[];
+	 else
+	    (if root.left.depth>root.right.depth then
+	       root.left[]->root[];
+	       l: (if root.right[]<>NONE then
+		 root.right[]->root[]; restart l
+	       if);
+	       root.left[]->over[];
+	    else
+	       root.right[]->root[];
+	       l: (if root.left[]<>NONE then root.left[]->root[]; restart l if);
+	       root.right[]->over[];
+	    if);
+	 if);
+      if);
+
+      (* unlink the current element *)
+      root.bottom[]->bot[];
+      (if over[]<>NONE then bot[]->over.bottom[] if);
+      (if bot[]<>NONE then
+	 (if bot.left[]=root[] then
+	    over[]->bot.left[]
+	 else
+	    over[]->bot.right[]
+	 if);
+      else
+	 over[]->storage.root[]
+      if);
+
+      (* link the current element in instead of the to-be-deleted element *)
+      (if todel[]<>root[] then
+	 (if todel.bottom[]<>NONE then
+	    (if todel.bottom.left[]=todel[] then
+	       root[]->todel.bottom.left[]
+	    else
+	       root[]->todel.bottom.right[]
+	    if);
+	 else
+	    root[]->storage.root[]
+	 if);
+
+	 (if todel.left[]<>NONE then root[]->todel.left.bottom[] if);
+	 (if todel.right[]<>NONE then root[]->todel.right.bottom[] if);
+
+	 (if bot[]=todel[] then root[]->bot[] if);
+	 todel.bottom[]->root.bottom[];
+	 todel.left[]->root.left[];
+	 todel.right[]->root.right[];
+	 todel.depth->root.depth;
+      if);
+
+      (* Set deleted element to empty, so that GC can reclaim its space *)
+      NONE->todel.left[]->todel.right[]->todel.bottom[];
+      NONE->todel.elm[];
+      NONE->todel[];
+
+      bot[]->root[];
+
+      (* Walk the tree down again, thereby locating imbalancies. *)
+      l: (if root[]<>NONE then
+	 -1->depr->depl;
+	 (if root.left[]<>NONE then root.left.depth->depl if);
+	 (if root.right[]<>NONE then root.right.depth->depr if);
+	 root.depth-1->sign;
+	 (if (depl<sign) and (depr<sign) then sign->root.depth if);
+	 (if depl > (depr+1) then root.left_overweight->root[] if);
+	 (if depr > (depl+1) then root.right_overweight->root[] if);
+	 (if root.depth=sign then root.bottom[]->root[]; restart l if);
+      if);
+   else
+      notFound
+   if);
+#)
+
+
+--- BtreePrivateScanInit: DoPart ---
+do
+   (if (storage.root[]->p[])<>NONE then
+      l: (if p.left[]<>NONE then p.left[]->p[]; restart l if);
+   if);
+
+--- BtreePrivateScanNxtel: DoPart ---
+do
+   (* the main problem is, that users shall be allowed to delete the
+    * "current" element from the tree during a scan.  But because that
+    * operation unlinks the current node, and re-orders the rest of the
+    * tree, that won't really work out.  Therefore, the scanner will
+    * always be ahead by one element.
+    *)
+   (if (p[]<>NONE)->valid then
+      p.elm[]->elm[];
+      (if p.right[]<>NONE then
+	 p.right[]->p[];
+	 l: (if p.left[]<>NONE then p.left[]->p[]; restart l if);
+      else
+	 p[]->old[];
+	 l: (if (p.bottom[]->p[])<>NONE then
+	    (if p.right[]=old[] then p[]->old[]; restart l if);
+	 if);
+      if);
+   if);
+
+--- BtreeCheck: ObjectDescriptor ---
+(#
+   (* this uses a component, that is not implemented, yet, so omit the checks
+
+   current: ^privateCell;
+   last: ^privateCell;
+   vall,valr: @integer;
+   io: ^IntegerObject;
+   iterator:
+     (# root: ^privateCell;
+     enter root[]
+     do
+	(if root[]<>NONE then
+	   root.left[]->&iterator;
+	   root[]->current[];
+	   suspend;
+	   -1->vall->valr;
+	   (if root.left[]<>NONE then
+	      root.left.depth->vall;
+	      (if root.left.bottom[]<>root[] then
+		 'Check: left subtree has wrong bottom set!\n'->puttext;
+	      if);
+	   if);
+	   (if root.right[]<>NONE then
+	      root.right.depth->valr;
+	      (if root.right.bottom[]<>root[] then
+		 'Check: right subtree has wrong bottom set!\n'->puttext;
+	      if);
+	   if);
+	   (if (valr>vall+1) or (vall>valr+1) then
+	      'Check: depth of left tree is '->puttext;
+	      vall->putint;
+	      ', while depth of right tree is '->puttext;
+	      valr->putint;
+	      '!\n'->puttext;
+	   if);
+	   (if valr>vall then valr->vall if);
+	   (if root.depth<>vall+1 then
+	      'Check: value of depth is '->puttext;
+	      root.depth->putint;
+	      ' but should be '->puttext;
+	      vall+1->putint;
+	      '!\n'->puttext;
+	   if);
+	   root.right[]->&iterator;
+	   NONE->current[];
+	if);
+     exit current[]
+     #);
+   it: @| iterator;
+do
+   NONE->last[];
+   'Check of Btree:'->putline;
+   l: (if (storage.root[]->it)<>NONE then
+      (if current.elm##<=IntegerObject## then
+	 current.elm[]->io[];
+	 'element: ' ->puttext;
+	 io->putint;
+	 newline;
+      if);
+      (if last[]<>NONE then
+	 (last.elm[],current.elm[])->compare->vall;
+	 (if vall>0 then
+	    'Check: compare returned '->puttext;
+	    vall->putint;
+	    '!\n'->puttext;
+	 if);
+      if);
+      current[]->last[];
+      restart l;
+   if);
+   *)
+#)

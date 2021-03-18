@@ -1,0 +1,42 @@
+ORIGIN 'compiler';
+BODY 'machinebody';
+--- machineInfo: ObjectDescriptor ---
+(#
+   cpu: [1] ^text;	(* CPU name and aliases for it *)
+   os: [1] ^text;	(* OS name and aliases for it *)
+   full: @text;		(* full name = CPU name, underscore, OS name *)
+   ccomp: @text;	(* C compiler name *)
+   copt: [0] ^text;	(* options for the C compiler *)
+   lopt: [0] ^text;	(* specific options for the link editor *)
+   ansi: [0] ^text;	(* C compiler options to switch on strict ANSI mode *)
+
+   (* Force the use of GCC as C compiler *)
+   gcc: (# <<SLOT MachineInfoGcc: DoPart>> #);
+
+   (* Enter a machine name in `t', and check, if it matches to the current
+    * cpu and/or os and/or compiler.  The name in `t' should be in the
+    * format "cpu_os_compiler", where "cpu" is the name of a CPU (like
+    * "i486" or "decalpha"), "os" is the name of an operating system
+    * (such as "solaris" or "hpux") and "compiler" is the name of a BETA
+    * compiler (for example "mjolner" or "b2c").  This function will
+    * return `true', if all three fields match to the current setup,
+    * otherwise `false'.  The value "any" in a field will match against
+    * all possible systems, for example `any-solaris-any' will return
+    * `true' on all systems running Solaris, independant of the processor
+    * (which can be an Intel or a Sparc) or the Compiler.
+    *
+    * If there is only one underscore in the string `t', it is assumed,
+    * that the "compiler" part has been specified as "any".
+    *
+    * If there is no underscore in `t', it is matched against all
+    * applicable cpu names, host names and compiler names, and the
+    * return value will be `true', if any match is found.  The value
+    * "default" for `t' causes this function to always return with
+    * `true'.
+    *)
+   match: BooleanValue
+     (# t: ^text enter t[] <<SLOT MachineInfoMatch: DoPart>> #);
+
+   (* initialize default values *)
+   init: <<SLOT MachineInfoInit: ObjectDescriptor>>;
+#)

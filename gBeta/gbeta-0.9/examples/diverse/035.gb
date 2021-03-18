@@ -1,0 +1,7 @@
+-- betaenv:descriptor --
+(# (* chasing a run-time system bug which makes this fail 
+    * with a run-time type error *)
+   ocr: ^|object;
+   a: @|(# #)
+do a[]->ocr[]
+#)

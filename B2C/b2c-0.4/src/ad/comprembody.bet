@@ -1,0 +1,116 @@
+ORIGIN 'comprem';
+INCLUDE 'bitch';
+INCLUDE 'special';
+INCLUDE '../attributelib';
+INCLUDE '../ctype';
+INCLUDE '../eelib';
+INCLUDE '../evaluationlib';
+INCLUDE '../getcexprlib';
+INCLUDE '../objectdesc';
+INCLUDE '../namebitch';
+INCLUDE '../att/fakepdecl';
+--- ComputedRemoteCopy: DoPart ---
+do
+   (if objectptr[]<>NONE then
+      (* If this computed remote is already reduced, then make the copy
+       * of it be a normal reference to the temporary variable, that stores
+       * the result of the evalutation ev.
+       *)
+      &NameRef[]->nr[]->ad[];
+      str->nr.str;
+      nme[]->nr.nme[];
+      resolved->nr.resolved;
+      toadd[]->objectptr.copy->nr.prec[];
+   else
+      (* Collect prefixes; we later need them to reduce the evaluation ev *)
+      ev[]->cpy.ev[];
+      (if evpref[]<>NONE then
+	 toadd[]->evpref.copy->cpy.evpref[]
+      else
+	 (if toadd[]<>NONE then
+	    NONE->toadd.copy->cpy.evpref[]
+	 else
+	    NONE->cpy.evpref[]
+	 if);
+      if);
+   if);
+
+
+--- ComputedRemoteResolve: ObjectDescriptor ---
+(#
+   oref: ^ObjectReference;
+   oe: ^ObjectEvaluation;
+   assev: ^AssignmentEvaluation;
+   prefix: ^AttributeDenotation;
+   ev2: ^Evaluation;
+do
+   true->onelevel;
+   NONE->prefix[];
+   ev[]->ev2[];
+   (if ev2.next[]<>NONE then
+      'An Evaluation list is not legal here!'->error;
+   else
+      loop: (if true
+      // ev2##<=ObjectReference## then
+	 ev2[]->oref[];
+	 oref.oe.ad.resolve;
+	 prefix[]->oref.oe.ad.copy->prec[];
+	 prec.getpatt->startod[];
+      // ev2##<=AssignmentEvaluation## then
+	 ev2[]->assev[];
+	 assev.rs[]->ev2[];
+	 restart loop;
+      // ev2##<=ObjectEvaluation## then
+	 ev2[]->oe[];
+	 oe.ad.resolve;
+	 prefix[]->oe.ad.copy->prefix[];
+	 prefix.getpatt->od[];
+	 NONE->ev2[];
+	 r: (if od[]<>NONE then
+	    (if od.private.exitprt[]<>NONE then
+	       (if ev2[]<>NONE then NONE->ev2[]; leave r; if);
+	       od.private.exitprt[]->ev2[];
+	    if);
+	    od.resolvePrefix;
+	    od.private.super[]->od[];
+	    restart r;
+	 if);
+	 (if ev2[]<>NONE then restart loop if);
+	 'A pattern used in a computed remote must have an exit list of length one!'->error;
+      else
+	 'Unsupported type of evaluation in Computed Remote!'->error
+      if);
+   if);
+#)
+
+
+--- ComputedRemoteReduce: ObjectDescriptor ---
+(#
+   assev: @AssignmentEvaluation;
+   before: ^Evaluation;
+   red: ^assev.reduce;
+   ad: ^AttributeDenotation;
+do
+   (if objectptr[]=NONE then
+      (if not ((prec[]->ad[]).ispattern) then
+	 (if prec.att.att.os##<=AttributeDenotation## then
+	    prec.att.att.os[]->ad[];
+	 else
+	    prec.att.att.os[]->fakePatternDecl->ad[];
+	 if);
+	 prec.prec[]->ad.copy->ad[]
+      if);
+      (ad[],true)->ee.item(# dontinit::TrueObject #)->(objectptr[],before[]);
+      (this(ComputedRemote).ev[],
+       (objectptr[],0)->&ObjectEvaluation->ObjectReference)->assev;
+      this(ComputedRemote)[]->assev.encl[];
+      &assev.reduce[]->red[];
+      evpref[]->red;
+      ((ev[],before[])->EvaluationJoin,(red.before[],red.main[])
+	->EvaluationJoin)->EvaluationJoin->ev[];
+   if)
+#)
+
+
+--- ComputedRemoteGetcexpr: DoPart ---
+do t[]->objectptr.getcexpr->ctype;

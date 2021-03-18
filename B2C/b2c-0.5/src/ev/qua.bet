@@ -1,0 +1,19 @@
+ORIGIN '../evaluation';
+INCLUDE '../attribute';
+BODY 'quabody';
+(* check, if references are assignable to each other *)
+--- CompilerLib: Attributes ---
+quaCheck:
+  (#
+     ls,rs,ad: ^AttributeDenotation;
+     lencl,rencl: ^AttributeDenotation;
+     att: ^Attribute;
+     lod,rod: ^ObjectDescriptor;
+     index: @integer;
+     doQua: @Boolean;
+     noencl:< BooleanObject;
+     ev, newev, errorto: ^Evaluation;
+  enter (ls[],rs[],errorto[])
+  <<SLOT QuaCheckDoPart: DoPart>>
+  exit ev[]
+  #);

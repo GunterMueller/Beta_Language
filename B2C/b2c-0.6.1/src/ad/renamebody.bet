@@ -1,0 +1,31 @@
+ORIGIN 'rename';
+INCLUDE 'backlevel';
+INCLUDE 'bitch';
+INCLUDE '../ctype';
+INCLUDE '../objectdesc';
+--- AttDenRenameDoPart: DoPart ---
+do
+   (# bl: ^Backlevel
+   do
+      (if prec##<=ForwardDenotation## then
+	 prec.att.att[]->att.att[];
+	 prec.prec[]->prec[];
+      else
+	 &Attribute[]->att.att[];
+	 prec.getpatt->att.att.od[]->att.att.os[];
+	 att.att.od.private.outer[]->att.att.encl[];
+	 (att.att.od[],1)->&DirectBacklevel->bl[];
+	 prec[]->bl.copy->prec[];
+      if);
+   #);
+
+
+--- AttDenRenameGetCexpr: DoPart ---
+do str[]->t.append; ctype_objectptr->ctype
+
+
+--- AttDenRenameIsEqual: DoPart ---
+do
+   (if cmp##=AttDenRename## then
+      cmp[]->adr[]; (str[]->adr.str.equal) and (att.att[]=adr.att.att[])->value
+   if);

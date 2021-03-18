@@ -1,0 +1,150 @@
+ORIGIN 'machine';
+--- lib: Attributes ---
+uname_wrap: external (# i: @integer; t: [1] @char enter i exit t #);
+
+
+--- MachineInfoInit: ObjectDescriptor ---
+(#
+   m: @text;		(* machine name = CPU *)
+   s: @text;		(* unix system name *)
+   r: @text;		(* release *)
+   v: @text;		(* version *)
+   msg: ^text;
+do
+   2->uname_wrap->m;
+   3->uname_wrap->s;
+   4->uname_wrap->r; (if r.length<2 then '..'->r.append if);
+   5->uname_wrap->v;
+
+   1->cpu.new;
+   1->os.new;
+   0->ansi.new;
+   0->copt.new;
+   0->lopt.new;
+   m[]->cpu[1][];
+   s[]->os[1][];
+   'cc'->ccomp;
+
+   (if true
+   // 'Linux'->s.equal then
+      'linux'->os[1][]; gcc; '/usr/bin/gcc'->ccomp;
+
+   // ('SunOS'->s.equal) and (((1->r.inxGet)='4') or ((1->r.inxGet)='5'))
+      and ((2->r.inxGet)='.')
+   then
+      'sunos'->os[1][];
+      1->ansi.new;
+      '-Xc'->ansi[1][];
+      1->os.extend;
+      (if (1->r.inxGet)='5' then
+	 (* We found a solaris box - either a sparc or an intel processor *)
+	 'solaris'->os[2][];
+	 1->os.extend;
+	 (if 'sun4m'->m.equal then
+	    'sun4s'->os[3][];	(* Mjølner synonym for a Sun under Solaris *)
+	 if);
+      else
+	 (* we found sun os version 4 *)
+	 'sun4'->os[2][];	(* Mjølner synonym for a Sun under Sun OS 4 *)
+      if);
+
+   else
+      'Unknown operating system named "'->msg[];
+      s[]->msg.append;
+      '".  Before you update the file `machine.bet\', I\'ll\n'->msg.append;
+      'stick with that name.'->msg.append;
+   if);
+
+   (if true
+   // 'i386'->m.equal
+   // 'i486'->m.equal
+   // 'i586'->m.equal
+   // 'i686'->m.equal then
+      (* add two aliases for all Intel or compatible x86 CPU's *)
+      2->cpu.extend;
+      'x86'->cpu[2][];
+      'intel'->cpu[3][];
+      (if 'i586'->m.equal then 1->cpu.extend; 'pentium'->cpu[4][] if);
+      (if 'i686'->m.equal then 1->cpu.extend; 'pentiumpro'->cpu[4][] if);
+
+   // 'sun4m'->m.equal then
+      1->cpu.extend; 'sparc'->cpu[2][];
+
+   else
+      'Unknown machine/CPU named "'->msg[];
+      m[]->msg.append;
+      '".  Before you update the file `machine.bet\', I\'ll\n'->msg.append;
+      'stick with that name.'->msg.append;
+   if);
+
+   cpu[1]->full;
+   '_'->full.put;
+   os[1][]->full.append;
+#)
+
+
+(* Force GCC *)
+--- MachineInfoGcc: DoPart ---
+do
+   'gcc'->ccomp;
+   2->ansi.new;
+   '-ansi'->ansi[1][];
+   '-pedantic'->ansi[2][];
+
+--- MachineInfoMatch: DoPart ---
+do
+   (#
+      i,j: @integer;
+      prt: ^text;
+      findunder: @booleanValue
+        (#
+	do
+	   i->j;
+	   l: (if i<=t.length then
+	      (if (i->t.inxGet)='_' then true->value; leave l if);
+	      i+1->i;
+	      restart l;
+	   else
+	      false->value;
+	   if);
+	   (if i>j then (j,i-1)->t.sub->prt[]; i+1->i else ''->prt if);
+	#);
+   do
+      1->i;
+      r: (if findunder then
+	 false->value;
+	 find: (if prt.length>0 then
+	    (for k:cpu.range repeat
+	       (if cpu[k][]->prt.equalNCS then leave find if);
+	    for);
+	    (if 'any'->prt.equalNCS then leave find if);
+	    leave r;
+	 if);
+	 findunder;
+	 find: (if prt.length>0 then
+	    (for k:os.range repeat
+	       (if os[k][]->prt.equalNCS then leave find if);
+	    for);
+	    (if 'any'->prt.equalNCS then leave find if);
+	    leave r;
+	 if);
+	 findunder;
+	 find: (if prt.length>0 then
+	    (if 'any'->prt.equalNCS then leave find if);
+	    (if 'b2c'->prt.equalNCS then leave find if);
+	    leave r;
+	 if);
+	 true->value;
+      else
+	 true->value;
+	 (for k:cpu.range repeat
+	    (if cpu[k][]->prt.equalNCS then leave r if);
+	 for);
+	 (for k:os.range repeat
+	    (if os[k][]->prt.equalNCS then leave r if);
+	 for);
+	 (if 'default'->prt.equalNCS then leave r if);
+	 (if 'b2c'->prt.equalNCS then leave r if);
+	 false->value;
+      if);
+   #);

@@ -1,0 +1,62 @@
+ORIGIN 'bfile';
+INCLUDE 'name';
+INCLUDE 'objectdesc';
+INCLUDE '~beta/containers/current/hashTable';
+--- CompilerNameTable: ObjectDescriptor ---
+hashTable
+  (#
+     element:: Name;
+     hashFunction:: (# do (e.str[],e.encl.encl[])->hashOd->value #);
+     hashOd: IntegerValue
+       (# str: ^text; od: ^ObjectDescriptor
+       enter (str[],od[])
+       do
+          od.private.serial->value;
+	  str.scanAll (# do value*259+(ch->ascii.upcase)->value #);
+	  INNER
+       #);
+     rangeInitial:: (# do 64->value #);
+     findName: hashOd
+       (# fnd: ^Name
+       do
+	  (if not od.private.namesChecked then od.checkName if);
+	  value->scanIndexed
+	    (#
+	    do
+	       (if (str[]->current.str.EqualNCS) and (od[]=current.encl.encl[])
+	       then
+	          current[]->fnd[]; INNER findName
+	       if)
+	    #)
+       #);
+  do
+     (* DEBUG 'Nametable created!'->putline; *)
+     init
+  #)
+
+
+--- NameMapper: ObjectDescriptor ---
+(#
+   state:
+     (# t: @text do mainname->t; (for i:7 repeat count[i]->t.put for) exit t #);
+   count: [7] @char;
+   advance: @
+     (# i: @integer; c: @char
+     do
+        2->i;
+	loop: (if i<=7
+	then
+	   (count[i]->c)+1->count[i];
+	   (if c = 'Z' then 'a'->count[i]; leave loop if);
+	   (if (c <> 'z') and (c <> '9') then leave loop if);
+	   (if (c = 'z') and (i > 1) then '0'->count[i]; leave loop if);
+	   'A'->count[i];
+	   i+1->i;
+	   restart loop
+	else
+	   (failure,'Too many symbols!')->stop;
+	if);
+     #);
+do
+   '_AAAAAA'->count;
+#)

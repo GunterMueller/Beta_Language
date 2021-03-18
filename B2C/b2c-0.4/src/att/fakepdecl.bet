@@ -1,0 +1,12 @@
+ORIGIN '../attribute';
+BODY 'fakepdeclbody';
+--- CompilerLib: Attributes ---
+fakePatternDecl:
+  (#
+     od: ^ObjectDescriptor;
+     ad: ^AttributeDenotation;
+     att: ^Attribute;
+  enter od[]
+  <<SLOT FakePatternDeclDoPart: DoPart>>
+  exit ad[]
+  #);

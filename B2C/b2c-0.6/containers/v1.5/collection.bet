@@ -1,0 +1,99 @@
+ORIGIN 'container';
+BODY 'private/collectionbody';
+--- lib: Attributes ---
+(*
+ * (C) 1996 Kai Petzke, wpp@marie.physik.tu-berlin.de
+ *
+ * This shall get a freeware version of the collection pattern, that the
+ * Mjolner system provides in ~beta/containers/current/collection.bet.
+ *
+ * Collection is a specialisation of the more general "container".
+ * In a collections, the ordering of the data in the container does
+ * not depend on the order of the insertion.  Either, there is no
+ * ordering (like in a set), or it is dependant on the data itself,
+ * like in a hashTable or a btree.
+ *)
+collection: container
+  (#
+     <<SLOT collectionLib: Attributes>>;
+
+     (**************************************************************
+      * Virtuals, that are intended to be bound by the user of a   *
+      * collection:                                                *
+      **************************************************************)
+     (* Uniqueness flag.  Bind this to TrueObject to forbid insertion of
+      * duplicates. *)
+     unique:< booleanValue;
+
+
+     (**************************************************************
+      * General methods for modifying the state of a collection.   *
+      **************************************************************)
+     failableInsertMethod: insertMethod
+       (#
+	  alreadyThere:< Exception;
+	  alreadyThereRaise: this(collection).alreadyThereRaise
+	    (# do alreadyThere##->deliverTo #);
+       do INNER
+       #);
+     insert::< failableInsertMethod;
+
+     deleteMethod: insertMethod
+       (#
+	  notFound:< Exception;
+	  notFoundRaise: this(collection).notFoundRaise
+	    (# do notFound##->deliverTo #);
+       do INNER
+       #);
+     delete:< deleteMethod;
+
+
+     (**************************************************************
+      * Perform set operations between two collections.  Each op   *
+      * expects another collection as input, and then generates    *
+      * union, intersection, etc. of the two collections.  In the  *
+      * case, that an element is contained two or more times in    *
+      * the same collection, the result is undefined.              *
+      **************************************************************)
+     setOp:
+       (# theOther: ^collection; h: @has; ins: @insert; del: @delete
+       enter theOther[]
+       do INNER
+       #);
+
+     (* union of two collections *)
+     union: setOp (# <<SLOT CollectionUnion: DoPart>> #);
+
+     (* delete elements of another collection from this collection *)
+     diff: setOp (# <<SLOT CollectionDiff: DoPart>> #);
+
+     (* intersection: the elements in both collections *)
+     sect: setOp (# <<SLOT CollectionSect: DoPart>> #);
+
+     (* all elements, that are in one of the two collections *)
+     symDiff: setOp (# <<SLOT CollectionSymDiff: DoPart>> #);
+
+
+     (**************************************************************
+      * Exception Processing                                       *
+      **************************************************************)
+     alreadyThere:< Notification;
+     alreadyThereRaise: raise
+       (#
+       do
+	  'Attempt to insert a duplicate into a collection!\n'->msg;
+	  INNER;
+	  alreadyThere##->deliverTo;
+       #);
+
+     notFound:< Notification;
+     notFoundRaise: raise
+       (#
+       do
+	  'Element not found in collection!\n'->msg;
+	  INNER;
+	  notFound##->deliverTo;
+       #);
+
+  do INNER
+  #)

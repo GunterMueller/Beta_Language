@@ -1,0 +1,171 @@
+ORIGIN 'bfile';
+INCLUDE 'attribute';
+INCLUDE 'imperative';
+INCLUDE 'slot';
+INCLUDE 'namebitch';
+BODY 'fragmentbody';
+--- CompilerLib: Attributes ---
+ObjectDescriptorFragment: Fragment
+  (#
+     fragtype:: ObjectDescriptor;
+     fragtypename:: (# do 'ObjectDescriptor'->t[] #);
+     bind::
+       (# od: ^ObjectDescriptor; a: ^Attribute; te: ^BETAterm
+       <<SLOT ObjectDescriptorFragmentBind: DoPart>>
+       #);
+     print:: (# override:: (# do (if frag[]<>NONE then s[]->frag.print if) #) #)
+  #);
+
+
+AttributeFragment: Fragment
+  (#
+     fragtype:: Attribute;
+     fragtypename:: (# do 'Attributes'->t[] #);
+     bind:: (# att: @AttributePtr <<SLOT AttributeFragmentBind: DoPart>> #);
+     print::
+       (# override:: (# att: @AttributePtr do frag[]->att; s[]->att.print #) #);
+  #);
+
+
+DoPartFragment: Fragment
+  (#
+     fragtype:: Imperative;
+     fragtypename:: (# do 'DoPart'->t[] #);
+     bind::
+       (# od: ^ObjectDescriptor; imp: ^Imperative
+       <<SLOT DoPartFragmentBind: DoPart>>
+       #);
+     print::
+       (#
+	  override::
+	    (# imp: @ImperativePtr do frag[]->imp; (s[],' do ')->imp.print #)
+       #);
+     checkComplete::
+       (#
+	  od: ^ObjectDescriptor;
+	  after:: (# <<SLOT DoPartFragmentCheckCompleteAfter: DoPart>> #)
+       <<SLOT DoPartFragmentCheckComplete: DoPart>>
+       #);
+     reduce:
+       (# imp: @ImperativePtr; od: ^ObjectDescriptor; te: ^BETAterm
+       <<SLOT DoPartFragmentReduce: DoPart>>
+       #);
+  #);
+
+
+--- FragmentBind: DoPart ---
+do
+   mainif: (if true
+     // boundto[]<>NONE then
+	'Circularity in Fragment bindings!'->error
+     // c_file[] = mainorigin[] then
+	(if ('betaenv'->t.equalNCS) and (next[] = NONE) and
+	      (fragtype## <= ObjectDescriptor##) then
+	   &ObjectDescriptorSlot[]->boundto[];
+	   'betaenv'->boundto;
+	   this(Fragment)[]->frag.encl[];
+	   boundto.ph[]->qua
+	     (# as:: ObjectDescriptor
+	     do 'main'->thisObj.private.mapname; '#'->thisObj.private.nme[]
+	     #);
+	   INNER bind;
+	else
+	   'The main origin of a BETA program may only contain one fragment that has the name BETAENV and the type ObjectDescriptor!'->error;
+	if);
+     else
+	t[]->sl.hashName->sl.scanIndexed
+	  (# ffind: BooleanValue
+	       (# bf: ^BETAfile
+	       do
+		  (* DEBUG 'starting ffind loop'->putline; *)
+		  c_file[]->bf[];
+		  loop: (if bf[]
+		     // current.bf[] then true->value
+		     // NONE then (* do nothing *)
+		     else bf.origin[]->bf[]; restart loop
+		  if);
+		  (* DEBUG 'done with ffind loop'->putline; *)
+	       #)
+	  do
+	     (* DEBUG 'scanIndexed: current.t = '->puttext;
+	     current.t[]->putline; *)
+	     (if false
+	       // t[]->current.t.equalNCS then
+		  (* DEBUG 'wrong name!'->putline; *)
+	       // fragtype## >= current.slottype## then
+		  (* DEBUG'about to mark fragment type error'->putline; *) 
+		  'Trying to bind an '->err;
+		  fragtypename->err.append;
+		  ' fragment to an '->err.append;
+		  current.slottypename->err.append;
+		  ' slot!'->err.append;
+		  err[]->error;
+		  leave mainif;
+	       // ffind then
+		  'The SLOT corresponding to this fragment cannot be found in this file''s ORIGIN!'->error;
+		  leave mainif;
+	       // current.frag[]=NONE then
+		  (if current.frag[] = this(Fragment)[] then
+		     'Circularity in Fragment bindings!'->error
+		  else
+		     'The corresponding SLOT has already another fragment bound to it!'->error
+		  if);
+		  leave mainif
+	       else
+		  (* DEBUG 'About to bind '->puttext;
+		  (if this(Fragment)##
+		     // ObjectDescriptorFragment## then'ObjectDescriptor'->puttext
+		     // AttributeFragment## then 'Attribute'->puttext
+		     // DoPartFragment## then 'DoPart'->puttext
+		     else 'unknown'->puttext
+		  if);
+		  ' fragment '->puttext;
+		  t[]->putline; *)
+		  this(Fragment)[]->current.frag[]->fr[];
+		  (* The slot that we just bound to may itself be in a Fragment,
+		     that has not yet been bound.  In that case bind this
+		     other Fragment, and re-order the Fragment list *)
+		  loop: (if fr.next[]
+		    // NONE then (* do nothing *)
+		    // current.orfrag[] then
+		       fr.next.next[]->fr.next[];		(* unlink at old pos. *)
+		       current.orfrag[]->prev.next[];	(* link in before this*)
+		       this(Fragment)[]->current.orfrag.next[];	(* Fragment *)
+		       prev[]->current.orfrag.bind;
+		    else fr.next[]->fr[]; restart loop
+		  if);
+		  current[]->boundto[];
+		  INNER bind;
+	     if)
+	  #);
+	(if boundto[]=NONE then
+	   'No slot available to bind this fragment!'->error;
+	if)
+   if)
+
+
+--- FragmentIterate: DoPart ---
+do
+   frag[]->te[];
+   loop: (if te[]<>NONE then
+      INNER;
+      (if te##<=BETAlist## then te[]->li[]; li.next[]->te[]; restart loop if)
+   if)
+
+
+--- FragmentPrint: DoPart ---
+do
+   '--- '->s.append;
+   t[]->s.append;
+   (if msgp[]<>NONE then s[]->msgp.print if);
+   ': '->s.append;
+   fragtypename->s.append;
+   ' ---'->s.append;
+   s.newline;
+   (* JS
+   t[]->puttext;
+   ':'->puttext;
+   fragtypename->putline;
+   *)
+   INNER;
+   true->value

@@ -1,0 +1,16 @@
+ORIGIN 'imperative';
+INCLUDE 'objectdesc';
+--- ImperativeReduce: DoPart ---
+do
+   (if ptr[]<>NONE then
+      ObjectDescriptor##->ptr.encl.findencltype
+	(#
+	   od: ^ObjectDescriptor;
+	   emsg::
+	     (# do 'Compiler error: Imperative outside Pattern!'->ptr.error #);
+	do
+	   term[]->od[];
+	   od.private.doFunction[]->ee[];
+	   iterate (# do el.reduce #);
+	#);
+   if);

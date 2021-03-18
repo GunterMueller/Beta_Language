@@ -1,0 +1,1783 @@
+(* FILE "./private/ibetaCom2body.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaCom2body.bet,v 1.137 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN '../ibetaCommon';
+INCLUDE '../ibetaIter';
+INCLUDE 'basicinterplib';
+INCLUDE 'ibetaStaticlib';
+INCLUDE 'ibetaCommonlib';
+INCLUDE 'ibetaTwolib';
+INCLUDE 'ibetaSlicelib'
+
+(************************************************************
+ *                                                          *
+ *                          l2list                          *
+ *                                                          *
+ ************************************************************)
+
+-- AstListPrint:dopart --
+do
+   scan
+   (# not_first: @boolean
+   do (if not_first then
+          INNER print; (* used for insertion of separator *)
+          (dest[],indentation,element_nl)->current.print
+       else
+          true->not_first;
+          (dest[],indentation,false)->current.print
+      if)
+   #)
+
+-- AstListScanImpl:dopart --
+do
+   scan(# do (preCB[],postCB[])->current.scanImpl #)
+
+(*************************************************************
+ *                                                           *
+ *                       l2NameDclList                       *
+ *                                                           *
+ *************************************************************)
+
+-- NameDclListPrint:dopart --
+do
+   ','->output
+
+(*************************************************************
+ *                                                           *
+ *                      l2AttributeDecl                      *
+ *                                                           *
+ *************************************************************)
+
+-- AttributeDeclInit:dopart --
+do
+   program.init;
+   INNER
+
+-- AttributeDeclPrint:dopart --
+do
+   (dest[],indentation,false,false)->Names.print;
+   ':'->output;
+   INNER
+
+-- AttributeDeclPrintCode:dopart --
+do
+   (if not compiled then compile; true->compiled if);
+   Names.scan
+   (# current_l2ndcl: ^l2NameDcl
+   do '\n"'->output;
+      (dest[],indentation,false)->current.printCode;
+      '": ('->output;
+      INNER printCode; (* furthers/finals should announce their intro here *)
+      current[]->current_l2ndcl[];
+      program.scan
+      (# instCode: ^installCode
+      do (* !!! Ugly hack: since we only generate one set of instructions
+          * for each attributedecl, as opposed to one set of instructions
+          * for each attribute, we need to adjust the INSTALL-.. number
+          * for each attribute, i.e., for each element in Names *)
+         (if current##<=installCode## then
+             current[]->instCode[];
+             current_l2ndcl.offset->instCode.offset
+         if);
+         (dest[],indentation+indent_delta,true)->current.printCode
+      #);
+      '\n)'->output
+   #)
+
+-- AttributeDeclScanImpl:dopart --
+do
+   (preCB[],postCB[])->Names.scanImpl;
+   INNER
+
+-- AttributeDeclInstantiate:dopart --
+do
+   (if scope.location<>enclosing.getSyntax then
+       'Non-matching dynamic context for attribute instantiation'
+         ->internalError
+   if);
+   INNER
+
+-- AttributeDeclInitialize:dopart --
+do
+   (if not compiled then compile; true->compiled if);
+   attr[]->thrd.private.bvm.attributes.push;
+   (thrd[],unwind##,enclosing[],program[])->thrd.private.bvm.execute;
+   thrd.private.bvm.resetFrame
+
+-- AttributeDeclGetInitCplr:dopart --
+do
+   (* just a hook for observation etc. *)
+   (*check context[]->checkContext; *)
+   INNER
+
+-- AttributeDeclCompile:dopart --
+do
+   (* !! This is very much like l2Evaluation.compile; semi-merge? *)
+   (# context: ^staticContext;
+      position: @runtimePath;
+      cplr: ^exeCompiler;
+      cInfo: @compileInfo
+   do (* always starting analysis with local point of view *)
+      (NONE,NONE,scope.location)->position.init;
+      this(l2AttributeDecl)[]->scope.world.setAst;
+      (position[],scope.world[],this(l2AttributeDecl)[])
+        ->scope.getInitialContext
+        ->context[];
+      (context[],scope.world[],this(l2AttributeDecl)[])
+        ->getInitCompiler
+        ->cplr[];
+      (program[],cInfo[])
+        ->cplr.generate
+   #)
+
+(*************************************************************
+ *                                                           *
+ *                    l2AttributeDeclList                    *
+ *                                                           *
+ *************************************************************)
+
+-- AttributeDeclListPrint:dopart --
+do
+   ';'->output
+
+(*************************************************************
+ *                                                           *
+ *                           l2Imp                           *
+ *                                                           *
+ *************************************************************)
+
+-- ImpPrint:dopart --
+do
+   INNER;
+   (if private.showNumberSelector['i'+1] then
+       (if mpsAst[]<>NONE then
+           '`'->output;
+           mpsPosition->output
+       if)
+   if)
+
+-- ImpExecute:dopart --
+do
+   (if (private.stepCount-1->private.stepCount) <= 0 then
+       private.chooseStepCount->private.stepCount;
+       pause
+   if);
+   (*test-trace  ('current o-slice','s')->dContext.trace; *)
+   (*test-trace ('currt. o-slices','o')->dContext.traceObject; *)
+   (*test-trace  ('current o-graph','G')->dContext.traceGraph; *)
+   (*test-trace  ('cur. imperative','i')->trace; *)
+   (*test-observation*) this(l2Imp)[]->thrd.private.currentImp[];
+   (if thrd.callback[]<>NONE then
+       (thrd[],unwind##,dContext[],true)->thrd.callback
+   if);
+   INNER;
+   (*test-observation*) this(l2Imp)[]->thrd.private.currentImp[];
+   (if thrd.callback[]<>NONE then
+       (thrd[],unwind##,dContext[],false)->thrd.callback
+   if)
+
+(************************************************************
+ *                                                          *
+ *                     l2ImperativeList                     *
+ *                                                          *
+ ************************************************************)
+
+-- ImperativeListPrint:dopart --
+do
+   ';'->output
+
+(************************************************************
+ *                                                          *
+ *                       l2Evaluation                       *
+ *                                                          *
+ ************************************************************)
+
+-- EvaluationInit:dopart --
+do
+   program.init;
+   INNER
+
+-- EvaluationPrintCode:dopart --
+do
+   (if not compiled then compile; true->compiled if);
+   program.scan
+   (# nonFirst: @boolean
+   do (dest[],indentation,nonFirst)->current.printCode;
+      true->nonFirst
+   #);
+   (if not program.empty then '\nRESETFRAME'->output if)
+
+-- EvaluationObserveSemAtt:dopart --
+do
+   (* id *)
+   (dest[],indentation,false)->print;
+
+   (* exit type *)
+   (* '\ntype = '->output;
+   (dest[],indentation+7,false)->(localStaticTransientOut).print; *)
+
+   (* byte code *)
+   (if not program.empty then
+       (dest[],indentation+indent_delta,false,true)->program.print
+       (# before::(# do '\n------------------------------'->output #);
+          after::(# do '\n------------------------------\n'->output #)
+       #)
+   if)
+
+-- EvaluationGetTranOut:dopart --
+do
+   (*lazy check; *)
+   INNER;
+   (*test-obs  ('Out-transient of','E')->observe; *)
+   (*test-obs  ('','E')->stran.observe; *)
+
+-- EvaluationGetTranIn:dopart --
+do
+   (*lazy check; *)
+   INNER;
+   (*test-obs  ('In-transient of','E')->observe; *)
+   (*test-obs  ('','E')->stran.observe; *)
+
+-- EvaluationGetCplr:dopart --
+do
+   (* just a hook for observation etc. *)
+   (*check context[]->checkContext; *)
+   INNER
+
+-- EvaluationGetEnterCplr:dopart --
+do
+   (* just a hook for observation etc. *)
+   (*check context[]->checkContext; *)
+   INNER
+
+-- EvaluationGetExitCplr:dopart --
+do
+   (* just a hook for observation etc. *)
+   (*check context[]->checkContext; *)
+   INNER
+
+-- EvaluationGetEnterExitCplr:dopart --
+do
+   (* just a hook for observation etc. *)
+   (*check context[]->checkContext; *)
+   INNER
+
+-- EvaluationCompile:dopart --
+do
+   (* only invoked from below, 'execute',
+    * and only for top-level evaluations *)
+   (# context: ^staticContext;
+      position: @runtimePath;
+      cplr: ^exeCompiler;
+      cInfo: @compileInfo
+   do (* always starting analysis with local point of view *)
+      (NONE,NONE,scope.location)->position.init;
+      this(l2Evaluation)[]->scope.world.setAst;
+      (position[],scope.world[],this(l2Evaluation)[])
+        ->scope.getInitialContext
+        ->context[];
+      (context[],scope.world[],this(l2Evaluation)[])
+        ->getCompiler
+        ->cplr[];
+      (program[],cInfo[])
+        ->cplr.generate
+   #)
+
+-- EvaluationExitCompile:dopart --
+do
+   (* only invoked from below, 'exitExecute',
+    * and only for top-level evaluations; used
+    * in if-imperatives and similar;
+    * !!! for now we only handle lists of length 1 *)
+   (# context: ^staticContext;
+      position: @runtimePath;
+      xcplr: ^exitCompiler;
+      cInfo: @compileInfo;
+      stran: ^staticTransient
+   do (* always starting analysis with local point of view *)
+      (NONE,NONE,scope.location)->position.init;
+      this(l2Evaluation)[]->scope.world.setAst;
+      (position[],scope.world[],this(l2Evaluation)[])
+        ->scope.getInitialContext
+        ->context[];
+      (context[],scope.world[],this(l2Evaluation)[])
+        ->getExitCompiler
+        ->xcplr[];
+      (program[],cInfo[])
+        ->xcplr.prepare;
+      (if not xcplr.more then
+          'exitCompile: no values from evaluation'
+            ->internalError
+      if);
+      (program[],cInfo[])
+        ->xcplr.generate
+        ->stran[];
+      (if xcplr.more then
+          'exitCompile: more than one value from evaluation'
+            ->internalError
+      if);
+      (program[],cInfo[])->xcplr.cleanup;
+      (* now generate coercion code, if needed *)
+      (if stran##<>exitSTran## then
+          (* non-trivial coercion required *)
+          (if exitCompare then
+              (program[],program.lastLink[],stran[]
+              ,exitSTran[],this(l2Evaluation)[])
+                ->compareCoerce
+           else
+              (program[],program.lastLink[],stran[]
+              ,exitSTran[],this(l2Evaluation)[])
+                ->assignmentCoerce
+          if)
+      if)
+   #)
+
+-- EvaluationExecute:dopart --
+do
+   (if doByteCode then
+       (thrd[],unwind##,dContext[])->bytecodeExecute
+    else
+       (thrd[],unwind##,dContext[])->closureExecute
+   if)
+
+-- EvaluationByteCodeExecute:dopart --
+do
+   (* on demand compilation; NB: only a top-level evaluation will
+    * be executed, and only this will demand a compilation *)
+   (if not compiled then compile; true->compiled if);
+   (*test-obs (NONE,'eval.execute','y')->observeSemAtt; *)
+
+   (* actual execution *)
+   (thrd[],unwind##,dContext[],program[])
+     ->thrd.private.bvm.execute;
+   thrd.private.bvm.resetFrame
+
+-- EvaluationExitExecute:dopart --
+do
+   (* NBNB: if changing this then also change 'exitExecuteInternal' *)
+
+   (* on demand compilation; NB: only a top-level evaluation will
+    * be exitExecuted, and only this will demand a compilation *)
+   (if not compiled then exitCompile; true->compiled if);
+   (*test-obs (NONE,'eval.exitexec','y')->observeSemAtt; *)
+
+   (* actual execution *)
+   (thrd[],unwind##,dContext[],program[])
+     ->thrd.private.bvm.execute;
+   thrd.private.bvm.resetFrame
+
+-- EvaluationGetEnterIter:dopart --
+do
+   (*test-trace  ('assigning value','e')->trace; *)
+   (if scope.location<>dContext.getSyntax then
+       'Assign: Mismatch between evaluation and dynamic context'
+         ->internalError
+   if);
+   (if false (* !! not (scope.location->stsub.associated) *) then
+       'Assign: Mismatch between evaluation and static context'
+         ->internalError
+   if);
+   INNER;
+   this(l2Evaluation)[]->ni.usageAst[]
+
+-- EvaluationGetExitIter:dopart --
+do
+   (*test-trace  ('measuring value','e')->trace; *)
+   (if scope.location<>dContext.getSyntax then
+       'Measure: Mismatch between evaluation and dynamic context'
+         ->internalError
+   if);
+   (if false (* !! not (scope.location->stsub.associated) *) then
+       'Assign: Mismatch between evaluation and static context'
+         ->internalError
+   if);
+   INNER;
+   this(l2Evaluation)[]->xi.usageAst[]
+
+-- EvaluationGetEnterExitIterIndependent:dopart --
+do
+   (thrd[],unwind##,stsub[],world[],usageAst[],false,dContext[])
+     ->getEnterIter
+     ->ni[];
+   (thrd[],unwind##,stsub[],world[],usageAst[],dContext[])
+     ->getExitIter
+     ->xi[]
+
+(*************************************************************
+ *                                                           *
+ *                       Static Slices                       *
+ *                                                           *
+ *************************************************************)
+
+-- PatternStaticSliceGetCplr:dopart --
+do
+   (* just a hook for debugging etc. *)
+   INNER
+
+-- PatternStaticSliceGetEnterCplr:dopart --
+do
+   (* just a hook for debugging etc. *)
+   INNER
+
+-- PatternStaticSliceGetExitCplr:dopart --
+do
+   (* just a hook for debugging etc. *)
+   INNER
+
+-- PatternStaticSliceGetEnterExitCplr:dopart --
+do
+   (* just a hook for debugging etc. *)
+   INNER
+
+-- RelativeTypeInit:dopart --
+do
+   INNER
+
+-- RelativeTypeCopyLink:dopart --
+do
+   enclosing[]->theCopy.enclosing[];
+   decl[]->theCopy.decl[];
+   maybeLess->theCopy.maybeLess
+
+-- RelativeTypePrint:dopart --
+do
+   (if maybeLess then '<='->output else '= '->output if);
+   ' '->output;
+   (if decl[]<>NONE then
+       '(decl "'->output;
+       (* describes virtual or 'when' target *)
+       (dest[],indentation,false)->decl.print;
+       '", located in: '->output
+    else
+       (* describes an object (enclosing or "when-snatched") *)
+       '(object: '->output
+   if);
+   (dest[],indentation,false)->enclosing.printShort;
+   ')'->output
+
+-- RelativeTypeLib:attributes --
+
+linkEqual: booleanValue
+  (# otherOCP,myOCP: ^staticOCP;
+     other: ^selfType
+  enter other[]
+  do (* same virtual *)
+     (other.decl[]=decl[]) and
+     (other.enclosing.pathTo[]->enclosing.robustLeadsToMe) and
+     (* both are exact *)
+     (not maybeless) and (not other.maybeless)
+       ->value;
+     (if not value and (other.decl[]=decl[]) and
+         (not maybeless) and (not other.maybeless) then
+         (* not exactly the same virtual, but the same declaration,
+          * and the enclosing objects might be related *)
+         (if (other.enclosing## <= staticOCP##) and
+             (enclosing## <= staticOCP##) then
+             other.enclosing[]->otherOCP[];
+             enclosing[]->myOCP[];
+             (if otherOCP.knownStatically and myOCP.knownStatically then
+                 (if otherOCP.sptype[]->myOCP.sptype.equal then
+                     (* enclosing objects ensure "=" for the virtual *)
+                     true->value
+                 if)
+              else
+                 (* at least one of the 'sptype's not exact; as a last
+                  * resort, search for exact relative object info *)
+                 (if (otherOCP.sptype.rinfo[]<>NONE) and
+                     (myOCP.sptype.rinfo[]<>NONE) then
+                     L: otherOCP.sptype.rinfo.scan
+                       (# otherRinfo: ^relativeType
+                       do (if true
+                           // current.enclosing##<=staticWhenAltSubstance##
+                           // current.decl[]=NONE then
+                              (* this is object info *)
+                              current[]->otherRinfo[];
+                              myOCP.sptype.rinfo.scan
+                              (#
+                              do (if true
+                                  // current.enclosing## <=
+                                     staticWhenAltSubstance##
+                                  // current.decl[]=NONE then
+                                     (if (otherRinfo.decl[]=current.decl[]) and
+                                         (other.enclosing.pathTo[]
+                                           ->current.enclosing.robustLeadsToMe)
+                                         and (not otherRinfo.maybeLess)
+                                         and (not current.maybeLess) then
+                                         (* matching object info found! so
+                                          * the enclosing objects have the
+                                          * desired type relation *)
+                                         true->value;
+                                         leave L
+                                     if)
+                                 if)
+                              #)
+                          if)
+                       #)
+                 if)
+             if)
+         if)
+     if)
+  #);
+
+linkLessEqual: booleanValue
+  (# otherOCP,myOCP: ^staticOCP;
+     other: ^selfType
+  enter other[]
+  do (* same virtual *)
+     (other.decl[]=decl[]) and
+     (other.enclosing.pathTo[]->enclosing.robustLeadsToMe) and
+     (* and _I_ am not out of control even though 'other' may be *)
+     (not maybeless)
+       ->value;
+     (if not value and (other.decl[]=decl[]) and (not maybeless) then
+         (* not exactly the same virtual, but the same declaration,
+          * and the enclosing objects might be related *)
+         (if (other.enclosing## <= staticOCP##) and
+             (enclosing## <= staticOCP##) then
+             other.enclosing[]->otherOCP[];
+             enclosing[]->myOCP[];
+             (if myOCP.knownStatically then
+                 (if otherOCP.sptype[]->myOCP.sptype.lessequal then
+                     (* enclosing objects ensure "<=" for the virtual *)
+                     true->value
+                 if)
+              else
+                 (* myOCP.sptype not exact; as a last resort,
+                  * search for exact relative object info *)
+                 (if (otherOCP.sptype.rinfo[]<>NONE) and
+                     (myOCP.sptype.rinfo[]<>NONE) then
+                     L: otherOCP.sptype.rinfo.scan
+                       (# otherRinfo: ^relativeType
+                       do (if true
+                           // current.enclosing##<=staticWhenAltSubstance##
+                           // current.decl[]=NONE then
+                              (* this is object info *)
+                              current[]->otherRinfo[];
+                              myOCP.sptype.rinfo.scan
+                              (#
+                              do (if true
+                                  // current.enclosing## <=
+                                     staticWhenAltSubstance##
+                                  // current.decl[]=NONE then
+                                     (if (otherRinfo.decl[]=current.decl[]) and
+                                         (other.enclosing.pathTo[]
+                                           ->current.enclosing.robustLeadsToMe)
+                                         and (not current.maybeLess) then
+                                         (* matching object info found! so
+                                          * the enclosing objects have the
+                                          * desired type relation *)
+                                         true->value;
+                                         leave L
+                                     if)
+                                 if)
+                              #)
+                          if)
+                       #)
+                 if)
+             if)
+         if)
+     if)
+  #);
+
+linkGreaterEqual: booleanValue
+  (# otherOCP,myOCP: ^staticOCP;
+     other: ^selfType
+  enter other[]
+  do (* same virtual *)
+     (other.decl[]=decl[]) and
+     (other.enclosing.pathTo[]->enclosing.robustLeadsToMe) and
+     (* and _I_ am not out of control even though 'other' may be *)
+     (not maybeless)
+       ->value;
+     (if not value and (other.decl[]=decl[]) and (not maybeless) then
+         (* not exactly the same virtual, but the same declaration,
+          * and the enclosing objects might be related *)
+         (if (other.enclosing## <= staticOCP##) and
+             (enclosing## <= staticOCP##) then
+             other.enclosing[]->otherOCP[];
+             enclosing[]->myOCP[];
+             (if myOCP.knownStatically then
+                 (if otherOCP.sptype[]->myOCP.sptype.lessequal then
+                     (* enclosing objects ensure "<=" for the virtual *)
+                     true->value
+                 if)
+              else
+                 (* myOCP.sptype not exact; as a last resort,
+                  * search for exact relative object info *)
+                 (if (otherOCP.sptype.rinfo[]<>NONE) and
+                     (myOCP.sptype.rinfo[]<>NONE) then
+                     L: otherOCP.sptype.rinfo.scan
+                       (# otherRinfo: ^relativeType
+                       do (if true
+                           // current.enclosing##<=staticWhenAltSubstance##
+                           // current.decl[]=NONE then
+                              (* this is object info *)
+                              current[]->otherRinfo[];
+                              myOCP.sptype.rinfo.scan
+                              (#
+                              do (if true
+                                  // current.enclosing## <=
+                                     staticWhenAltSubstance##
+                                  // current.decl[]=NONE then
+                                     (if (otherRinfo.decl[]=current.decl[]) and
+                                         (other.enclosing.pathTo[]
+                                           ->current.enclosing.robustLeadsToMe)
+                                         and (not current.maybeLess) then
+                                         (* matching object info found! so
+                                          * the enclosing objects have the
+                                          * desired type relation *)
+                                         true->value;
+                                         leave L
+                                     if)
+                                 if)
+                              #)
+                          if)
+                       #)
+                 if)
+             if)
+         if)
+     if)
+  #)
+
+-- RelativeTypeEqual:dopart --
+do
+   (* as a first shot (and because these lists are not expected
+    * to be long) we just try all combinations, N^2 *)
+   L: scan
+     (# curme: ^selfType
+     do current[]->curme[];
+        other.scan
+        (#
+        do (if current[]->curme.linkEqual then
+               true->value; leave L
+           if)
+        #)
+     #)
+
+-- RelativeTypeLessEqual:dopart --
+do
+   (* as a first shot we just try all combinations, even if it is N^2 *)
+   L: scan
+     (# curme: ^selfType
+     do current[]->curme[];
+        other.scan
+        (#
+        do (if current[]->curme.linkLessEqual then
+               true->value; leave L
+           if);
+           (if curme[]->current.linkGreaterEqual then
+               true->value; leave L
+           if)
+        #)
+     #)
+
+-- StaticPatternTypeLib:attributes --
+
+kindedCopy:
+  (# theCopy: ^staticPatternType;
+     kindOfCopy: @integer
+  enter kindOfCopy
+  do copy->theCopy[];
+     kindOfCopy->theCopy.kindValue;
+     (* Note: the caller of 'kindedCopy' must ensure that the
+      * required adjustments of the staticallyKnown[Bottom]
+      * attributes in theCopy is carried out after returning
+      * from here; these adjustments are marked with comments
+      * starting with "TYPE_COERCION:" *)
+  exit theCopy[]
+  #)
+
+-- StaticPatternTypeTypeName:dopart --
+do
+   (if kindValue
+    // patternTypeKind then 'pattern'->value[]
+    // patternRefTypeKind then 'pattern reference'->value[]
+    // objectTypeKind then 'object'->value[]
+    // objectRefTypeKind then 'object reference'->value[]
+    else
+       'staticOCP(weird kindValue: '->value[];
+       kindValue->value.putint;
+       ')'->value.puttext
+   if)
+
+-- StaticPatternTypeShortTypeName:dopart --
+do
+   (if kindValue
+    // patternTypeKind then 'P'->value[]
+    // patternRefTypeKind then 'PR'->value[]
+    // objectTypeKind then 'O'->value[]
+    // objectRefTypeKind then 'OR'->value[]
+    else
+       'stOCP('->value[]; kindValue->value.putint; ')'->value.puttext
+   if)
+
+-- StaticPatternTypeInit:dopart --
+do
+   slices.init;
+   lowerbounds.init;
+   INNER
+
+-- StaticPatternTypeCopy:dopart --
+do
+   (* so the semantics of static pattern type copy is clean
+    * and expensive: create an entirely new, independent list *)
+   slices.deliverCopy->theCopy.slices.assign;
+   (if startSlice[]<>NONE then
+       (* make theCopy.resetSlice point to "the same slice" in the copy *)
+       startSlice.getSyntax
+         ->theCopy.ast2slice
+         ->theCopy.startSlice[];
+       (if theCopy.startSlice[]=NONE then
+           'startSlice not found after copy'
+             ->internalError
+       if)
+    else
+       NONE->theCopy.startSlice[]
+   if);
+   (if rinfo[]<>NONE then rinfo.copy->theCopy.rinfo[] if);
+   lowerBounds.deliverCopy->theCopy.lowerBounds.assign;
+   kindValue->theCopy.kindValue;
+   staticallyKnown->theCopy.staticallyKnown;
+   staticallyKnownBottom->theCopy.staticallyKnownBottom
+
+-- StaticPatternTypePrint:dopart --
+do
+   (if staticallyKnownBottom and not staticallyKnown then
+       ', but with known bottom mixin'->output
+   if);
+   ': '->output;
+   (if slices.empty then
+       '"object"'->output
+    else
+       (dest[],indentation+indent_delta,false,true)
+         ->slices.print
+       (# afterEach::
+            (#
+            do current[]->this(printStaticPatternType).current[];
+               INNER printStaticPatternType
+            #)
+       #)
+   if);
+   (if rinfo[]<>NONE then
+       '\n-- relative type info --'->output;
+       rinfo.scan(# do (dest[],indentation,true)->current.print #)
+   if);
+   (if not lowerBounds.empty then
+       '\n-- declared lower bounds --'->output;
+       lowerBounds.scan
+       (# do (dest[],indentation+indent_delta,true)->current.sptype.print #)
+   if)
+
+-- StaticPatternTypePrintShort:dopart --
+do
+   (if slices.empty then
+       '('->output; '#'->output; ')'->output
+    else
+       (* !! perhaps: (if staticallyKnownBottom then '(FB)'->output if); *)
+       (dest[],indentation,false,false)->slices.printShort
+       (# nonFirst: @boolean;
+          beforeEach::
+            (#
+            do (if nonFirst then
+                   ','->output
+                else
+                   '('->output; '# '->output;
+                   true->nonFirst
+               if)
+            #)
+       #);
+       ' #'->output; ')'->output
+   if)
+
+-- StaticPatternTypeEqual:dopart --
+do
+   (if other## <= StaticPatternType## then
+       (# otherSPType: ^StaticPatternType;
+          otherSlice: ^staticSlice
+       do other[]->otherSPType[];
+          (* first check the explicit static knowledge - the known mixins *)
+          L: (if otherSPType.slices.empty then
+                 (* other type is object##; me, too? *)
+                 slices.empty->value
+              else
+                 (* other type < object##; compare element-by-element *)
+                 otherSPType.slices.first->otherSlice[];
+                 slices.scan
+                 (#
+                 do (if otherSlice[]<>NONE then
+                        (if current[]->otherSlice.equal then
+                            (* equal at this slice, continue testing *)
+                            otherSlice.next->otherSlice[]
+                         else
+                            (* not equal at this slice, hence different *)
+                            false->value;
+                            leave L
+                        if)
+                     else
+                        (* 'other' exhausted, cannot be equal *)
+                        false->value;
+                        leave L
+                    if)
+                 #);
+
+                 (* did not leave, so the static types paired up so far *)
+                 (otherSlice[]=NONE)->value (* 'other' longer than me? *)
+             if);
+
+          (* check for pattern growth potential *)
+          (if value then
+              (* the absolute type info says "yes!", 'other' is = *)
+              (if staticallyKnown and otherSPType.staticallyKnown then
+                  (* compile-time info says it all;
+                   * leave 'value' unchanged at 'true' *)
+               else
+                  (* at least one of us may grow; equality may
+                   * hold if we grow at exactly the same rate *)
+                  (if (otherSPType.rinfo[]<>NONE) and (rinfo[]<>NONE) and
+                      (otherSPType.rinfo[]->rinfo.equal) then
+                      (* leave 'value' unchanged at 'true' *)
+                   else
+                      (* for all we know (yet), a specialization may
+                       * negate the truth of other=me *)
+                      maybe;
+                      false->value
+                  if)
+              if)
+           (* else: *)
+              (* value=false, i.e. absolute type info says "no!" *)
+              (* !!!!! At this point dynamic type tests might
+               * actually still establish equality, so we
+               * might want to check relative info here *)
+          if)
+       #)
+    else
+       false->value
+   if)
+
+-- StaticPatternTypeLessEqual:dopart --
+do
+   (* 'other' is lessEqual this type iff this is a sublist of it,
+    * as long as we stick with absolute type info; relative type
+    * info is taken into account if this fails *)
+
+   (if other## <= StaticPatternType## then
+       (# otherSPType: ^StaticPatternType;
+          otherSlice: ^staticSlice
+       do
+          (* first do a raw slice-by-slice structural comparison *)
+          other[]
+            ->otherSPType[]
+            ->rawLessEqual
+            ->value;
+
+          (* check for pattern growth potential *)
+          (if value then
+              (* the absolute type info says "yes!", 'other' is <= *)
+              (if staticallyKnown then
+                  (* my abs. type info does not grow, so "<=" holds;
+                   * leave 'value' unchanged at 'true' *)
+               else
+                  (* Since my absolute type info is _not_ stat-known,
+                   * I might at run-time denote a more special
+                   * pattern than the statically known one.
+                   *
+                   * This means that "<=" only is known to hold if
+                   * we have relative info which establishes that
+                   * 'other' will indeed grow as much as I do.
+                   *)
+                  (if (otherSPType.rinfo[]<>NONE) and (rinfo[]<>NONE) and
+                      (otherSPType.rinfo[]->rinfo.lessEqual) then
+                      (* leave 'value' unchanged at 'true' *)
+                   else
+                      (if not lowerbounds.empty then
+                          (* we have lower bounds, try to use them *)
+                          L: lowerbounds.scan
+                            (#
+                            do (if otherSPType[]->current.sptype.lessEqual then
+                                   true->value; leave L
+                               if)
+                            #)
+                       else
+                          (* for all we know (yet), a specialization may
+                           * break the ordering other<=me *)
+                          maybe;
+                          false->value
+                      if)
+                  if)
+              if)
+           (* else: *)
+              (* Here value=false, i.e. absolute type info says
+               * "no!". The statically known slice structure is
+               * one of the possible run-time structures, and this
+               * static structure has just been shown to be a
+               * counterexample for 'lessEqual', so there is _no_
+               * chance that 'lessEqual' can be proved to hold in
+               * all possible cases at runtime -- hence 'false' *)
+          if)
+       #)
+    else
+       false->value
+   if)
+
+-- StaticPatternTypeKnown:dopart --
+do
+   staticallyKnown->value
+
+-- StaticPatternTypeExistParts:dopart --
+do
+   (* the entire pattern is built from existing/accessible parts if
+    * every mixin has an existing/accessible context *)
+   true->value;
+   L: slices.scan
+     (#
+     do (if not current.originPath.existingAccessible then
+            false->value; leave L
+        if)
+     #)
+
+-- StaticPatternTypeLookupName:dopart --
+do
+   (* We are supposed to search through the slices of this pattern
+    * type in order to find the most specific name dcl with name
+    * 'name', and deliver it in 'l2ndcl'; if 'startSlice' is not-NONE
+    * then the search starts there and wraps around to slices.first *)
+   (#
+      ifOtherDecl:
+        (* Used to control the detection of duplicate (multiple)
+         * declarations of the same name.  Two declarations are
+         * "the same dcl" if they are both virtual and they have 
+         * the same introductory (:<) declaration.  If zero or 
+         * one of them are virtual then they are always unrelated.
+         * The effect of this pattern is to execute INNER iff the
+         * two declarations are unrelated, thus indicating that 
+         * one shadows the other.  
+         * 
+         * NB: this method can only be used when l2ndcl1 and l2ndcl2
+         * are guaranteed to describe attributes in the exact same
+         * object (if they are from different objects then even "the
+         * same virtual" would not be "the same attribute").  This 
+         * is indeed true for the usage inside StaticPatternTypeLookupName,
+         * but you cannot expect to take this out and use it in a more
+         * general setting 
+         *)
+        (# l2ndcl1,l2ndcl2: ^l2NameDcl
+        enter (l2ndcl1[],l2ndcl2[])
+        do (if l2ndcl2.decl.kind
+            // vdeclDeclKind then
+               (if l2ndcl1.decl.kind=vdeclDeclKind then 
+                   (* two virtual decls - may be the same virtual *)
+                   (# l2vdcl1,l2vdcl2: ^l2VDecl
+                   do l2ndcl1.decl.location->l2vdcl1[];
+                      l2ndcl2.decl.location->l2vdcl2[];
+                      (if l2vdcl1.getVirtualDecl=l2vdcl2.getVirtualDecl then
+                          (* same virtual - skip it *)
+                       else
+                          (* two different virtuals => unrelated decls *)
+                          INNER ifOtherDecl
+                      if)
+                   #)
+                else 
+                   (* l2ndcl1 not virtual => unrelated decls *)
+                   INNER ifOtherDecl
+               if)
+            // simpleDeclDeclKind then
+               (# l2sdcl1,l2sdcl2: ^l2SimpleDecl;
+                  l2rspc1,l2rspc2: ^l2ReferenceSpecification;
+                  l2fsit1,l2fsit2: ^l2FinalStaticItem
+               do l2ndcl2.decl.location->l2sdcl2[];
+                  l2sdcl2.ReferenceSpecification[]->l2rspc2[];
+                  (if true
+                   // l2rspc2##<=l2FinalStaticItem## then
+                      l2rspc2[]->l2fsit2[];
+                      (* l2ndcl2 a final static item; see if 
+                       * l2ndcl1 is its virtual static item *)
+                      (if l2ndcl1.decl.kind=simpleDeclDeclKind then
+                          (* l2ndcl1 is at least a simple decl *)
+                          l2ndcl1.decl.location->l2sdcl1[];
+                          (if l2sdcl1.ReferenceSpecification[]
+                              = l2fsit2.getVirtualDecl then
+                              (* same virtual object - skip it *)
+                           else
+                              (* l2ndcl1 is not a virtual object, or it 
+                               * is a different virtual object than 
+                               * l2ndcl2 => unrelated decls *)
+                              INNER ifOtherDecl
+                          if)
+                      if)
+                   // l2rspc2##<=l2VirtualStaticItem## then
+                      (* l2ndcl2 a virtual static item; see if
+                       * l2ndcl1 is a final static item for it *)
+                      (if l2ndcl1.decl.kind=simpleDeclDeclKind then
+                          (* l2ndcl1 is at least a simple decl *)
+                          l2ndcl1.decl.location->l2sdcl1[];
+                          l2sdcl1.ReferenceSpecification[]->l2rspc1[];
+                          (if l2rspc1##<=l2FinalStaticItem## then
+                              l2rspc1[]->l2fsit1[];
+                              (if l2fsit1.getVirtualDecl=l2rspc2[] then
+                                  (* same virtual object - skip it *)
+                               else
+                                  (* l2ndcl1 is a different virtual object
+                                   * than l2ndcl2 => unrelated decls *)
+                                  INNER ifOtherDecl
+                              if)
+                           else
+                              (* l2ndcl1 is not a final static 
+                               * item => unrelated decls *)
+                              INNER ifOtherDecl
+                          if)
+                       else
+                          (* l2ndcl1 not a simple decl => unrelated decls *)
+                          INNER ifOtherDecl
+                      if)
+                   else
+                      (* l2ndcl2 is not a virtual object => unrelated decls *)
+                      INNER ifOtherDecl
+                  if)
+               #)
+            else
+               (* l2ndcl2 not virtual (pattern or object) => unrelated decls *)
+               INNER ifOtherDecl
+           if)
+        #)
+   do
+      NONE->l2ndcl[]; (* means "not yet found" *)
+      (if startSlice[]=NONE then
+          (* normal case: search from bottom to top *)
+          slices.scan
+          (# l2ndcl_dup: ^l2NameDcl; (* duplicate decl of 'name' *)
+             found: @boolean
+          do (if found then
+                 (if (name[]->current.lookupName->l2ndcl_dup[])<>NONE then
+                     (l2ndcl[],l2ndcl_dup[])->ifOtherDecl
+                     (# do usageAst[]->ambiguousWarning #)
+                 if)
+              else
+                 (if (name[]->current.lookupName->l2ndcl[])<>NONE then
+                     true->found
+                 if)
+             if)
+          #)
+       else
+          (* inversion at work: search from startSlice to top, then
+           * from bottom to one slice before startSlice; this defines the
+           * specificity of the slices to be cyclic, starting with
+           * startSlice *)
+          (# l2ndcl_dup: ^l2NameDcl; (* duplicate decl of 'name' *)
+             found: @boolean
+          do (* search from startSlice and upwards *)
+             startSlice.scanForward
+             (#
+             do (if found then
+                    (if (name[]->current.lookupName->l2ndcl_dup[])<>NONE then
+                        (l2ndcl[],l2ndcl_dup[])->ifOtherDecl
+                        (# do usageAst[]->ambiguousWarning #)
+                    if)
+                 else
+                    (if (name[]->current.lookupName->l2ndcl[])<>NONE then
+                        true->found
+                    if)
+                if)
+             #);
+             (* search from bottom to just before startSlice *)
+             startSlice[]->(slices.first).scanForwardTo
+             (#
+             do (if found then
+                    (if (name[]->current.lookupName->l2ndcl_dup[])<>NONE then
+                        (l2ndcl[],l2ndcl_dup[])->ifOtherDecl
+                        (# do usageAst[]->ambiguousWarning #)
+                    if)
+                 else
+                    (if (name[]->current.lookupName->l2ndcl[])<>NONE then
+                        true->found
+                    if)
+                if)
+             #)
+          #)
+      if)
+   #)
+
+-- StaticPatternTypeAdjustPaths:dopart --
+do
+   slices.scan
+   (#
+   do path.deliverCopy->current.originPath.prependList;
+      path.getInitialSyntax->current.originPath.initialSyntax[];
+      current.originPath.normalize
+   #)
+
+-- StaticPatternTypeCoerce:dopart --
+do
+   (* !! this is long and slow; we might put different variants
+    * into different body files and build interpreters/analyzers
+    * with different capabilities; for now, the ground has been
+    * laid for analyzing the potential for run-time errors; it
+    * would be necessary to attribute static patterns with extra
+    * information in order to be able to say something more precise
+    * about the dangers associated with instantiation;
+    *
+    * problem: how do we provide the information
+    *
+    *     - why did this coercion fail?
+    *     - what coercion was it anyway?
+    *
+    * (another interesting property is that this information is
+    * needed for code generation in a compiler)
+    *)
+   (if toKind
+    // labelTypeKind then
+       (* create a static label type and deliver *)
+       (# stltype: ^staticLabelType
+       do
+          'ibetaCom2body.bet/513: '->notyet; (* !!! *)
+          (NONE(*!!!what initial syntax?*),NONE(*!!!what name-decl?*))
+            ->(&staticLabelType[]).init
+            ->stltype[];
+          stltype[]->stype[]
+       #)
+
+    // repetitionTypeKind then 'repetition'->cant
+    // boolSourceTypeKind then 'boolean source'->cant
+    // intSourceTypeKind then 'integer source'->cant
+    // intSinkTypeKind then 'integer sink'->cant
+
+    // patternTypeKind then patternTypeKind->kindedCopy->stype[]
+    // patternRefTypeKind then patternRefTypeKind->kindedCopy->stype[]
+    // objectTypeKind then objectTypeKind->kindedCopy->stype[]
+    // objectRefTypeKind then objectRefTypeKind->kindedCopy->stype[]
+    else
+       badCoercion
+   if)
+
+-- StaticPatternTypeInstantiate:dopart --
+do
+   (# stocp: ^staticOCP
+   do
+      (* create the raw substance object *)
+      (path.getInitialSyntax,this(staticPatternType)[])
+        ->(&staticOCP[]).init
+        ->stocp[];
+      path.deliverCopy->stocp.pathTo.assign;
+      path.getInitialSyntax->stocp.pathTo.initialSyntax[];
+
+      (* set up 'destSlice' *)
+      (if entryAst[]<>NONE then
+          L: (if not slices.empty then
+                 (* search the slice associated with 'entryAst' *)
+                 slices.scan
+                 (#
+                 do (if entryAst[]->current.associated then
+                        current[]
+                          ->stocp.destSlice[]
+                          ->stocp.focus[];
+                        leave L
+                    if)
+                 #);
+                 (* not found *)
+                 'entryAst did not match any slice'
+                   ->internalError
+              else
+                 'entryAst points out syntax, but type is "object"'
+                   ->internalError
+             if)
+
+       else
+          (* 'pathTo' is approximate *)
+          stocp.resetFocus;
+          NONE->stocp.destSlice[]
+      if);
+
+      (* deliver *)
+      stocp[]->stsub[]
+   #)
+
+-- StaticBoundCopyLink:dopart --
+do
+   sptype.copy->theCopy.sptype[];
+   INNER
+
+-- StaticBoundListAdd:dopart --
+do
+   sptype[]->(&staticBound[]).init->append
+
+(*************************************************************
+ *                                                           *
+ *                  Substance Related Slices                 *
+ *                                                           *
+ *************************************************************)
+
+-- PatternSlicePrint:dopart --
+do
+   typename->output;
+   INNER
+
+-- PatternSlicePrintShort:dopart --
+do
+   shortTypename->output;
+   INNER
+
+(*************************************************************
+ *                                                           *
+ *                      l1PatternEntity                      *
+ *                                                           *
+ *************************************************************)
+
+-- PatternEntityInit:dopart --
+do
+   private.slices.init;
+   INNER
+
+-- PatternEntityPrint:dopart --
+do
+   ' ='->output;
+   (if private.slices.empty then
+       ' object'->output
+    else
+       (if private.slices.size=1 then
+           ' '->output;
+           (dest[],indentation+indent_delta,false)
+             ->(private.slices.first).print
+        else
+           private.slices.scanReverse
+           (# do (dest[],indentation+indent_delta,true)->current.print #)
+       if)
+   if)
+
+-- PatternEntityPrintShort:dopart --
+do
+   '='->output;
+   (if private.slices.empty then
+       'object'->output
+    else
+       (if private.slices.size=1 then
+           (dest[],indentation+indent_delta,false)
+             ->(private.slices.first).printShort
+        else
+           private.slices.scanReverse
+           (# do (dest[],indentation+indent_delta,true)->current.printShort #)
+       if)
+   if)
+
+-- PatternEntityEqual:dopart --
+do
+   (if true
+    // other[]=this(l1PatternEntity)[] then
+       true->value
+    // private.slices.empty then
+       other.private.slices.empty->value
+    // other.private.slices.empty then
+       false->value
+    else
+       true->value;
+       (# iter,otherIter: ^patternSlice
+       do private.slices.first->iter[];
+          other.private.slices.first->otherIter[];
+          M: (if true
+              // ((iter[]=NONE) and (otherIter[]=NONE)) then
+                 (* same length, no differences sofar: equal *)
+                 true->value
+              // ((iter[]<>NONE) and (otherIter[]=NONE)) or
+                 ((iter[]=NONE) and (otherIter[]<>NONE)) then
+                 (* not same length: not equal *)
+                 false->value
+              else
+                 (* (iter[]<>NONE) and (otherIter[]<>NONE) *)
+                 (if not (otherIter[]->iter.equal) then
+                     (* differ here: not equal *)
+                     false->value
+                  else
+                     (* this stage OK, continue *)
+                     iter.succ[]->iter[];
+                     otherIter.succ[]->otherIter[];
+                     restart M
+                 if)
+             if)
+       #)
+   if)
+
+-- PatternEntityLess:dopart --
+do
+   (* traverse the chains to check whether 'other' contains
+    * this pattern as a (proper) sublist *)
+   (if true
+    // other[]=this(l1PatternEntity)[] then
+       false->value
+    // private.slices.empty then
+       (not other.private.slices.empty)->value
+    // other.private.slices.empty then
+       false->value
+    else
+       true->value;
+       (# iter,otherIter: ^patternSlice;
+          skipped_any: @boolean
+       do false->skipped_any; (* to detect _proper_ sublist *)
+          private.slices.first->iter[];
+          other.private.slices.first->otherIter[];
+          M: (if true
+              // iter[]=NONE then
+                 (* all my slices found in other, OK *)
+                 (if otherIter[]=NONE then
+                     skipped_any->value
+                  else
+                     true->value
+                 if)
+              // (* iter[]<>NONE and *) (otherIter[]=NONE) then
+                 (* 'other' does not have enough slices, fail *)
+                 false->value
+              else
+                 (* (iter[]<>NONE) and (otherIter[]<>NONE) *)
+                 (if not (otherIter[]->iter.equal) then
+                     (* differ here: try next of 'other' *)
+                     otherIter.succ[]->otherIter[];
+                     true->skipped_any
+                  else
+                     (* this stage OK, continue *)
+                     iter.succ[]->iter[];
+                     otherIter.succ[]->otherIter[]
+                 if);
+                 restart M
+             if)
+       #)
+   if)
+
+-- PatternEntityLessEqual:dopart --
+do
+   (* traverse the chains to check whether 'other' contains
+    * this pattern as a sublist (possibly they are equal) *)
+   (if true
+    // other[]=this(l1PatternEntity)[] then
+       true->value
+    // private.slices.empty then
+       true->value
+    // other.private.slices.empty then
+       private.slices.empty->value
+    else
+       true->value;
+       (# iter,otherIter: ^patternSlice
+       do private.slices.first->iter[];
+          other.private.slices.first->otherIter[];
+          M: (if true
+              // iter[]=NONE then
+                 (* all my slices found in other, OK *)
+                 leave M
+              // (* iter[]<>NONE and *) (otherIter[]=NONE) then
+                 (* 'other' does not have enough slices, fail *)
+                 false->value;
+                 leave M
+              else
+                 (* (iter[]<>NONE) and (otherIter[]<>NONE) *)
+                 (if not (otherIter[]->iter.equal) then
+                     (* differ here: try next of 'other' *)
+                     otherIter.succ[]->otherIter[]
+                  else
+                     (* this stage OK, continue *)
+                     iter.succ[]->iter[];
+                     otherIter.succ[]->otherIter[]
+                 if);
+                 restart M
+             if)
+       #)
+   if)
+
+-- PatternEntityExecute:dopart --
+do
+   (# l1obj: ^l1ObjectEntity
+   do (thrd[],unwind##,NONE)
+        ->instantiate
+        ->l1obj[];
+      true->l1obj.private.specializable;
+      (thrd[],unwind##)->l1obj.execute
+   #)
+
+-- PatternEntityGetEnterIter:dopart --
+do
+   (# l1obj: ^l1ObjectEntity
+   do (thrd[],unwind##,NONE)
+        ->instantiate
+        ->l1obj[];
+      true->l1obj.private.specializable;
+      (thrd[],unwind##,stsub[],world[],usageAst[],execute)
+        ->l1obj.getEnterIter
+        ->ni[]
+   #)
+
+-- PatternEntityGetExitIter:dopart --
+do
+   (# l1obj: ^l1ObjectEntity
+   do (thrd[],unwind##,NONE)
+        ->instantiate
+        ->l1obj[];
+      true->l1obj.private.specializable;
+      (thrd[],unwind##,stsub[],world[],usageAst[])
+        ->l1obj.getExitIter
+        ->xi[]
+   #)
+
+-- PatternEntityGetEnterExitIter:dopart --
+do
+   (# l1obj: ^l1ObjectEntity
+   do (thrd[],unwind##,NONE)
+        ->instantiate
+        ->l1obj[];
+      true->l1obj.private.specializable;
+      (thrd[],unwind##,stsub[],world[],usageAst[])
+        ->l1obj.getEnterExitIter
+        ->(ni[],xi[]);
+      this(l1PatternEntity)[]->ni.usageEntity[]->xi.usageEntity[]
+   #)
+
+-- PatternEntityInstantiate:dopart --
+do
+   (*test-trace  ('(instant. patrn','I')->trace; *)
+   (*test-trace  'I'->traceIndent; *)
+
+   (* create a raw object entity *)
+   (this(l1PatternEntity)[])->(&l1ObjectEntity[]).init->l1obj[];
+   (if attr[]<>NONE then l1obj[]->attr.to[] if);
+
+   (* fill it in according to this pattern *)
+   private.slices.scan
+   (# do l1obj[]->current.createObjectSlice->l1obj.private.slices.append #);
+
+   (* since we may execute code in order to create attributes we
+    * must wrap the calls to fillInAttributes in a frame; note that
+    * we could avoid the frame in a lot of simple cases, and it might
+    * be worth it to detect some of those simple cases statically
+    * and run one of two different versions of instantiate for each
+    * instantiation: the cheap one or the general one... *)
+   (# oofo: ^stackableObject
+   do
+      (NONE,thrd[])->newStackableObject->oofo[];
+
+      (* fill in the composite slices with attributes as declared *)
+      l1obj.private.slices.scan
+      (#
+      do
+         (*test-trace  ('(fill','f')->current.trace; *)
+         (*test-trace  'f'->traceIndent; *)
+         (thrd[],unwind##)->current.fillInAttributes;
+         (*test-trace  'f'->traceOutdent; *)
+         (*test-trace  ('fill)','f')->current.trace; *)
+      #);
+
+      INNER instantiate;
+
+      oofo[]->thrd.private.bvm.restoreFrame
+   #);
+
+   (*test-trace  'I'->traceOutdent; *)
+   (*test-trace  ('instant. patrn)','I')->l1obj.trace; *)
+
+(*************************************************************
+ *                                                           *
+ *                          Objects                          *
+ *                                                           *
+ *************************************************************)
+
+-- ObjectEntityInit:dopart --
+do
+   l1pat[]->private.pattern[];
+   private.slices.init;
+   INNER
+
+-- ObjectEntityPrint:dopart --
+do
+   (* traverse the slices and print each of them *)
+   (if private.slices.empty then
+       (* "object" has no structure -- OK to print nothing *)
+    else
+       (if private.slices.size=1 then
+           ', '->output;
+           (dest[],indentation+indent_delta,false)
+             ->(private.slices.first).print
+        else
+           ' ='->output;
+           private.slices.scanReverse
+           (# do (dest[],indentation+indent_delta,true)->current.print #)
+       if)
+   if)
+
+-- ObjectEntityPrintShort:dopart --
+do
+   (* traverse the slices and print each of them *)
+   (if private.slices.empty then
+       (* "object" has no structure -- OK to print nothing *)
+    else
+       (if private.slices.size=1 then
+           ':'->output;
+           (dest[],indentation+indent_delta,false)
+             ->(private.slices.first).printShort
+        else
+           ':'->output;
+           private.slices.scanReverse
+           (#
+           do (dest[],indentation+indent_delta,false)
+                ->current.printShort;
+              (if current[]<>private.slices.first then ','->output if)
+           #)
+       if)
+   if)
+
+-- ObjectEntityExecute:dopart --
+do
+   (*test-trace  ('(execute object','O')->trace; *)
+   (*test-trace  'O'->traceIndent; *)
+   this(l1ObjectEntity)[]->thrd.stackPush;
+   L: (if not private.slices.empty then
+          unwindScope
+          (# cleanup:
+               (#
+               do (*test-trace  'O'->traceOutdent; *)
+                  (*test-trace  ('execute object)','O')->trace; *)
+                  this(l1ObjectEntity)[]->thrd.stackPopObject
+               #);
+             maybe_rethrow:
+               (# ec: ^targetedExitCode;
+                  oSlice: ^objectSlice
+               enter ec[]
+               do (if ec.target##<=objectSlice## then
+                      ec.target[]->oSlice[];
+                      (if oSlice.identity=this(l1ObjectEntity)[] then
+                          (* this was the target, just fall through *)
+                          (*test-trace  ('jmp destination','u')->trace; *)
+                       else
+                          (* target is another object, rethrow *)
+                          cleanup;
+                          ec[]->&this(execute).unwind
+                      if)
+                   else
+                      (* target is not even an object, rethrow *)
+                      cleanup;
+                      ec[]->&this(execute).unwind
+                  if)
+               #);
+             onLeave::
+               (#
+               do (*test-trace  ('leaving  object','u')->trace; *)
+                  el[]->maybe_rethrow;
+                  leave L
+               #);
+             onRestart::
+               (#
+               do (*test-trace  ('restarting obj.','u')->trace; *)
+                  er[]->maybe_rethrow;
+                  restart L
+               #);
+             onKill::(# do cleanup; ek[]->&this(execute).unwind #);
+             onError::(# do cleanup; ee[]->&this(execute).unwind #)
+          do (thrd[],unwind##)->(private.slices.last).execute
+          #)
+      if);
+   this(l1ObjectEntity)[]->thrd.stackPopObject;
+   (*test-trace  'O'->traceOutdent; *)
+   (*test-trace  ('execute object)','O')->trace; *)
+
+-- ObjectEntityGetEnterIter:dopart --
+do
+   (* we use the supplied static "image" of this object to select
+    * some of the slices, and then let the slices decide what to do *)
+   (# stocp: ^staticOCP
+   do (if stsub##<=staticOCP## then
+          stsub[]->stocp[];
+          (if stocp.sptype.slices.empty then
+              (* static type is "object" *)
+              &enterEmpty
+              (# cleanup::
+                   (#
+                   do (if execute then
+                          (thrd[],unwind##)->this(l1ObjectEntity).execute
+                      if)
+                   #)
+              #)[]->ni[];
+              execute->ni.execute
+           else
+              &enterIterator
+              (# pSlice: ^patternStaticSlice;
+                 oSlice: ^objectSlice;
+                 current_ni: ^enterIterator;
+                 next_oSlice:
+                   (#
+                   do L: (#
+                         do oSlice.scanBackward
+                            (#
+                            do (if current.getSyntax=pSlice.getSyntax then
+                                   current[]->oSlice[];
+                                   leave L
+                               if)
+                            #);
+                            (* no such substance slice *)
+                            'Failed to find substance slice for "enter"'
+                              ->internalError
+                         #)
+                   #);
+                 get_iter:
+                   (#
+                   do (thrd[],unwind##,stsub[],world[],usageAst[],execute)
+                        ->oSlice.getEnterIter
+                        ->current_ni[];
+                      this(l1ObjectEntity)[]->current_ni.usageEntity[];
+                      current_ni.prepare
+                   #);
+                 refresh:
+                   (#
+                   do (if not current_ni.more then
+                          (if pSlice.pred[]<>NONE then
+                              current_ni.cleanup;
+                              pSlice.pred[]->pSlice[];
+                              next_oSlice;
+                              get_iter
+                          if)
+                      if)
+                   #);
+                 prepare::
+                   (#
+                   do (* initial pair of static info and dynamic slice *)
+                      stocp.sptype.slices.last->pSlice[];
+                      private.slices.last->oSlice[];
+                      (* search matching dynamic slice *)
+                      next_oSlice;
+                      (* get hold of first enterIterator *)
+                      get_iter;
+                      (* skip any empty iterators *)
+                      refresh
+                   #);
+                 more::(# do refresh; current_ni.more->value #);
+                 cleanup::
+                   (#
+                   do current_ni.cleanup;
+                      (if execute then
+                          (thrd[],unwind##)->this(l1ObjectEntity).execute
+                      if)
+                   #)
+              do l0tr[]->current_ni;
+                 refresh
+              #)[]->ni[];
+              execute->ni.execute
+          if)
+       else
+          'Static image for "enter" was not an object'
+            ->internalError
+      if)
+   #)
+
+-- ObjectEntityGetExitIter:dopart --
+do
+   (* we use the supplied static "image" of this object to select
+    * some of the slices, and then let the slices decide what to do *)
+   (# stocp: ^staticOCP;
+   do (if stsub##<=staticOCP## then
+          stsub[]->stocp[];
+          (if stocp.sptype.slices.empty then
+              (* static type is "object" *)
+              &exitEmpty
+              (# prepare::
+                   (#
+                   do (thrd[],unwind##)->this(l1ObjectEntity).execute
+                   #)
+              #)[]->xi[]
+           else
+              &exitIterator
+              (# pSlice: ^patternStaticSlice;
+                 oSlice: ^objectSlice;
+                 current_xi: ^exitIterator;
+                 next_oSlice:
+                   (#
+                   do L: (#
+                         do oSlice.scanBackward
+                            (#
+                            do (if current.getSyntax=pSlice.getSyntax then
+                                   current[]->oSlice[];
+                                   leave L
+                               if)
+                            #);
+                            (* no such substance slice *)
+                            'Failed to find substance slice for "exit"'
+                              ->internalError
+                         #)
+                   #);
+                 get_iter:
+                   (#
+                   do (thrd[],unwind##,stsub[],world[],usageAst[])
+                        ->oSlice.getExitIter
+                        ->current_xi[];
+                      this(l1ObjectEntity)[]->current_xi.usageEntity[];
+                      current_xi.prepare
+                   #);
+                 refresh:
+                   (#
+                   do (if not current_xi.more then
+                          (if pSlice.pred[]<>NONE then
+                              current_xi.cleanup;
+                              pSlice.pred[]->pSlice[];
+                              next_oSlice;
+                              get_iter
+                          if)
+                      if)
+                   #);
+                 prepare::
+                   (#
+                   do (thrd[],unwind##)->this(l1ObjectEntity).execute;
+                      (* initial pair of static info and dynamic slice *)
+                      stocp.sptype.slices.last->pSlice[];
+                      private.slices.last->oSlice[];
+                      (* search matching dynamic slice *)
+                      next_oSlice;
+                      (* get hold of first enterIterator *)
+                      get_iter;
+                      (* skip any empty iterators *)
+                      refresh
+                   #);
+                 more::(# do refresh; current_xi.more->value #);
+                 cleanup::(# do current_xi.cleanup #)
+              do current_xi->l0tr[];
+                 refresh
+              #)[]->xi[]
+          if)
+       else
+          'Static image for "exit" was not an object'
+            ->internalError
+      if)
+   #)
+
+-- ObjectEntitySpecializable:dopart --
+do
+   private.specializable->value
+
+(*
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

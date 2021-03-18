@@ -1,0 +1,20 @@
+ORIGIN '../imperative';
+INCLUDE '../eelib';
+INCLUDE '../evaluation';
+--- CompilerLib: Attributes ---
+EvaluationImp: Imperative
+  (#
+     ev: @EvaluationPtr;
+     print:: (# do s[]->ev.print #);
+     checkFollow:: (# do ev.checkFollow #);
+     checkComplete:: (# do ev.checkComplete #);
+     reduce::
+       (# myred: ^ReduceFunction;
+       do
+	  &ev.ptr.reduce[]->myred[];
+	  myred;
+	  (myred.before[],myred.main[])->EvaluationJoin->ee.add
+       #);
+  enter ev
+  do this(EvaluationImp)[]->ev.encl
+  #);

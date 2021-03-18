@@ -1,0 +1,13 @@
+-- betaenv:descriptor --
+(# (* this shows how easy it is to create a 'selftype' 
+    * by leveraging the coercion of objectdenotations 
+    * into patterns: 'this(p)' is an object, but the 
+    * syntactic context calls for a pattern, so we 
+    * coerce the object into its pattern: selftype!
+    *)
+   p: (# selftype: this(p); next: ^selftype do INNER #);
+   q: p(# i: @integer do 5->(&next[]).i #)
+do
+   &q
+#)
+

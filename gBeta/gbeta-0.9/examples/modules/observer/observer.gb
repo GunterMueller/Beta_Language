@@ -1,0 +1,23 @@
+ORIGIN 'betaenv';
+INCLUDE 'observerlib'
+
+-- lib:attributes --
+
+ObserverDesignPattern:
+  (# <<SLOT Observerlib:attributes>>;
+     Subject:< 
+       (# attach: (# enter observers.insert #);
+          detach: (# enter observers.delete #);
+          notify: observers.scan
+            (# do this(Subject)[]->current.update #);
+          observers: @set(# element::< Observer #);
+       #);
+     Observer:< 
+       (# update:< 
+            (# theSubject: ^Subject;
+            enter theSubject[]
+            do INNER
+            #)
+       #)
+  #)
+

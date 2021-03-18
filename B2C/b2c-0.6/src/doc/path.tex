@@ -1,0 +1,114 @@
+\section{Example}
+When all the elements described above are used, an attribute
+denotation can get quite long, as in the following example:
+\begin{quote}\begin{verbatim}this(program).obj.geom.corner[1].x
+\end{verbatim}\end{quote}
+For this denotation to be grammatically correct, several
+definitions like the following ones will have to be in your
+program:
+\begin{quote}\begin{verbatim}program: <<SLOT Program: ObjectDescriptor>>;
+--- Program: ObjectDescriptor ---
+(#
+   window: (# geom: @geometry #);
+   obj: ^window;
+   geometry:
+     (#
+        corner: [2] ^point;
+        point: (# x,y: @integer #)
+     #);
+
+   movex:
+     (# x: @integer
+     enter x
+     do
+        obj.geom.pt[1].x+x->obj.geom.pt[1].x;
+        obj.geom.pt[2].x+x->obj.geom.pt[2].x;
+     #);
+do
+   (* initialization not shown here *)
+   5->movex;
+#);
+\end{verbatim}\end{quote}
+The denotation \cqq{this(program).obj.geom.corner[1].x} is used
+in the DO part of the \cq{movex} pattern.  The first part
+(\cqq{this(program).}) has been implicitely added by the
+compiler, because it does not find any attribute named \cq{obj}
+in the \cq{movex} pattern and then continues looking for it in
+the enclosing patterns.
+
+\section{Paths}
+I think of these long attribute denotations as paths.  On
+each step, a specialised denotation will tell, what to do
+next.  So, the above path reads as follows:
+\begin{itemize}
+\item Go back from the \cq{movex} object to the \cq{program}
+    object.
+\item Find the \cq{obj} object within \cq{program}.
+\item Find the \cq{geom} object within the object, that
+    is referenced by \cq{obj}.
+\item Find the \cq{corner} object within \cq{geom}.
+\item Denote the first element of the \cq{corner} repetition.
+    This results in an object of type \cq{point}.
+\item Find the \cq{x} element in this \cq{point} object.
+\end{itemize}
+
+\section{Joining Paths}
+A common operation during the compilation of a BETA program is to
+join two paths into one.  Typically this means to fit the head of
+path 2 to the tail of path 1:
+\begin{quote}\begin{verbatim}(#
+   point: @
+     (#
+        x,y: @integer;
+        setx: @(# xx: @integer enter xx do xx->x #);
+     #);
+do
+   1->point.setx
+#)
+\end{verbatim}\end{quote}
+The assignment \cqq{1->point.setx} requires to set that variable
+to 1, which is denoted by \cq{xx} in the \cq{point.setx}
+object.  The next step then is to call the do part of the
+\cq{point.setx} object.  So the compiler will translate the
+above example into the following code:
+\begin{quote}\begin{verbatim}(#
+   point: @
+     (#
+        x,y: @integer;
+        setx: @(# xx: @integer enter xx do xx->x #);
+     #);
+do
+   1->point.setx.xx;
+   point.setx;
+#)
+\end{verbatim}\end{quote}
+This example shows, that the enter and exit lists of an object
+are processed completely at the side of the caller of a given
+function.  The reasons for this are explained in section
+\ref{call-do-part}.  In our example, this requires to write the
+value 1 into the \cq{xx} variable of the \cq{point.setx} pattern.
+In the final assignment, these two attribute denotations will be
+joined together, resulting in the term \cq{point.setx.xx}.
+
+This is by far not the only possible situation.  One could change
+the above example as follows:
+\begin{quote}\begin{verbatim}(#
+   point: @(# x,y: @integer; setx: @(# enter x #) #);
+do
+   1->point.setx;
+#)
+\end{verbatim}\end{quote}
+If we did the same joining of the two attribute denotations as
+described above, we'd get \cq{point.setx.x} as result.  But that
+can't be right.  The \cq{setx} object does not have an \cq{x}
+attribute.
+
+There is something, that we forgot: the \cq{x} in the enter
+section of \cq{setx} is prepended with an implicit
+\cq{this(point)} by the compiler.  So the correct joint attribute
+denotation reads: \cq{point.setx.this(point).x}.  This can be
+shortened into \cq{point.x}, as the parts \cq{setx} and
+\cq{this(point)} cancel each other out.
+
+\section{Joining Rules}
+Yet to be written.

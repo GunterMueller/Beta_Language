@@ -1,0 +1,21 @@
+ORIGIN 'betaenv'
+
+-- lib:attributes --
+
+Graph:
+  (# Node:<
+       (# touches:< 
+            (# e: ^Edge; b: @boolean
+            enter e[]
+            do (this(Node)=e.n1) or (this(Node)=e.n2) -> b
+            exit b
+            #)
+       exit this(Node)[]
+       #);
+     Edge:< (# n1,n2: ^Node exit this(Edge)[] #)
+  #);
+
+OnOffGraph: Graph 
+  (# Node::< (# touches::< !(# do (if e.enabled then INNER if)#)#);
+     Edge::< (# enabled: @boolean #)
+  #)

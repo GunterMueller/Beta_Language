@@ -1,0 +1,49 @@
+ORIGIN '../attden';
+BODY 'backlevelbody';
+--- CompilerLib: Attributes ---
+Backlevel: AttributeDenotation
+  (#
+     sd: @<<SLOT BacklevelSD: ObjectDescriptor>>;
+     startod: ^ObjectDescriptor;
+     nlevel: @integer;
+     isequal::
+       (# bl: ^Backlevel
+       do
+	  (if cmp##<=Backlevel## then
+	     cmp[]->bl[];
+	     (bl.startod[]=startod[]) and (bl.nlevel=nlevel) -> value
+	  else
+	     false->value;
+	  if);
+       #);
+     (* when copying a Backlevel, always turn it into a DirectBacklevel *)
+     type:: DirectBacklevel;
+     write:: (# <<SLOT BacklevelWrite: DoPart>> #);
+     copy::
+       (#
+	  level: @integer;
+	  odback,myod: ^ObjectDescriptor;
+	  copied: @boolean;
+	  tmpad: ^AttributeDenotation;
+	  bl: ^Backlevel;
+       <<SLOT BacklevelCopy: DoPart>>
+       #);
+     getcexpr::
+       (# od: ^ObjectDescriptor <<SLOT BacklevelGetCexpr: DoPart>> #);
+  do INNER
+  exit this(Backlevel)[]
+  #);
+
+
+DirectBacklevel: Backlevel
+  (# enter (startod[],nlevel) <<SLOT DirectBacklevelDoPart: DoPart>> #);
+
+
+ThisObject: Backlevel
+  (#
+     str: @text;
+     print:: (# do 'THIS('->s.append; str[]->s.append; ')'->s.append #);
+     resolve:: (# <<SLOT ThisObjectResolve: DoPart>> #);
+     checkComplete:: (# do resolve #);
+  enter str
+  #);

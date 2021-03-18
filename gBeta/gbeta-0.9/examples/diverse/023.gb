@@ -1,0 +1,3 @@
+-- betaenv:descriptor --
+(* used to show static analysis bug: "bad argument" as current object *)
+string(# i: @integer #)

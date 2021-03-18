@@ -1,0 +1,47 @@
+ORIGIN '../attribute';
+INCLUDE '../attden';
+INCLUDE '../ctype';
+INCLUDE '../namebitch';
+INCLUDE '../objectdesc';
+INCLUDE '../ad/special';
+--- CompilerLib: Attributes ---
+StringDecl: Attribute
+  (#
+     str: @text;
+     isrep:: (# do true->value #);
+     getRepEl:: (# do sd[]->att[] #);
+     sd: @SimpleDecl;
+     getcdecl::
+       (#
+       do
+	  'static const char '->c_file.cstream.puttext;
+	  names.ptr.mapname[]->c_file.cstream.puttext;
+	  '['->c_file.cstream.put;
+	  str.length->c_file.cstream.putint;
+	  '] = "'->c_file.cstream.puttext;
+	  str.scanAll
+	    (#
+	    do
+	       (if (ch<' ') or (ch>'~') then
+		  '\\'->c_file.cstream.put;
+		  (ch div 64)+'0'->c_file.cstream.put;
+		  ((ch div 8) mod 8)+'0'->c_file.cstream.put;
+		  (ch mod 8)+'0'->c_file.cstream.put;
+	       else
+		  (if (ch='"') or (ch='\\') then '\\'->c_file.cstream.put if);
+		  ch->c_file.cstream.put;
+	       if);
+	    #);
+	  '";\n'->c_file.cstream.puttext;
+       #);
+     getcexpr:: (# do mapname[]->t.append; ctype_repetitionptr->ctype #);
+  enter str
+  do
+     ee.getod->encl[]->sd.encl[];
+     &name[]->names.ptr[];
+     'str'->names.ptr.mapname;
+     c_file.lstring+1->c_file.lstring->names.ptr.mapname.putint;
+     &CharDenotation->sd.os[];
+     CharPattern[]->sd.od[];
+     (if str.length>0 then getcdecl##->c_file.cstrucdef if);
+  #);

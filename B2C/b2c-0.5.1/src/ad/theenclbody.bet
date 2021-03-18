@@ -1,0 +1,42 @@
+ORIGIN 'theencl';
+INCLUDE 'backlevel';
+INCLUDE 'special';
+INCLUDE '../ctype';
+--- theEnclDoPart: DoPart ---
+do
+   (if prec.ispattern then
+      1->sd.type;
+      (if prec.isvirtual and not prec.ispvariable then
+	 'theEncl is not yet supported for virtuals!'->prec.error
+      if);
+   else
+      0->sd.type;
+   if);
+   (if prec.maybesubpattern then
+      &ObjectDenotation->sd.os[];
+      prec.getpatt->sd.encl[];
+      this(theEncl)[]->finalAd[];
+   else
+      (prec.getpatt,1)->&DirectBacklevel->finalAd[];
+      prec[]->finalAd.copy->finalAd[];
+   if);
+
+
+--- theEnclGetCexpr: DoPart ---
+do
+   (if ctype
+   // ctype_pvariable then '.encl'->t.append
+   // ctype_object then
+      '.pattern->outerindx))'->(t.copy).append->r[];
+      '(*(void **)((char *)&'->t.prepend;
+      '+'->t.put;
+      r[]->t.append;
+   // ctype_objectptr then
+      '->pattern->outerindx))'->(t.copy).append->r[];
+      '(* (void **) ((char *)'->t.prepend;
+      '+'->t.put;
+      r[]->t.append;
+   else
+      (failureTrace,'Bad incoming type in theEncl.Getcexpr!')->stop;
+   if);
+   ctype_objectptr->ctype;

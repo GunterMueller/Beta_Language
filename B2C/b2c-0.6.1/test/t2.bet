@@ -1,0 +1,15 @@
+ORIGIN '~beta/basiclib/current/betaenv';
+--- program: ObjectDescriptor ---
+(# i: @integer; j,jj: @IntegerObject;
+IntegerObject: (# #);
+BooleanObject: (# #);
+k:< IntegerObject (# #);
+Katastrophe: (# b:< Object (# e1: @integer; #); d: ^k; e,f,g,h: @BooleanObject (# j: (# #); h: ^k; a: @Integer #); x: ^Katastrophe #);
+Mist: Katastrophe (# b::< (# e: @Integer; TheLastDay: Object (# #) #) #);
+Untergang: Mist (# b:: (# hell: ^IntegerObject; heaven: ^IntegerObject; x: ^b; decision: @TheLastDay (# #) #) #);
+Ende: Untergang (# b: (# foo: @Integer #); c: @Untergang; d: Ende (# #); #);
+Licht: Schatten (# #);
+Schatten: (# Helligkeit: @Integer #);
+M: @Mist;
+E: @M.e.j;
+#)

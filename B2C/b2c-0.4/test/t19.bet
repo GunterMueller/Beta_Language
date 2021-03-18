@@ -1,0 +1,78 @@
+ORIGIN '../basiclib/v1.4/betaenv';
+INCLUDE '../containers/v1.4/list.bet';
+--- Program: ObjectDescriptor ---
+(#
+   l: @list
+     (#
+        element:: text;
+        equal:: (# do left[]->right.equal->value #);
+	emptyContainerError::
+	  (# do 'Global empty exception raised!'->putline; true->continue #);
+	illegalCellReference::
+	  (#
+	  do
+	     'Global illegalCellReference exception raised!'->putline;
+	     true->continue
+	  #);
+     #);
+   inx: @l.index;
+   c,d: ^container;
+   thehas: ##c.has;
+do
+   (*
+   'starting to set up list!'->putline;
+   l.head->inx;
+   'done with head!'->putline;
+   *)
+   'pencil'->l.append;
+   'pen'->l.append;
+   'rubber'->l.append;
+   ('paper',l.head)->l.insertAfter;
+   'ink'->l.prepend;
+   l[]->c[];
+   c.scan (# do current[]->putline #);
+   newline;
+   'All long names:'->putline;
+   l.scanReverse
+     (# where:: (# do current.length>3->value #) do current[]->putline #);
+   newline;
+
+   c.has##->thehas##;
+   (if 'pen'->thehas then 'There is a pen in the list.'->putline if);
+   (if not ('ruler'->thehas) then 'There is no ruler in the list.'->putline if);
+   newline;
+
+   l.preample->c[];
+   'Preamble of list:'->putline;
+   c.scan (# do current[]->putline #);
+   (if 'ink'->c.has then 'There is ink in the preamble.'->putline if);
+   (if not ('rubber'->c.has) then
+      'There is no rubber in the preamble.'->putline
+   if);
+   newline;
+
+   l.head->inx;
+   2->inx.advanceBy;
+   inx->l.splitBefore->(c[],d[]);
+   'List split into:'->putline;
+   'first half:'->puttext;
+   c.scan (# do ' '->put; current[]->puttext #);
+   newline;
+   'second half:'->puttext;
+   d.scan (# do ' '->put; current[]->puttext #);
+   newline;
+   newline;
+
+   (* Now do some tests with an empty container, as well, as with bad
+    * indexes: *)
+   l.head->l.delete;
+   l.last->l.delete;
+   l.head->l.delete;
+   l.last->l.delete;
+   l.head->l.delete;
+   NONE->l.deleteAfter
+     (# empty:: (# do 'Yeah, the list is empty now!'->putline; true->continue #)
+     #);
+   NONE->l.deleteBefore;
+   &l.theCellType[]->l.delete;
+#)

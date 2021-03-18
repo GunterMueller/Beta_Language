@@ -1,0 +1,8 @@
+ORIGIN '../basiclib/v1.4/betaenv';
+BODY 'tjs2body.bet'
+--- program: ObjectDescriptor ---
+(# 
+   A:(# <<SLOT tjs2DoPart: DoPart>>#);
+   B:A (# do ' B'->putLine #)
+do B   
+#)

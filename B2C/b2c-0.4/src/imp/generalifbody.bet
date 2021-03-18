@@ -1,0 +1,103 @@
+ORIGIN 'generalif';
+INCLUDE 'iflib';
+INCLUDE '../eelib';
+INCLUDE '../ev/type';
+INCLUDE '../ad/special';
+--- GeneralIfImpReduce: DoPart ---
+do
+   (* We have to start with the statements at the END of the if imperative *)
+   (* end all the if() statements, that we are going to open: *)
+   alt.iterate (# do &ifend->ee.add #);
+
+   (* global else part *)
+   (if elseprt.ptr[]<>NONE then
+      elseprt.reduce;
+      &ifelse->ee.add;
+   if);
+
+   (* if condition *)
+   NONE->before[]->iflist[];
+   (ev.ptr[],NONE)->red.init;
+   loop: (# do
+      red->(newev[],type);
+      (if newev[]=NONE then leave loop if);
+      (if newev##=BooleanConst## then
+         newev[]->bc[];
+	 (iflist[],bc.value->&BooleanConst)->EvaluationJoin->iflist[];
+	 restart loop;
+      if);
+      t: (if type
+      // evtype_string then
+	 newev[]->sc[];
+	 (if (sc.getInteger->newev[])<>NONE then
+	    evtype_char->type; restart t
+	 if);
+	 'Strings must not be used in an if imperative!'->error;
+	 leave loop;
+      // evtype_rep then
+	 'Whole repetitions may not be compared in an if imperative!'->error;
+	 leave loop;
+      // evtype_strucref then
+	 newev[]->fac[];
+	 fac.getad->ee.dynamicPVariable (# dontinit:: TrueObject #)
+	   ->(ad[],ev2[]);
+	 ad[]->&StructureReference->ev1[];
+      else
+	 (if type
+	 // evtype_ref then newev[]->fac[]; fac.getad->ad[]
+	 // evtype_real then &RealDenotation->ad[]
+	 // evtype_integer then &IntegerDenotation->ad[]
+	 // evtype_char then &CharDenotation->ad[]
+	 // evtype_boolean then &BooleanDenotation->ad[]
+	 if);
+	 (ad[],true)->ee.item (# dontinit:: TrueObject #) ->(ad[],ev2[]);
+	 (ad[],0)->&ObjectEvaluation->ev1[];
+	 (if type=evtype_ref then ev1[]->&ObjectReference->ev1[] if);
+      if);
+      (before[],ev2[])->EvaluationJoin->before[];
+      (iflist[],ev1[])->EvaluationJoin->iflist[];
+      (newev[],ev1[])->&AssignmentEvaluation->ev2[];
+      &ev2.reduce[]->red2[];
+      red2;
+      ((before[],red.mainred.before[])->EvaluationJoin,red2.before[])
+        ->EvaluationJoin->before[];
+      ((main[],red.mainred.main[])->EvaluationJoin,red2.main[])
+        ->EvaluationJoin->main[];
+
+      restart loop;
+   #);
+
+   alt.reduce;
+   (before[],main[])->EvaluationJoin->ee.add;
+
+
+--- AlternativePtrReduce: DoPart ---
+do
+   el.imp.reduce;
+   el.sel.reduce;
+   (if el.next[]<>NONE then &ifelse[]->ee.add if);
+
+
+--- SelectionPtrReduce: DoPart ---
+do
+   NONE->before[]->main[]->ev[];
+   iterate
+     (#
+     do
+	&EqExp (# errorDest:: (# do rs[]->ev[] #) #)[]->eq[];
+	(ptr.encl.encl.iflist[],el.ev.ptr[])->eq;
+	&eq.reduce[]->red[];
+	red;
+	(if ev[]<>NONE then
+	   (red.exitopt[],ev[])->&OrExp->orex[]->ev[];
+	   true->orex.isboolean;
+	   (red.before[],before[])->EvaluationJoin->before[];
+	   (red.main[],main[])->EvaluationJoin->main[];
+	else
+	   red.exitopt[]->ev[];
+	   red.before[]->before[];
+	   red.main[]->main[];
+	if);
+     #);
+   ev[]->&ifstart->ee.add;
+   (before[],main[])->EvaluationJoin->ee.add;

@@ -1,0 +1,1705 @@
+(* FILE "./private/ibetaTwoExprbody.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaTwoExprbody.bet,v 1.53 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN 'ibetaTwobody';
+INCLUDE 'ibetaCommonlib';
+INCLUDE 'ibetaTwolib'
+
+(************************************************************ 
+ *                                                          * 
+ *                        l2UnaryExp                        * 
+ *                                                          * 
+ ************************************************************)
+
+-- UnaryExpPrint:dopart --
+do
+   INNER;
+   (dest[],indentation,false)->operand.print
+
+-- UnaryExpScanImpl:dopart --
+do
+   INNER;
+   (preCB[],postCB[])->operand.scanImpl
+
+-- UnaryExpGetTranOut:dopart -- 
+do
+   (context[],world[])
+     ->operand.getStaticTransientOut
+     ->operandTransient[];
+   INNER
+
+-- UnaryExpGetTranIn:dopart --
+do
+   ('Attempt to assign to a unary expression'
+   ,'Remove the unary operator'
+   ,this(l2UnaryExp)[])->staticError
+
+-- UnaryExpGetCplr:dopart --
+do
+   (context[],world[],usageAst[])
+     ->operand.getExitCompiler
+     ->operandCplr[];
+   INNER
+
+-- UnaryExpGetEnterCplr:dopart --
+do
+   ('Attempt to assign to a unary expression' 
+   ,'Remove the unary operator' 
+   ,this(l2UnaryExp)[])->staticError
+
+-- UnaryExpGetExitCplr:dopart --
+do
+   (context[],world[],usageAst[])
+     ->operand.getExitCompiler
+     ->operandCplr[];
+   INNER
+
+-- UnaryExpGetEnterExitCplr:dopart --
+do
+   ('Attempt to assign-then-evaluate a unary expression' 
+   ,'Remove the unary operator' 
+   ,this(l2UnaryExp)[])->staticError
+
+-- UnaryExpClosureExecute:dopart --
+do
+   (thrd[],unwind##,dContext[])->operand.execute
+
+-- UnaryExpGetEnterIter:dopart --
+do
+   'Trying to assign a value to a unary expression'
+     ->internalError
+
+(************************************************************ 
+ *                                                          * 
+ *                         l2BinExp                         * 
+ *                                                          * 
+ ************************************************************)
+
+-- BinExpGetExitCompilerLib:attributes --
+
+delegate2ExitCompiler: exitOnceCompiler
+  (* To use: furtherbind 'generate' using 'stran1' and 'stran2' to combine 
+   * the computed values; NB: imports 'cplr1' and 'cplr2' to use the
+   * two subexpression compilers generated at the general level *)
+  (# stran1,stran2,resultSTran: ^staticTransient;
+     coercionPos: ^betaByteCode;
+     doCoerce:< binCoerceBase;
+     prepare::
+       (# do (program[],cInfo[])->cplr1.prepare;
+          (program[],cInfo[])->cplr2.prepare
+       #);
+     generate::<
+       (# count: @integer
+       do L: (if cplr1.more and cplr2.more then
+                 (program[],cInfo[])
+                   ->cplr1.generate
+                   ->stran1[];
+                 program.lastLink[]->coercionPos[];
+                 (program[],cInfo[])
+                   ->cplr2.generate
+                   ->stran2[];
+                 (program[],coercionPos[],stran1[],stran2[])
+                   ->doCoerce
+                   ->resultSTran[];
+                 count+1->count
+              else
+                 (if cplr1.more<>cplr2.more then
+                     (* lists have different lengths *) 
+                     ('Values obtained from operands have different structure'
+                     ,'Use expressions that yield one value each'
+                     ,this(l2BinExp)[])->staticError
+                 if)
+             if);
+          
+          (if count<>1 then 
+              (* lists are not of length one *) 
+              (# msg: ^text
+              do 'Operands yield '->msg[];
+                 count->msg.putint;
+                 ' values each'->msg.puttext;
+                 (msg[]
+                 ,'Use expressions that yield one value each'
+                 ,this(l2BinExp)[])->staticError
+              #)
+          if);
+          
+          (program[],cInfo[])
+            ->cplr1.cleanup;
+          (program[],cInfo[])
+            ->cplr2.cleanup;
+          
+          INNER
+       #);
+     cleanup::(# #)
+  #)
+
+-- BinExpPrint:dopart --
+do
+   (dest[],indentation,false)->operand1.print;
+   INNER;
+   (dest[],indentation,false)->operand2.print
+
+-- BinExpScanImpl:dopart --
+do
+   INNER;
+   (preCB[],postCB[])->operand1.scanImpl;
+   (preCB[],postCB[])->operand2.scanImpl
+
+-- BinExpGetTranOut:dopart -- 
+do
+   (context[],world[])
+     ->operand1.getStaticTransientOut
+     ->operand1Transient[];
+   (context[],world[])
+     ->operand2.getStaticTransientOut
+     ->operand2Transient[];
+   INNER
+
+-- BinExpGetTranIn:dopart --
+do 
+   ('Attmpt to assign to a binary expression'
+   ,'Don\'t'
+   ,this(l2BinExp)[])->staticError
+
+-- BinExpGetCplr:dopart --
+do
+   &exeCompiler
+   (# cplr1: ^exitCompiler;
+      cplr2: ^exitCompiler;
+      stran1,stran2: ^staticTransient;
+      generate::
+        (# count: @integer
+        do 
+           (context[],world[],usageAst[])
+             ->operand1.getExitCompiler
+             ->cplr1[];
+           (context[],world[],usageAst[])
+             ->operand2.getExitCompiler
+             ->cplr2[];
+           
+           (program[],cInfo[])
+             ->cplr1.prepare;
+           (program[],cInfo[])
+             ->cplr2.prepare;
+           
+           L: (if cplr1.more and cplr2.more then
+                  (program[],cInfo[])
+                    ->cplr1.generate
+                    ->stran1[];
+                  (program[],cInfo[])
+                    ->cplr2.generate
+                    ->stran2[];
+                  count+1->count;
+                  
+                  (* get rid of the computed values; it makes no 
+                   * difference whether we compute the ignored 
+                   * value ifself, so we don''t; NB!! this means
+                   * that "1/0;" will evaluate "1" and "0" but 
+                   * will not give a divide-by-zero error; 
+                   * Also note that since NONE does not itself lead 
+                   * to pushed values on any stack, we must only 
+                   * pop for the not-NONE values *)
+                  (if stran2##<>staticNoneTransient## then
+                      ('ibetaTwoExprbody.bet/1305',stran2[])
+                        ->(&discardCode[]).init
+                        ->program.append
+                  if);
+                  (if stran1##<>staticNoneTransient## then
+                      ('ibetaTwoExprbody.bet/1310',stran1[])
+                        ->(&discardCode[]).init 
+                        ->program.append
+                  if)
+                  
+               else
+                  (if cplr1.more<>cplr2.more then
+                      (* lists have different lengths *) 
+                      ('Values obtained from operands have different structure'
+                      ,'Use expressions that yield one value each'
+                      ,this(l2BinExp)[])->staticError
+                  if)
+              if);
+           
+           (if count<>1 then 
+               (* lists are not of length one *) 
+               (# msg: ^text
+               do 'Operands yield '->msg[];
+                  count->msg.putint;
+                  ' values each'->msg.puttext;
+                  (msg[]
+                  ,'Use expressions that yield one value each'
+                  ,this(l2BinExp)[])->staticError
+               #)
+           if);
+           
+           (program[],cInfo[])
+             ->cplr1.cleanup;
+           (program[],cInfo[])
+             ->cplr2.cleanup
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- BinExpGetEnterCplr:dopart --
+do
+   ('Attempt to assign to a binary expression' 
+   ,'Don\'t'
+   ,this(l2BinExp)[])->staticError
+
+-- BinExpGetExitCplr:dopart --
+do
+   (context[],world[],usageAst[])
+     ->operand1.getExitCompiler
+     ->cplr1[];
+   (context[],world[],usageAst[])
+     ->operand2.getExitCompiler
+     ->cplr2[];
+   INNER
+
+-- BinExpGetEnterExitCplr:dopart --
+do
+   ('Attempt to assign-then-evaluate a binary expression' 
+   ,'Don\'t'
+   ,this(l2BinExp)[])->staticError
+
+-- BinExpClosureExecute:dopart --
+do
+   (* !! consider this some more; also make order-of-execution random(?) *)
+   (thrd[],unwind##,dContext[])->operand1.execute;
+   (thrd[],unwind##,dContext[])->operand2.execute
+
+-- BinExpGetEnterIter:dopart --
+do
+   'Trying to assign a value to a binary expression'
+     ->internalError
+
+(************************************************************* 
+ *                                                           * 
+ *                          l2EqExp                          * 
+ *                                                           * 
+ *************************************************************)
+
+-- EqExpPrint:dopart --
+do
+   '='->output
+
+-- EqExpGetTranOut:dopart -- 
+do
+   (operand1Transient[],operand2Transient[],this(l2EqExp)[])
+     ->eqneqBinOpStaticCoercion
+     ->stran[]
+
+-- EqExpGetExitCplr:dopart --
+do
+   &delegate2ExitCompiler
+   (# doCoerce::binEqCoerce;
+      generate::
+        (# do ('ibetaTwoExprbody.bet/1397',resultSTran[])
+             ->(&relopEqExpCode[]).init
+             ->program.append; 
+           (&staticBooleanTransient[]).init->stran[]
+        #)
+   #)[]->xc[]
+
+-- EqExpGetExitIter:dopart --
+do
+   &binaryExit
+   (# getThrd::(# do thrd[]->value[] #);
+      l0trb: ^l0TransientBoolean
+   do &l0TransientBoolean[]->l0trb[]->l0tr[];
+      this(l2EqExp)[]->l0tr.usageAst[];
+      (thrd[],unwind##,l0tr1[],l0tr2[])
+        ->pairTransientsEqNEqBinOp
+        ->(l0tr1[],l0tr2[]);
+      ((thrd[],unwind##,l0tr1[])->l0tr2.equal)->l0trb.value
+   #)[]->xi[]
+
+(************************************************************* 
+ *                                                           * 
+ *                          l2LtExp                          * 
+ *                                                           * 
+ *************************************************************)
+
+-- LtExpPrint:dopart --
+do
+   '<'->output
+
+-- LtExpGetTranOut:dopart -- 
+do
+   (operand1Transient[],operand2Transient[],this(l2LtExp)[])
+     ->uneqBinOpStaticCoercion
+     ->stran[]
+
+-- LtExpGetExitCplr:dopart --
+do
+   &delegate2ExitCompiler
+   (# doCoerce::binInEqCoerce;
+      generate::
+        (# do ('ibetaTwoExprbody.bet/1438',resultSTran[])
+             ->(&relopLtExpCode[]).init
+             ->program.append;
+           (&staticBooleanTransient[]).init->stran[]
+        #)
+   #)[]->xc[]
+
+-- LtExpGetExitIter:dopart --
+do
+   &binaryExit
+   (# getThrd::(# do thrd[]->value[] #);
+      l0trb: ^l0TransientBoolean
+   do &l0TransientBoolean[]->l0trb[]->l0tr[];
+      this(l2LtExp)[]->l0tr.usageAst[];
+      (thrd[],unwind##,l0tr1[],l0tr2[])
+        ->pairTransientsUnEqBinOp
+        ->(l0tr1[],l0tr2[]);
+      ((thrd[],unwind##,l0tr1[])->l0tr2.less)->l0trb.value
+   #)[]->xi[]
+
+(************************************************************* 
+ *                                                           * 
+ *                          l2LeExp                          * 
+ *                                                           * 
+ *************************************************************)
+
+-- LeExpPrint:dopart --
+do
+   '<='->output
+
+-- LeExpGetTranOut:dopart -- 
+do
+   (operand1Transient[],operand2Transient[],this(l2LeExp)[])
+     ->uneqBinOpStaticCoercion
+     ->stran[]
+
+-- LeExpGetExitCplr:dopart --
+do
+   &delegate2ExitCompiler
+   (# doCoerce::binInEqCoerce;
+      generate::
+        (# do ('ibetaTwoExprbody.bet/1479',resultSTran[])
+             ->(&relopLeExpCode[]).init
+             ->program.append;
+           (&staticBooleanTransient[]).init->stran[]
+        #)
+   #)[]->xc[]
+
+-- LeExpGetExitIter:dopart --
+do
+   &binaryExit
+   (# getThrd::(# do thrd[]->value[] #);
+      l0trb: ^l0TransientBoolean
+   do &l0TransientBoolean[]->l0trb[]->l0tr[];
+      this(l2LeExp)[]->l0tr.usageAst[];
+      (thrd[],unwind##,l0tr1[],l0tr2[])
+        ->pairTransientsUnEqBinOp
+        ->(l0tr1[],l0tr2[]);
+      (not ((thrd[],unwind##,l0tr2[])->l0tr1.less))->l0trb.value
+   #)[]->xi[]
+
+(************************************************************* 
+ *                                                           * 
+ *                          l2GtExp                          * 
+ *                                                           * 
+ *************************************************************)
+
+-- GtExpPrint:dopart --
+do
+   '>'->output
+
+-- GtExpGetTranOut:dopart -- 
+do
+   (operand1Transient[],operand2Transient[],this(l2GtExp)[])
+     ->uneqBinOpStaticCoercion
+     ->stran[]
+
+-- GtExpGetExitCplr:dopart --
+do
+   &delegate2ExitCompiler
+   (# doCoerce::binInEqCoerce;
+      generate::
+        (# do ('ibetaTwoExprbody.bet/1520',resultSTran[])
+             ->(&relopGtExpCode[]).init
+             ->program.append;
+           (&staticBooleanTransient[]).init->stran[]
+        #)
+   #)[]->xc[]
+
+-- GtExpGetExitIter:dopart --
+do
+   &binaryExit
+   (# getThrd::(# do thrd[]->value[] #);
+      l0trb: ^l0TransientBoolean
+   do &l0TransientBoolean[]->l0trb[]->l0tr[];
+      this(l2GtExp)[]->l0tr.usageAst[];
+      (thrd[],unwind##,l0tr1[],l0tr2[])
+        ->pairTransientsUnEqBinOp
+        ->(l0tr1[],l0tr2[]);
+      ((thrd[],unwind##,l0tr2[])->l0tr1.less)->l0trb.value
+   #)[]->xi[]
+
+(************************************************************* 
+ *                                                           * 
+ *                          l2GeExp                          * 
+ *                                                           * 
+ *************************************************************)
+
+-- GeExpPrint:dopart --
+do
+   '>='->output
+
+-- GeExpGetTranOut:dopart -- 
+do
+   (operand1Transient[],operand2Transient[],this(l2GeExp)[])
+     ->uneqBinOpStaticCoercion
+     ->stran[]
+
+-- GeExpGetExitCplr:dopart --
+do
+   &delegate2ExitCompiler
+   (# doCoerce::binInEqCoerce;
+      generate::
+        (# do ('ibetaTwoExprbody.bet/1561',resultSTran[])
+             ->(&relopGeExpCode[]).init
+             ->program.append;
+           (&staticBooleanTransient[]).init->stran[]
+        #)
+   #)[]->xc[]
+
+-- GeExpGetExitIter:dopart --
+do
+   &binaryExit
+   (# getThrd::(# do thrd[]->value[] #);
+      l0trb: ^l0TransientBoolean
+   do &l0TransientBoolean[]->l0trb[]->l0tr[];
+      this(l2GeExp)[]->l0tr.usageAst[];
+      (thrd[],unwind##,l0tr1[],l0tr2[])
+        ->pairTransientsUnEqBinOp
+        ->(l0tr1[],l0tr2[]);
+      (not((thrd[],unwind##,l0tr1[])->l0tr2.less))->l0trb.value
+   #)[]->xi[]
+
+(************************************************************* 
+ *                                                           * 
+ *                          l2NeExp                          * 
+ *                                                           * 
+ *************************************************************)
+
+-- NeExpPrint:dopart --
+do
+   '<>'->output
+
+-- NeExpGetTranOut:dopart -- 
+do
+   (operand1Transient[],operand2Transient[],this(l2NeExp)[])
+     ->eqneqBinOpStaticCoercion
+     ->stran[]
+
+-- NeExpGetExitCplr:dopart --
+do
+   &delegate2ExitCompiler
+   (# doCoerce::binEqCoerce;
+      generate::
+        (# do ('ibetaTwoExprbody.bet/1602',resultSTran[])
+             ->(&relopNeExpCode[]).init
+             ->program.append;
+           (&staticBooleanTransient[]).init->stran[]
+        #)
+   #)[]->xc[]
+
+-- NeExpGetExitIter:dopart --
+do
+   &binaryExit
+   (# getThrd::(# do thrd[]->value[] #);
+      l0trb: ^l0TransientBoolean
+   do &l0TransientBoolean[]->l0trb[]->l0tr[];
+      this(l2NeExp)[]->l0tr.usageAst[];
+      (thrd[],unwind##,l0tr1[],l0tr2[])
+        ->pairTransientsEqNEqBinOp
+        ->(l0tr1[],l0tr2[]);
+      (not((thrd[],unwind##,l0tr1[])->l0tr2.equal))->l0trb.value
+   #)[]->xi[]
+
+(************************************************************* 
+ *                                                           * 
+ *                         l2PlusExp                         * 
+ *                                                           * 
+ *************************************************************)
+
+-- PlusExpPrint:dopart --
+do
+   '+'->output
+
+-- PlusExpGetTranOut:dopart -- 
+do
+   (operand1Transient[],operand2Transient[],this(l2PlusExp)[])
+     ->plusBinOpStaticCoercion
+     ->stran[]
+
+-- PlusExpGetExitCplr:dopart --
+do
+   &delegate2ExitCompiler
+   (# doCoerce::binPlusCoerce;
+      generate::
+        (# do ('ibetaTwoExprbody.bet/1643',resultSTran[]->stran[])
+             ->(&addopPlusExpCode[]).init
+             ->program.append 
+        #)
+   #)[]->xc[]
+
+-- PlusExpGetExitIter:dopart --
+do
+   &binaryExitCoerceArith
+   (# getThrd::(# do thrd[]->value[] #)
+   do (* 'l0tr1' and 'l0tr2' have been coerced into same type *)
+      (if true
+       // l0tr1##<=l0TransientInteger## then
+          (# l0tri1,l0tri2,l0tri: ^l0TransientInteger
+          do l0tr1[]->l0tri1[];
+             l0tr2[]->l0tri2[];
+             &l0TransientInteger[]->l0tri[]->l0tr[];
+             this(l2PlusExp)[]->l0tr.usageAst[];
+             (l0tri1+l0tri2)->l0tri
+          #)
+       // l0tr1##<=l0TransientReal## then
+          (# l0trr1,l0trr2,l0trr: ^l0TransientReal
+          do l0tr1[]->l0trr1[];
+             l0tr2[]->l0trr2[];
+             &l0TransientReal[]->l0trr[]->l0tr[];
+             this(l2PlusExp)[]->l0tr.usageAst[];
+             (l0trr1+l0trr2)->l0trr
+          #)
+       // l0tr1##<=l0TransientString## then
+          (# l0trs1,l0trs2,l0trs: ^l0TransientString
+          do l0tr1[]->l0trs1[];
+             l0tr2[]->l0trs2[];
+             &l0TransientString[]->l0trs[]->l0tr[];
+             this(l2PlusExp)[]->l0tr.usageAst[];
+             l0trs2
+               ->((l0trs1).copy).append
+               ->l0trs
+          #)
+       else
+          (# msg: ^text
+          do 'Trying to add '->msg[];
+             (l0tr1.typename).withIndefArticle->msg.puttext;
+             ' and '->msg.puttext;
+             (l0tr2.typename).withIndefArticle->msg.puttext;
+             msg[]->internalError
+          #)
+      if)
+   #)[]->xi[]
+
+(************************************************************ 
+ *                                                          * 
+ *                        l2MinusExp                        * 
+ *                                                          * 
+ ************************************************************)
+
+-- MinusExpPrint:dopart --
+do
+   '-'->output
+
+-- MinusExpGetTranOut:dopart -- 
+do
+   (operand1Transient[],operand2Transient[],this(l2MinusExp)[])
+     ->arithBinOpStaticCoercion
+     ->stran[]
+
+-- MinusExpGetExitCplr:dopart --
+do
+   &delegate2ExitCompiler
+   (# doCoerce::binArithCoerce;
+      generate::
+        (# do ('ibetaTwoExprbody.bet/1713',resultSTran[]->stran[])
+             ->(&addopMinusExpCode[]).init
+             ->program.append
+        #)
+   #)[]->xc[]
+
+-- MinusExpGetExitIter:dopart --
+do
+   &binaryExitCoerceArith
+   (# getThrd::(# do thrd[]->value[] #)
+   do (* 'l0tr1' and 'l0tr2' have been coerced into same type *)
+      (if true
+       // l0tr1## <= l0TransientInteger## then
+          (# l0tri1,l0tri2,l0tri: ^l0TransientInteger
+          do l0tr1[]->l0tri1[];
+             l0tr2[]->l0tri2[];
+             &l0TransientInteger[]->l0tri[]->l0tr[];
+             this(l2MinusExp)[]->l0tr.usageAst[];
+             (l0tri1-l0tri2)->l0tri
+          #)
+       // l0tr1## <= l0TransientReal## then
+          (# l0trr1,l0trr2,l0trr: ^l0TransientReal
+          do l0tr1[]->l0trr1[];
+             l0tr2[]->l0trr2[];
+             &l0TransientReal[]->l0trr[]->l0tr[];
+             this(l2MinusExp)[]->l0tr.usageAst[];
+             (l0trr1-l0trr2)->l0trr
+          #)
+       else
+          (# msg: ^text
+          do 'Trying to subtract '->msg[];
+             (l0tr1.typename).withIndefArticle->msg.puttext;
+             ' and '->msg.puttext;
+             (l0tr2.typename).withIndefArticle->msg.puttext;
+             msg[]->internalError
+          #)
+      if)
+   #)[]->xi[]
+
+(************************************************************* 
+ *                                                           * 
+ *                          l2OrExp                          * 
+ *                                                           * 
+ *************************************************************)
+
+-- OrExpPrint:dopart --
+do
+   ' or '->output
+
+-- OrExpGetTranOut:dopart -- 
+do
+   (operand1Transient[],operand2Transient[],this(l2OrExp)[])
+     ->andorBinOpStaticCoercion
+     ->stran[]
+
+-- OrExpGetExitCplr:dopart --
+do
+   &delegate2ExitCompiler
+   (# doCoerce::binBoolCoerce;
+      generate::
+        (# do ('ibetaTwoExprbody.bet/1773',resultSTran[]->stran[])
+             ->(&addopOrExpCode[]).init
+             ->program.append 
+        #)
+   #)[]->xc[]
+
+-- OrExpGetExitIter:dopart --
+do
+   &binaryExitCoerceAndOr
+   (# getThrd::(# do thrd[]->value[] #)
+   do (if l0tr1## <= l0TransientBoolean## then
+          (# l0trb1,l0trb2,l0trb: ^l0TransientBoolean
+          do l0tr1[]->l0trb1[];
+             l0tr2[]->l0trb2[];
+             &l0TransientBoolean[]->l0trb[]->l0tr[];
+             this(l2OrExp)[]->l0tr.usageAst[];
+             (l0trb1 or l0trb2)->l0trb
+          #)
+       else
+          (# msg: ^text
+          do 'Trying to OR '->msg[];
+             (l0tr1.typename).withIndefArticle->msg.puttext;
+             ' and '->msg.puttext;
+             (l0tr2.typename).withIndefArticle->msg.puttext;
+             msg[]->internalError
+          #)
+      if)
+   #)[]->xi[]
+
+(************************************************************ 
+ *                                                          * 
+ *                         l2XorExp                         * 
+ *                                                          * 
+ ************************************************************)
+
+-- XorExpPrint:dopart --
+do
+   ' xor '->output
+
+-- XorExpGetTranOut:dopart -- 
+do
+   (operand1Transient[],operand2Transient[],this(l2XorExp)[])
+     ->andorBinOpStaticCoercion
+     ->stran[]
+
+-- XorExpGetExitCplr:dopart --
+do
+   &delegate2ExitCompiler
+   (# doCoerce::binBoolCoerce;
+      generate::
+        (# do ('ibetaTwoExprbody.bet/1823',resultStran[]->stran[])
+             ->(&addopXorExpCode[]).init
+             ->program.append
+        #)
+   #)[]->xc[]
+
+-- XorExpGetExitIter:dopart --
+do 
+   &binaryExitCoerceAndOr
+   (# getThrd::(# do thrd[]->value[] #)
+   do (if l0tr1## <= l0TransientBoolean## then
+          (# l0trb1,l0trb2,l0trb: ^l0TransientBoolean
+          do l0tr1[]->l0trb1[];
+             l0tr2[]->l0trb2[];
+             &l0TransientBoolean[]->l0trb[]->l0tr[];
+             this(l2XorExp)[]->l0tr.usageAst[];
+             (l0trb1 xor l0trb2)->l0trb
+          #)
+       else
+          (# msg: ^text
+          do 'Trying to XOR '->msg[];
+             (l0tr1.typename).withIndefArticle->msg.puttext;
+             ' and '->msg.puttext;
+             (l0tr2.typename).withIndefArticle->msg.puttext;
+             msg[]->internalError
+          #)
+      if)
+   #)[]->xi[]
+
+(************************************************************ 
+ *                                                          * 
+ *                      l2UnaryPlusExp                      * 
+ *                                                          * 
+ ************************************************************)
+
+-- UnaryPlusExpPrint:dopart --
+do
+   '+'->output
+
+-- UnaryPlusExpGetTranOut:dopart -- 
+do
+   (operandTransient[],this(l2UnaryPlusExp)[])
+     ->addUnOpStaticCoercion
+     ->stran[]
+
+-- UnaryPlusExpGetCplr:dopart --
+do
+   &exeCompiler
+   (# substran: ^staticTransient; (* only used for checking and diagnostics *)
+      generate::
+        (# do (program[],cInfo[])->operandCplr.prepare;
+           (if operandCplr.more then
+               (program[],cInfo[])
+                 ->operandCplr.generate
+                 ->substran[]
+            else
+               ('Unary plus expression yields no values'
+               ,'Use an expression yielding an integer or a real'
+               ,usageAst[])->staticError
+           if);
+           (if not operandCplr.more then
+               (program[],cInfo[])->operandCplr.cleanup 
+            else
+               ('Unary plus expression yields more than one value'
+               ,'Use an expression yielding an integer or a real'
+               ,usageAst[])->staticError
+           if);
+           (if substran##
+            // staticIntegerTransient## then
+               ('ibetaTwoExprbody.bet/1892',(&staticIntegerTransient[]).init)
+                 ->(&discardCode[]).init
+                 ->program.append
+            // staticRealTransient## then
+               ('ibetaTwoExprbody.bet/1896',(&staticRealTransient[]).init)
+                 ->(&discardCode[]).init
+                 ->program.append
+            else
+               (# msg: ^text
+               do 'Unexpected type for unary plus expression: '
+                    ->msg[];
+                  substran.typename->msg.puttext;
+                  (msg[]
+                  ,'Use an expression of type integer or real'
+                  ,usageAst[])->staticError
+               #)
+           if)
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- UnaryPlusExpGetExitCplr:dopart --
+do
+   (* unary plus makes no difference, so we could actually just do
+    * 'operandCplr[]->xc[]'!  This gives better checking, though *)
+   &exitOnceCompiler
+   (# subxc: ^exitCompiler;
+      prepare::
+        (# do operandCplr[]->subxc[];
+           (program[],cInfo[])->subxc.prepare
+        #);
+      generate::
+        (# substran: ^staticTransient
+        do (if subxc.more then
+               (program[],cInfo[])
+                 ->subxc.generate
+                 ->substran[]
+            else
+               ('Unary plus expression yields no values'
+               ,'Use an expression yielding an integer or a real'
+               ,usageAst[])->staticError
+           if);
+           (if not subxc.more then
+               (program[],cInfo[])->subxc.cleanup 
+            else
+               ('Unary plus expression yields more than one value'
+               ,'Use an expression yielding an integer or a real'
+               ,usageAst[])->staticError
+           if);
+           (if substran##
+            // staticIntegerTransient## // staticRealTransient## then
+               (* OK, no new instructions needed *)
+            else
+               (# msg: ^text
+               do 'Unexpected type for unary plus expression: '
+                    ->msg[];
+                  substran.typename->msg.puttext;
+                  (msg[]
+                  ,'Use an expression of type integer or real'
+                  ,usageAst[])->staticError
+               #)
+           if);
+           substran[]->stran[]
+        #);
+      cleanup::(# #)
+   #)[]->xc[]
+
+-- UnaryPlusExpGetExitIter:dopart --
+do
+   &unaryExit
+   (#
+   do (if true
+       // l0trOp## <= l0TransientChar##
+       // l0trOp## <= l0TransientInteger##
+       // l0trOp## <= l0TransientReal## then
+          l0trOp[]->l0tr[]
+       else
+          (# msg: ^text
+          do 'Trying to apply unary plus to '->msg[];
+             (l0trOp.typename).withIndefArticle->msg.puttext;
+             msg[]->internalError
+          #)
+      if)
+   #)[]->xi[]
+
+(************************************************************* 
+ *                                                           * 
+ *                      l2UnaryMinusExp                      * 
+ *                                                           * 
+ *************************************************************)
+
+-- UnaryMinusExpPrint:dopart --
+do
+   '-'->output
+
+-- UnaryMinusExpGetTranOut:dopart -- 
+do
+   (operandTransient[],this(l2UnaryMinusExp)[])
+     ->addUnOpStaticCoercion
+     ->stran[]
+
+-- UnaryMinusExpGetCplr:dopart --
+do
+   &exeCompiler
+   (# substran: ^staticTransient; (* only used for checking and diagnostics *)
+      generate::
+        (# do (program[],cInfo[])->operandCplr.prepare;
+           (if operandCplr.more then
+               (program[],cInfo[])
+                 ->operandCplr.generate
+                 ->substran[]
+            else
+               ('Unary minus expression yields no values'
+               ,'Use an expression yielding an integer or a real'
+               ,usageAst[])->staticError
+           if);
+           (if not operandCplr.more then
+               (program[],cInfo[])->operandCplr.cleanup 
+            else
+               ('Unary minus expression yields more than one value'
+               ,'Use an expression yielding an integer or a real'
+               ,usageAst[])->staticError
+           if);
+           (if substran##
+            // staticIntegerTransient## then
+               'ibetaTwoExprbody.bet/2017'
+                 ->(&negateIntegerCode[]).init
+                 ->program.append;
+               ('ibetaTwoExprbody.bet/2020',(&staticIntegerTransient[]).init)
+                 ->(&discardCode[]).init
+                 ->program.append
+            // staticRealTransient## then
+               'ibetaTwoExprbody.bet/2024'
+                 ->(&negateRealCode[]).init
+                 ->program.append;
+               ('ibetaTwoExprbody.bet/2027',(&staticRealTransient[]).init)
+                 ->(&discardCode[]).init
+                 ->program.append
+            else
+               (# msg: ^text
+               do 'Unexpected type for unary minus expression: '
+                    ->msg[];
+                  substran.typename->msg.puttext;
+                  (msg[]
+                  ,'Use an expression of type integer or real'
+                  ,usageAst[])->staticError
+               #)
+           if)
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- UnaryMinusExpGetExitCplr:dopart --
+do
+   &exitOnceCompiler
+   (# subxc: ^exitCompiler;
+      prepare::
+        (# do operandCplr[]->subxc[];
+           (program[],cInfo[])->subxc.prepare
+        #);
+      generate::
+        (# substran: ^staticTransient;
+        do (if subxc.more then
+               (program[],cInfo[])
+                 ->subxc.generate
+                 ->substran[]
+            else
+               ('Unary minus expression yields no values'
+               ,'Use an expression yielding an integer or a real'
+               ,usageAst[])->staticError
+           if);
+           (if subxc.more then
+               ('Unary minus expression yields more than one value'
+               ,'Use an expression yielding an integer or a real'
+               ,usageAst[])->staticError
+           if);
+           (if substran##
+            // staticIntegerTransient## then
+               'ibetaTwoExprbody.bet/2072'
+                 ->(&negateIntegerCode[]).init
+                 ->program.append
+            // staticRealTransient## then
+               'ibetaTwoExprbody.bet/2076'
+                 ->(&negateRealCode[]).init
+                 ->program.append
+            else
+               (# msg: ^text
+               do 'Unexpected type for unary minus expression: '
+                    ->msg[];
+                  substran.typename->msg.puttext;
+                  (msg[]
+                  ,'Use an expression of type integer or real'
+                  ,usageAst[])->staticError
+               #)
+           if);
+           substran[]->stran[]
+        #);
+      cleanup::(# do (program[],cInfo[])->subxc.cleanup #)
+   #)[]->xc[]
+
+-- UnaryMinusExpGetExitIter:dopart --
+do
+   &unaryExit
+   (#
+   do (if true
+       // l0trOp## <= l0TransientChar## then
+          (# l0trc: ^l0TransientChar
+          do l0trOp[]->l0trc[];
+             -l0trc->l0trc;
+             l0trc[]->l0tr[]
+          #)
+       // l0trOp## <= l0TransientInteger## then
+          (# l0tri: ^l0TransientInteger
+          do l0trOp[]->l0tri[];
+             -l0tri->l0tri;
+             l0tri[]->l0tr[]
+          #)
+       // l0trOp## <= l0TransientReal## then
+          (# l0trr: ^l0TransientReal
+          do l0trOp[]->l0trr[];
+             -l0trr->l0trr;
+             l0trr[]->l0tr[]
+          #)
+       else
+          (# msg: ^text;
+          do 'Trying to apply unary minus to '->msg[];
+             (l0trOp.typename).withIndefArticle->msg.puttext;
+             msg[]->internalError
+          #)
+      if)
+   #)[]->xi[]
+
+(************************************************************ 
+ *                                                          * 
+ *                        l2TimesExp                        * 
+ *                                                          * 
+ ************************************************************)
+
+-- TimesExpPrint:dopart --
+do
+   '*'->output
+
+-- TimesExpGetTranOut:dopart -- 
+do
+   (operand1Transient[],operand2Transient[],this(l2TimesExp)[])
+     ->arithBinOpStaticCoercion
+     ->stran[]
+
+-- TimesExpGetExitCplr:dopart --
+do
+   &delegate2ExitCompiler
+   (# doCoerce::binArithCoerce;
+      generate::
+        (# do ('ibetaTwoExprbody.bet/2147',resultSTran[]->stran[])
+             ->(&mulopTimesExpCode[]).init
+             ->program.append
+        #)
+   #)[]->xc[]
+
+-- TimesExpGetExitIter:dopart --
+do
+   &binaryExitCoerceArith
+   (# getThrd::(# do thrd[]->value[] #);
+   do (if true
+       // l0tr1## <= l0TransientInteger## then
+          (# l0tri1,l0tri2,l0tri: ^l0TransientInteger
+          do l0tr1[]->l0tri1[];
+             l0tr2[]->l0tri2[];
+             &l0TransientInteger[]->l0tri[]->l0tr[];
+             this(l2TimesExp)[]->l0tr.usageAst[];
+             (l0tri1*l0tri2)->l0tri
+          #)
+       // l0tr1## <= l0TransientReal## then
+          (# l0trr1,l0trr2,l0trr: ^l0TransientReal
+          do l0tr1[]->l0trr1[];
+             l0tr2[]->l0trr2[];
+             &l0TransientReal[]->l0trr[]->l0tr[];
+             this(l2TimesExp)[]->l0tr.usageAst[];
+             (l0trr1*l0trr2)->l0trr
+          #)
+       else
+          (# msg: ^text
+          do 'Trying to multiply '->msg[];
+             (l0tr1.typename).withIndefArticle->msg.puttext;
+             ' and '->msg.puttext;
+             (l0tr2.typename).withIndefArticle->msg.puttext;
+             msg[]->internalError
+          #)
+      if)
+   #)[]->xi[]
+
+(************************************************************ 
+ *                                                          * 
+ *                       l2RealDivExp                       * 
+ *                                                          * 
+ ************************************************************)
+
+-- RealDivExpPrint:dopart --
+do
+   '/'->output
+
+-- RealDivExpGetTranOut:dopart -- 
+do
+   (operand1Transient[],operand2Transient[],this(l2RealDivExp)[])
+     ->rdivBinOpStaticCoercion
+     ->stran[]
+
+-- RealDivExpGetExitCplr:dopart --
+do
+   &delegate2ExitCompiler
+   (# doCoerce::binRDivCoerce;
+      generate::
+        (# do ('ibetaTwoExprbody.bet/2206',resultSTran[]->stran[])
+             ->(&mulopRealDivExpCode[]).init
+             ->program.append
+        #)
+   #)[]->xc[]
+
+-- RealDivExpGetExitIter:dopart --
+do
+   &binaryExitCoerceRDiv
+   (# getThrd::(# do thrd[]->value[] #);
+   do (if true
+       // l0tr1## <= l0TransientReal## then
+          (# l0trr1,l0trr2,l0trr: ^l0TransientReal
+          do l0tr1[]->l0trr1[];
+             l0tr2[]->l0trr2[];
+             &l0TransientReal[]->l0trr[]->l0tr[];
+             this(l2RealDivExp)[]->l0tr.usageAst[];
+             (if l0trr2=0 then 
+                 ('Trying to divide by zero',thrd[],unwind##)->mathError
+             if);
+             (l0trr1/l0trr2)->l0trr
+          #)
+       // l0tr1## <= l0TransientRepetition## then
+          (* !! pairwise division and deliver new rep? *)
+          'ibetaTwoExprbody.bet/709: '->notyet; (* !!! *)
+       else
+          (# msg: ^text
+          do 'Trying to divide ("/") '->msg[];
+             (l0tr1.typename).withIndefArticle->msg.puttext;
+             ' and '->msg.puttext;
+             (l0tr2.typename).withIndefArticle->msg.puttext;
+             msg[]->internalError
+          #)
+      if)
+   #)[]->xi[]
+
+(************************************************************* 
+ *                                                           * 
+ *                        l2IntDivExp                        * 
+ *                                                           * 
+ *************************************************************)
+
+-- IntDivExpPrint:dopart --
+do
+   ' div '->output
+
+-- IntDivExpGetTranOut:dopart -- 
+do
+   (operand1Transient[],operand2Transient[],this(l2IntDivExp)[])
+     ->arithBinOpStaticCoercion
+     ->stran[]
+
+-- IntDivExpGetExitCplr:dopart --
+do
+   &delegate2ExitCompiler
+   (# doCoerce::binArithCoerce;
+      generate::
+        (# do ('ibetaTwoExprbody.bet/2263',resultSTran[]->stran[])
+             ->(&mulopIntDivExpCode[]).init
+             ->program.append
+        #)
+   #)[]->xc[]
+
+-- IntDivExpGetExitIter:dopart --
+do
+   &binaryExitCoerceArith
+   (# getThrd::(# do thrd[]->value[] #);
+   do (if true
+       // l0tr1## <= l0TransientInteger## then
+          (# l0tri1,l0tri2,l0tri: ^l0TransientInteger
+          do l0tr1[]->l0tri1[];
+             l0tr2[]->l0tri2[];
+             &l0TransientInteger[]->l0tri[]->l0tr[];
+             this(l2IntDivExp)[]->l0tr.usageAst[];
+             (if l0tri2=0 then 
+                 ('Trying to "div" by 0',thrd[],unwind##)->mathError
+             if);
+             (l0tri1 div l0tri2)->l0tri
+          #)
+       // l0tr1## <= l0TransientReal## then
+          (# l0trr1,l0trr2,l0trr: ^l0TransientReal;
+          do l0tr1[]->l0trr1[];
+             l0tr2[]->l0trr2[];
+             &l0TransientReal[]->l0trr[]->l0tr[];
+             (if l0trr2=0 then 
+                 ('Trying to "div" by 0',thrd[],unwind##)->mathError
+             if);
+             this(l2IntDivExp)[]->l0tr.usageAst[];
+             (l0trr1 div l0trr2)->l0trr
+          #)
+       else
+          (# msg: ^text
+          do 'Trying to integer-divide ("div") '->msg[];
+             (l0tr1.typename).withIndefArticle->msg.puttext;
+             ' and '->msg.puttext;
+             (l0tr2.typename).withIndefArticle->msg.puttext;
+             msg[]->internalError
+          #)
+      if)
+   #)[]->xi[]
+
+(************************************************************ 
+ *                                                          * 
+ *                         l2ModExp                         * 
+ *                                                          * 
+ ************************************************************)
+
+-- ModExpPrint:dopart --
+do
+   ' mod '->output
+
+-- ModExpGetTranOut:dopart -- 
+do
+   (operand1Transient[],operand2Transient[],this(l2ModExp)[])
+     ->modBinOpStaticCoercion
+     ->stran[]
+
+-- ModExpGetExitCplr:dopart --
+do
+   &delegate2ExitCompiler
+   (# doCoerce::binModCoerce;
+      generate::
+        (# do ('ibetaTwoExprbody.bet/2328',resultSTran[]->stran[])
+             ->(&mulopModExpCode[]).init
+             ->program.append
+        #)
+   #)[]->xc[]
+
+-- ModExpGetExitIter:dopart --
+do
+   &binaryExitCoerceMod
+   (# getThrd::(# do thrd[]->value[] #);
+   do (if true
+       // l0tr1## <= l0TransientInteger## then
+          (# l0tri1,l0tri2,l0tri: ^l0TransientInteger
+          do l0tr1[]->l0tri1[];
+             l0tr2[]->l0tri2[];
+             &l0TransientInteger[]->l0tri[]->l0tr[];
+             this(l2ModExp)[]->l0tr.usageAst[];
+             (if l0tri2=0 then
+                 ('Trying to "mod" with 0 as right-hand argument'
+                 ,thrd[],unwind##)->mathError
+             if);
+             (l0tri1 mod l0tri2)->l0tri
+          #)
+       else
+          (# msg: ^text
+          do 'Trying to MOD '->msg[];
+             (l0tr1.typename).withIndefArticle->msg.puttext;
+             ' and '->msg.puttext;
+             (l0tr2.typename).withIndefArticle->msg.puttext;
+             msg[]->internalError
+          #)
+      if)
+   #)[]->xi[]
+
+(************************************************************ 
+ *                                                          * 
+ *                         l2AndExp                         * 
+ *                                                          * 
+ ************************************************************)
+
+-- AndExpPrint:dopart --
+do
+   ' and '->output
+
+-- AndExpGetTranOut:dopart -- 
+do
+   (operand1Transient[],operand2Transient[],this(l2AndExp)[])
+     ->andorBinOpStaticCoercion
+     ->stran[]
+
+-- AndExpGetExitCplr:dopart --
+do
+   &delegate2ExitCompiler
+   (# doCoerce::binBoolCoerce;
+      generate::
+        (# do ('ibetaTwoExprbody.bet/2383',resultSTran[]->stran[])
+             ->(&mulopAndExpCode[]).init
+             ->program.append
+        #)
+   #)[]->xc[]
+
+-- AndExpGetExitIter:dopart --
+do
+   &binaryExitCoerceAndOr
+   (# getThrd::(# do thrd[]->value[] #);
+   do (if l0tr1## <= l0TransientBoolean## then
+          (# l0trb1,l0trb2,l0trb: ^l0TransientBoolean
+          do l0tr1[]->l0trb1[];
+             l0tr2[]->l0trb2[];
+             &l0TransientBoolean[]->l0trb[]->l0tr[];
+             this(l2AndExp)[]->l0tr.usageAst[];
+             (l0trb1 and l0trb2)->l0trb
+          #)
+       else
+          (# msg: ^text
+          do 'Trying to AND '->msg[];
+             (l0tr1.typename).withIndefArticle->msg.puttext;
+             ' and '->msg.puttext;
+             (l0tr2.typename).withIndefArticle->msg.puttext;
+             msg[]->internalError
+          #)
+      if)
+   #)[]->xi[]
+
+(************************************************************* 
+ *                                                           * 
+ *                        l2TextConst                        * 
+ *                                                           * 
+ *************************************************************)
+
+-- TextConstPrint:dopart --
+do
+   '\''->output;
+   (for i:value.length repeat value.T[i]->outputChar for);
+   '\''->output
+
+-- TextConstGetTranOut:dopart -- 
+do
+   (value.length=1)->(&staticStringTransient[]).init->stran[]
+
+-- TextConstGetTranIn:dopart --
+do
+   ('Attempt to assign to a literal text'
+   ,'Use a string object or similar'
+   ,this(l2TextConst)[])->staticError
+
+-- TextConstGetCplr:dopart --
+do
+   (* it is a no-op to execute a text const *)
+   &exeCompiler[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- TextConstGetEnterCplr:dopart --
+do
+   ('Trying to assign to an literal text!'
+   ,'Use a string object or similar'
+   ,this(l2TextConst)[])->staticError
+
+-- TextConstGetExitCplr:dopart --
+do
+   &exitOnceCompiler
+   (# generate::
+        (# do ('ibetaTwoExprbody.bet/2449',value[])
+             ->(&literalStringCode[]).init
+             ->program.append;
+           (value.length=1)
+             ->(&staticStringTransient[]).init
+             ->stran[]
+        #)
+   #)[]->xc[]
+
+-- TextConstGetEnterExitCplr:dopart --
+do
+   ('Trying to assign-then-evaluate a literal text!'
+   ,'Use a string object or similar'
+   ,this(l2TextConst)[])->staticError
+
+-- TextConstClosureExecute:dopart --
+do
+   (* no action *)
+
+-- TextConstGetEnterIter:dopart --
+do
+   ('Trying to assign to a literal text!'
+   ,thrd[],unwind##)->cannotAssignError
+
+-- TextConstGetExitIter:dopart --
+do
+   &exitOnce
+   (# l0trs: ^l0TransientString
+   do &l0TransientString[]->l0trs[]->l0tr[];
+      this(l2TextConst)[]->l0tr.usageAst[];
+      value[]->l0trs.value[];
+      (value.length=1)->l0trs.singleton
+   #)[]->xi[]
+
+(************************************************************ 
+ *                                                          * 
+ *                      l2IntegerConst                      * 
+ *                                                          * 
+ ************************************************************)
+
+-- IntegerConstPrint:dopart --
+do
+   (# t: ^text
+   do &text[]->t[];
+      value->t.putint;
+      t[]->output
+   #)
+
+-- IntegerConstGetTranOut:dopart -- 
+do
+   createSingletonTransient(# type::staticIntegerTransient #)->stran[]
+
+-- IntegerConstGetTranIn:dopart --
+do
+   ('Attempt to assign to a literal integer'
+   ,'Use an integer object or similar'
+   ,this(l2IntegerConst)[])->staticError
+
+-- IntegerConstGetCplr:dopart --
+do
+   (* no-op *)
+   &exeCompiler[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- IntegerConstGetEnterCplr:dopart --
+do
+   ('Attempt to assign to a literal integer'
+   ,'Use an integer object or similar'
+   ,this(l2IntegerConst)[])->staticError
+
+-- IntegerConstGetExitCplr:dopart --
+do
+   &exitOnceCompiler
+   (# generate::
+        (# do ('ibetaTwoExprbody.bet/2522',value)
+             ->(&literalIntegerCode[]).init
+             ->program.append;
+           (&staticIntegerTransient[]).init->stran[]
+        #)
+   #)[]->xc[]
+
+-- IntegerConstGetEnterExitCplr:dopart --
+do
+   ('Attempt to assign-then-evaluate a literal integer'
+   ,'Use an integer object or similar'
+   ,this(l2IntegerConst)[])->staticError
+
+-- IntegerConstClosureExecute:dopart --
+do
+   (* no action *)
+
+-- IntegerConstGetEnterIter:dopart --
+do
+   ('Trying to assign to an integer constant!'
+   ,thrd[],unwind##)->cannotAssignError
+
+-- IntegerConstGetExitIter:dopart --
+do
+   &exitOnce
+   (# l0tri: ^l0TransientInteger
+   do &l0TransientInteger[]->l0tri[]->l0tr[];
+      this(l2IntegerConst)[]->l0tr.usageAst[];
+      value->l0tri
+   #)[]->xi[]
+
+(************************************************************* 
+ *                                                           * 
+ *                        l2RealConst                        * 
+ *                                                           * 
+ *************************************************************)
+
+-- RealConstPrint:dopart --
+do
+   (# t: ^text
+   do &text[]->t[];
+      value->t.putreal;
+      t[]->output
+   #)
+
+-- RealConstGetTranOut:dopart -- 
+do
+   createSingletonTransient(# type::staticRealTransient #)->stran[]
+
+-- RealConstGetTranIn:dopart --
+do
+   ('Attempt to assign to a literal real'
+   ,'Use a real object ;-)'
+   ,this(l2RealConst)[])->staticError
+
+-- RealConstGetCplr:dopart --
+do
+   (* no-op *)
+   &exeCompiler[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- RealConstGetEnterCplr:dopart --
+do
+   ('Attempt to assign to a literal real'
+   ,'Use a real object ;-)'
+   ,this(l2RealConst)[])->staticError
+
+-- RealConstGetExitCplr:dopart --
+do
+   &exitOnceCompiler
+   (# generate::
+        (# do ('ibetaTwoExprbody.bet/2592',value)
+             ->(&literalRealCode[]).init
+             ->program.append;
+           (&staticRealTransient[]).init->stran[]
+        #)
+   #)[]->xc[]
+
+-- RealConstGetEnterExitCplr:dopart --
+do
+   ('Attempt to assign-then-evaluate a literal real'
+   ,'Use a real object ;-)'
+   ,this(l2RealConst)[])->staticError
+
+-- RealConstClosureExecute:dopart --
+do
+   (* no action *)
+
+-- RealConstGetEnterIter:dopart --
+do
+   ('Trying to assign to a literal real'
+   ,thrd[],unwind##)->cannotAssignError
+
+-- RealConstGetExitIter:dopart --
+do
+   &exitOnce
+   (# l0tri: ^l0TransientReal
+   do &l0TransientReal[]->l0tri[]->l0tr[];
+      this(l2RealConst)[]->l0tr.usageAst[];
+      value->l0tri
+   #)[]->xi[]
+
+(************************************************************ 
+ *                                                          * 
+ *                         l2NotExp                         * 
+ *                                                          * 
+ ************************************************************)
+
+-- NotExpPrint:dopart --
+do
+   ' not '->output
+
+-- NotExpGetTranOut:dopart -- 
+do
+   (operandTransient[],this(l2NotExp)[])
+     ->notUnOpStaticCoercion
+     ->stran[]
+
+-- NotExpGetExitCplr:dopart --
+do
+   &exitOnceCompiler
+   (# done: @boolean;
+      subxc: ^exitCompiler;
+      prepare::
+        (# do (context[],world[],usageAst[])
+             ->operand.getExitCompiler
+             ->subxc[];
+           (program[],cInfo[])->subxc.prepare
+        #);
+      generate::
+        (# substran: ^staticTransient
+        do (if subxc.more then
+               (program[],cInfo[])->subxc.generate->substran[]
+            else
+               ('Not-expression does not yield any values'
+               ,'Use an expression of type boolean'
+               ,this(l2NotExp)[])->staticError
+           if);
+           (if not subxc.more then
+               (program[],cInfo[])->subxc.cleanup
+            else
+               ('Not-expression yields more than one value'
+               ,'Use an expression of type boolean'
+               ,this(l2NotExp)[])->staticError
+           if);
+           (if substran##<>staticBooleanTransient## then
+               (# msg: ^text
+               do 'Not-expression yields value of type '->msg[];
+                  substran.typename->msg.puttext;
+                  (msg[]
+                  ,'Use an expression of type boolean'
+                  ,this(l2NotExp)[])->staticError
+               #)
+           if);
+           'ibetaTwoExprbody.bet/2675'
+             ->(&negateBooleanCode[]).init
+             ->program.append;
+           (&staticBooleanTransient[]).init->stran[]
+        #);
+      cleanup::(# #)
+   #)[]->xc[]
+
+-- NotExpGetExitIter:dopart --
+do
+   &unaryExit
+   (#
+   do (if true
+       // l0trOp## <= l0TransientBoolean## then
+          (# l0trb: ^l0TransientBoolean
+          do l0trOp[]->l0trb[];
+             not l0trb -> l0trb;
+             l0trb[]->l0tr[];
+             (* !! observation inconsistent?: we do not create new transient *)
+             this(l2NotExp)[]->l0tr.usageAst[]
+          #)
+       else
+          (# msg: ^text
+          do 'Trying to apply NOT to '->msg[];
+             (l0trOp.typename).withIndefArticle->msg.puttext;
+             msg[]->internalError
+          #)
+      if)
+   #)[]->xi[]
+
+(************************************************************* 
+ *                                                           * 
+ *                         l2NoneExp                         * 
+ *                                                           * 
+ *************************************************************)
+
+-- NoneExpPrint:dopart --
+do
+   'NONE'->output
+
+-- NoneExtGetTranOut:dopart -- 
+do
+   createSingletonTransient(# type::staticNoneTransient #)->stran[]
+
+-- NoneExpGetTranIn:dopart --
+do
+   ('Attempt to assign to a literal NONE'
+   ,'Use an object reference or a pattern reference'
+   ,this(l2NoneExp)[])->staticError
+
+-- NoneExpGetCplr:dopart --
+do
+   (* no-op *)
+   &exeCompiler[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- NoneExpGetEnterCplr:dopart --
+do
+   ('Attempt to assign to a literal NONE'
+   ,'Use an object reference or a pattern reference'
+   ,this(l2NoneExp)[])->staticError
+
+-- NoneExpGetExitCplr:dopart --
+do
+   (* NB: no bytecodes generated here, coercion will select oref or ptn. 
+    * So this expression does _not_ make any stacks higher! *)
+   &exitOnceCompiler
+   (# generate::(# do (&staticNoneTransient[]).init->stran[] #)#)[]->xc[]
+
+-- NoneExpGetEnterExitCplr:dopart --
+do
+   ('Attempt to assign-then-evaluate a literal NONE'
+   ,'Use an object reference or a pattern reference'
+   ,this(l2NoneExp)[])->staticError
+
+-- NoneExpClosureExecute:dopart --
+do
+   (* no action *)
+
+-- NoneExpGetEnterIter:dopart --
+do
+   ('Trying to assign to the expression "NONE"!'
+   ,thrd[],unwind##)->cannotAssignError
+
+-- NoneExpGetExitIter:dopart --
+do
+   &exitOnce
+   (# 
+   do &l0TransientNoneRef[]->l0tr[];
+      this(l2NoneExp)[]->l0tr.usageAst[]
+   #)[]->xi[]
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

@@ -1,0 +1,219 @@
+ORIGIN 'attributelib';
+INCLUDE 'attributebitch';
+INCLUDE 'ctype';
+INCLUDE 'cintf';
+INCLUDE 'namebitch';
+INCLUDE 'objectdesc';
+INCLUDE 'objectdesclib';
+INCLUDE 'repetition';
+INCLUDE 'specialdesc';
+INCLUDE 'ad/backlevel';
+INCLUDE 'ad/bitch';
+INCLUDE 'ad/special';
+--- AttributeDoPart: DoPart ---
+do
+   0->checked;
+   this(Attribute)[]->names.encl;
+   NONE->od[];
+   (if os[]<>NONE then
+      this(Attribute)[]->os.encl[];
+      (if os##<=ObjectDescriptor## then
+	 os[]->od[]; names.ptr.str[]->od.private.nme[];
+      if)
+   if);
+   INNER
+
+
+--- AttributePrint: DoPart ---
+do
+   s[]->names.print;
+   INNER;
+   (if not(printos) then
+      (if (os[]<>NONE) and (os[]<>od[]) then s[]->os.print if);
+      (if od[]<>NONE then
+	 (if od.encl[]=this(Attribute)[] then s[]->od.print if)
+      if);
+   if);
+
+
+--- AttributeCheckName: DoPart ---
+(* note: slots of type ATTRIBUTES have os[]=NONE! *)
+do
+   INNER;
+   names.checkName;
+
+
+--- AttributeResolve: DoPart ---
+do
+   (if os[]<>NONE then
+      (if os##<=AttributeDenotation## then
+	 os[]->ad[];
+	 ad.resolve;
+	 ad.getod->od[];
+      if);
+      INNER;
+   if);
+
+
+--- AttributeCheckFollow: DoPart ---
+do 
+   (if checked
+     (* !!! be in future more descriptive, about what went wrong! *)
+     // -1 then
+	'Circularity in declarations detected on this attribute!'->error;
+	true->value;
+     // 0 then
+	-1->checked; INNER; 1->checked;
+   if);
+
+
+--- AttributeCheckComplete: DoPart ---
+do 
+   INNER;
+   (if os[]<>NONE then
+      (* Don't trigger the checkComplete method of bound fragments! *)
+      (if os.encl[]=this(attribute)[] then os.checkComplete if);
+   if);
+
+
+--- AttributeGetcdecl: DoPart ---
+do INNER
+
+(* JO *)
+--- AttributeGetmdef: DoPart ---
+do INNER
+
+--- AttributeGetisrefel: DoPart ---
+do INNER
+(* JO *)
+
+(* pattern or virtual pattern declaration *)
+--- PatternOrVirtualDeclCheckName: DoPart ---
+do
+   (if names.ptr.next[]<>NONE then
+      'Only 1 name allowed here!'->names.ptr.next.error
+   if);
+   INNER;
+
+
+(* pattern declaration *)
+--- PatternDeclCheckFollow: DoPart ---
+do
+   (* this is actually forbidden by the grammar, but you never know *)
+   (if (od[]<>os[]) and not (od.encl## <= Fragment##) then
+      'Here is a pattern missing!'->os.error
+   else
+      (if encl[]=NONE then
+	 'encl is NONE in PatternDeclaration '->puttext;
+	 names.ptr.str[]->puttext;
+	 '!'->putline;
+      if);
+      (if encl.private.outer[]=NONE then
+	 (if true
+	   (* special types *)
+	   // 'real'->names.ptr.str.equalNCS then
+	      ('double',false,false)->&SpecialDescriptor->od.private.sd[];
+	      od[]->RealPattern[];
+	   // 'integer'->names.ptr.str.equalNCS then
+	      ('int',false,false)->&SpecialDescriptor->od.private.sd[];
+	      od[]->IntegerPattern[];
+	   // 'shortint'->names.ptr.str.equalNCS then
+	      ('short',false,false)->&SpecialDescriptor->od.private.sd[];
+	   // 'char'->names.ptr.str.equalNCS then
+	      ('unsigned char',false,false)->&SpecialDescriptor
+	        ->od.private.sd[];
+	      od[]->CharPattern[];
+	   // 'boolean'->names.ptr.str.equalNCS then
+	      ('char',true,false)->&SpecialDescriptor->od.private.sd[];
+	      od[]->BooleanPattern[];
+
+	   (* other special descriptors *)
+	   // 'text'->names.ptr.str.equalNCS then
+	      od[]->TextPattern[];
+	      'text'->od.private.mapname;
+	   // 'external'->names.ptr.str.equalNCS then
+	      ('external',false,true)->&SpecialDescriptor->od.private.sd[];
+	      NONE->od.private.outer[]
+	   // od[]=Repetition.pattern[] then
+	      ('repetition',false,false)->&SpecialDescriptor->od.private.sd[];
+	      true->od.private.sd.isrepetition;
+
+	      (* Force a CheckFollow on the enter part of the "new",
+	       * and exit part of the "range" method, while they can
+	       * still access the "size" field of the repetition, before
+	       * it is disabled in the next block:
+	       *)
+	      od.private.att.iterate
+		(#
+		do
+		   (if true
+		   // 'new'->el.names.ptr.str.equalNCS then
+		      el[]->Repetition.new[];
+		      (if el.od[]<>NONE then
+			 (if el.od.private.enterprt[]<>NONE then
+			    el.od.private.enterprt.checkFollow
+			 if);
+		      if);
+		   // 'extend'->el.names.ptr.str.equalNCS then
+		      el[]->Repetition.extend[];
+		   // 'range'->el.names.ptr.str.equalNCS then
+		      (if el.od[]<>NONE then
+			 (if el.od.private.exitprt[]<>NONE then
+			    el.od.private.exitprt.checkFollow
+			 if);
+		      if);
+		      el[]->Repetition.range[];
+		   if);
+		 #);
+
+	      (* Disable access to the repetition's internal fields: *)
+	      od.private.att.iterate
+		(#
+		do
+		   (if true
+		   // 'size'->el.names.ptr.str.equalNCS then
+		      el[]->Repetition.size[];
+		      '$size'->el.names.ptr.str;
+		      el.names.ptr.checkName;
+		   // 'alsize'->el.names.ptr.str.equalNCS then
+		      el[]->Repetition.alsize[];
+		      '$alsize'->el.names.ptr.str;
+		   // 'elsize'->el.names.ptr.str.equalNCS then
+		      el[]->Repetition.elsize[];
+		      '$elsize'->el.names.ptr.str;
+		   if);
+		#);
+	 if);
+      if);
+      od.checkFollow;
+      (if od[]=ForLoopPattern[] then
+	 (* disable direct access to the private fields of a for loop *)
+	 od.private.att.iterate
+	   (# do '$'->el.names.ptr.str.prepend; el.names.ptr.checkName #);
+      if);
+   if);
+
+
+(* special treatment of the 'object' pattern.  We need it at the very
+ * beginning, because it is the superpattern of everything else! *)
+--- PatternDeclCheckName: DoPart ---
+do
+   (if encl.private.outer[]=NONE then
+      (if 'object'->names.ptr.str.equalNCS then
+         od[]->ObjectPattern[]
+      if);
+      (if 'repetition'->names.ptr.str.equalNCS then
+         od[]->Repetition.pattern[];
+	 od.checkName;
+	 '$repetition'->names.ptr.str;
+      if);
+      (if 'forloop'->names.ptr.str.equalNCS then
+         od[]->ForLoopPattern[];
+	 od.checkName;
+	 '$forLoop'->names.ptr.str;
+      if);
+   if)
+
+
+--- PatternDeclGetcexpr: DoPart ---
+do 'P'->t.append; od.private.mapname[]->t.append; ctype_pattern->ctype

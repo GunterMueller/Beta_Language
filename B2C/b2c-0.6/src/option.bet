@@ -1,0 +1,28 @@
+ORIGIN 'compiler';
+INCLUDE 'getopt';
+--- CompilerOptions: ObjectDescriptor ---
+(#
+   warnQua: @Boolean;		(* warn about qualification checks *)
+   genSlotMap: @Boolean;	(* generate .sb and .fm files with slot maps *)
+   recompile: @Boolean;		(* force recompilation *)
+
+   defaults:
+     (# do true->warnQua; false->genSlotMap->recompile #);
+   init: defaults (# #);
+
+   (* process command line options *)
+   commandLine:
+     (# firstfilearg: @integer
+     do
+	'fmq'->getopt
+	  (#
+	  do
+	     (if opt
+	     // 'f' then true->recompile
+	     // 'm' then true->genSlotMap
+	     // 'q' then false->warnQua
+	     if)
+	  #)->firstfilearg;
+     exit firstfilearg
+     #);
+#)

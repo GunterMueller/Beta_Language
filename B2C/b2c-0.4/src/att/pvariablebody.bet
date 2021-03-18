@@ -1,0 +1,13 @@
+ORIGIN 'pvariable';
+INCLUDE '../ctype';
+INCLUDE '../namebitch';
+--- PatternVariableDeclGetcdecl: DoPart ---
+do
+   '    struct pvariable '->t;
+   names.recurse
+     (# middle:: (# do ','->t.put #); rc:: (# do el.mapname[]->t.append #) #);
+   ';\n'->t.append;
+
+
+--- PatternVariableDeclGetcexpr: DoPart ---
+do INNER; mapname[]->t.append; ctype_pvariable->ctype

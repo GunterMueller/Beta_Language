@@ -1,0 +1,126 @@
+(* FILE aex3.gb *)
+-- betaenv:descriptor --
+(#
+   (* This demonstrates a very general support for the
+    * Observer Design Pattern (TM) as a native language entity,
+    * a pattern, not as a design guide to follow when writing
+    * yet another instance of that pattern.
+    * 
+    * The idea is that a 'Subject' is being watched by a
+    * number of 'Observer's, and the observers change
+    * whenever the subject changes.  For example, a
+    * graphical user interface could have a presentation
+    * layer (the graphics) and a model layer (the "data"),
+    * and the presentation should change to reflect any
+    * changes in the model.
+    *
+    * This is handled by making the subject notity the
+    * observers, i.e. it is necessary to implement the
+    * subject in such a way that 'notify' is invoked whenever
+    * significant changes have taken place.
+    *
+    * There are some extra 'do INNER's, to make it easier to
+    * observe what it going on in an interactive session.
+    *)
+
+   set:
+     (* Just a dummy data structure which 
+      * supports only one element *)
+     (# element:< object; 
+        theElement: ^element;
+        insert: (# enter theElement[] do INNER #);
+        delete:
+          (# e: ^element enter e[] 
+          do (if e[]=theElement[] then NONE->theElement[] if);
+          #);
+        scan: 
+          (# current: ^element;
+          do theElement[]->current[]; 
+             INNER
+          #)
+     #);
+
+   ObserverDesignPattern:
+     (* This is the kernel of the example; note
+      * that 'Subject' and 'Observer' are mutually
+      * dependent types, and that there is some
+      * implementation (relevant and needed) here, in
+      * the 'notify' method *)
+     (# Subject:< 
+          (# attach: (# enter observers.insert #);
+             detach: (# enter observers.delete #);
+             notify: observers.scan
+               (# do this(Subject)[]->current.update #);
+             observers: @set(# element::< Observer #);
+          #);
+        Observer:< 
+          (# update:< 
+               (# theSubject: ^Subject;
+               enter theSubject[]
+               do INNER
+               #)
+          #)
+     #);
+
+   (* A few auxiliary patterns *)
+   
+   textBuffer:
+     (* Think of a text editor buffer containing
+      * the data of a file being edited, but not
+      * concerned with visual presentation of it *)
+     (# filename: @string;
+        setFileName:< (# enter filename do INNER #);
+        getFileName:< (# do INNER exit filename #)
+     #);
+   
+   Window:
+     (* A GUI window; we only need a 'refresh' method *)
+     (# refresh:< (# do INNER #)#);
+   
+   ColorIcon: Window
+     (* A color icon; again only one method is needed *)
+     (# iconTitle: @string;
+        setIconTitle: (# enter iconTitle do INNER #);
+        refresh::<
+          (#
+          do 'Got a new title: "'+iconTitle+'"\n'->stdio
+          #)
+     #);
+
+   (* Now use the observer design pattern: A 'textBuffer'
+    * is being watched by a 'colorIcon' which should
+    * always show the filename associated with the text
+    * buffer *)
+   
+   myODP: @ObserverDesignPattern
+     (# Subject::< textBuffer
+          (# (* ensure that 'notify' is called after changes *)
+             setFileName::< (# do notify #)
+          #);
+        Observer::< Window
+          (# update::<
+               (* At this level we can do half of the job: refreshing
+                * the graphics; the other half is getting the changed
+                * state, so we define a hook for that, 'getState' *)
+               (# do theSubject[]->getState; refresh #);
+             getState:<
+               (* Somebody who knows how to get the 
+                * state must fill in this hook *)
+               (# theSubject: ^Subject 
+               enter theSubject[] 
+               do INNER 
+               #)
+          #)
+     #);
+   
+   myBuffer: @myODP.Subject;
+   myIcon: @ (& myODP.Observer & ColorIcon &)
+     (# getState::<
+          (* here we know how to fill in the hook: the
+           * state we care about is just the filename *)
+          (# do theSubject.getFileName->setIconTitle #)
+     #)
+do 
+   myIcon[]->myBuffer.attach;
+   'aex3.gb'->myBuffer.setFileName
+#)

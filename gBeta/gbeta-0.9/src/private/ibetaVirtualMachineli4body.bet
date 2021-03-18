@@ -1,0 +1,1129 @@
+(* FILE "./private/ibetaVirtualMachineli4body.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaVirtualMachineli4body.bet,v 1.35 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN 'ibetaVirtualMachinelib';
+INCLUDE '~beta/process/processmanager';
+INCLUDE '~beta/process/commpipe';
+INCLUDE 'basicinterplib';
+INCLUDE 'ibetaCommonlib';
+INCLUDE 'ibetaOnelib';
+INCLUDE 'ibetaTwolib';
+INCLUDE 'ibetaSlicelib';
+INCLUDE 'ibetaVirtualMachineliblib'
+
+-- TransferRepHomCodeExecute:dopart --
+do
+   (thrd[],unwind##
+   ,from_targetRep[],to_targetRep[]
+   ,from_l-1,to_l-1,from_h-from_l+1)->&executor
+   
+-- SplitAccessRepCodeExecute:dopart --
+do
+   (* set up bounds, adjust 'targetRep' as appropriate, obtain 't' *)
+   INNER;
+       
+   (* then conduct the transfer *)
+   (thrd[],unwind##,targetRep[],t[],bound_l-1,length)->&executor
+   
+-- GetStringCRepCodeLib:attributes --
+
+impl2: impl
+  (# i: @integer;
+     l1obj: ^l1ObjectEntity;
+     coSlice: ^charObjectSlice;
+  do (for inx:length repeat inx->i; INNER for)
+  #);
+
+execute_O: impl2
+  (# do targetRep.value[offset+i][]->l1obj[];
+     L: l1obj.private.slices.scanReverse
+       (# 
+       do (if current##<=charObjectSlice## then
+              current[]->coSlice[];
+              i->t.inxget->coSlice.value;
+              leave L
+          if)
+       #)
+  #);
+
+execute_OR: impl2
+  (# l1oref: ^l1ObjectRefEntity
+  do targetRep.value[offset+i][]->l1oref[];
+     (if l1oref.value[]=NONE then 
+         ('Encountered NONE during string to char-rep coercion'
+         ,thrd[],unwind##)->refNoneError
+     if);
+     L: l1oref.value.private.slices.scanReverse
+       (# 
+       do (if current##<=charObjectSlice## then
+              current[]->coSlice[];
+              i->t.inxget->coSlice.value;
+              leave L
+          if)
+       #)
+  #);
+
+execute_P: impl2
+  (# l1pref: ^l1PatternRefEntity
+  do targetRep.value[offset+i][]->l1pref[];
+     (if l1pref.value[]<>NONE then 
+         (thrd[],unwind##,NONE(*no attr*))
+           ->l1pref.value.instantiate
+           ->l1obj[]
+      else
+         ('Encountered NONE during string to char-pattern-rep coercion'
+         ,thrd[],unwind##)->refNoneError
+     if);
+     L: l1obj.private.slices.scan
+       (# 
+       do (if current##<=charObjectSlice## then
+              current[]->coSlice[];
+              i->t.inxget->coSlice.value;
+              leave L
+          if)
+       #)
+  #)  
+
+-- GetStringCRepCodeInit:dopart --
+do
+   (if true 
+    // l2rdecl.ReferenceSpecification##<=l2StaticItem##
+    // l2rdecl.ReferenceSpecification##<=l2StaticComponent## then
+       (* object kind *)
+       execute_O##->executor##
+    // l2rdecl.ReferenceSpecification##<=l2DynamicItem##
+    // l2rdecl.ReferenceSpecification##<=l2DynamicComponent## then
+       (* object ref *)
+       execute_OR##->executor##
+    // l2rdecl.ReferenceSpecification##<=l2VariablePattern## then
+       (* pattern *)
+       execute_P##->executor##
+    else
+       'unexpected kind of reference specification in string->CRep b.code'
+         ->internalError
+   if)
+
+-- GetStringCRepCodeExecute:dopart --
+do
+   (* obtain the 'string' value *)
+   thrd.private.bvm.strings.pop->t[];
+   t.length->length;
+   
+   (* set up the bounds and adjust size as needed *)
+   (if (bound_lo[]=NONE) and (bound_hi[]=NONE) then
+       (* 'targetRep' is now available; adjust size *)
+       (if length<>targetRep.value.range then
+           (thrd[],unwind##,length)
+             ->targetRep.adjustLength
+       if);
+       1->bound_l;
+       targetRep.value.range->bound_h;
+    else
+       (* assumable: (bound_lo[]<>NONE) and (bound_hi[]<>NONE); otherwise
+        * internal error, which we leave to the built-in RefNONE check *)
+       (thrd[],unwind##,dContext[])
+         ->bound_where.performDynamic
+           (# impossible::(# do bound_where[]->walkFail #)#)
+         ->bound_context[];
+       (thrd[],unwind##,bound_context[])
+         ->bound_lo.exitExecuteInternal;
+       thrd.private.bvm.integers.pop
+         ->bound_l;
+       (thrd[],unwind##,bound_context[])
+         ->bound_hi.exitExecuteInternal;
+       thrd.private.bvm.integers.pop
+         ->bound_h;
+
+       (* rigid testing for lower bound, softer testing for the upper bound *)
+       (targetRep[],bound_l,thrd[],unwind##)->boundsCheck;
+       (if bound_h<bound_l then bound_l-1->bound_h if);
+       (if bound_h>targetRep.value.range then
+           targetRep.value.range->bound_h
+       if);
+
+       (* Now 'targetRep' is available; adjusting size:
+        *
+        * String value 't':
+        *
+        *   8================8
+        *
+        * We want this:
+        *
+        *   |------------8================8-------------------|
+        *   1            bound_l          bound_h+D           old_range+D
+        * 
+        * Original length of 'targetRep' was:
+        *
+        *   (bound_l-1)+(bound_h-bound_l+1)+(old_range-bound_h)
+        * 
+        * The final length is:
+        *
+        *   (bound_l-1)+length+(old_range-bound_h)
+        *
+        * Difference:
+        *
+        *   D = length-(bound_h-bound_l+1) = length-bound_h+bound_l-1
+        * 
+        * First step with 'targetRep': move elms. down, adjust length (D<0):
+        * 
+        *   |--------*----------*+-----------------------|
+        *                       /////////////////////////
+        *                      /////////////////////////
+        *   |--------*--------+-----------------------|###
+        *   1        bound_l    bound_h               old_range
+        * 
+        *   |--------*--------+-----------------------|
+        *   1        bound_l                          old_range
+        * 
+        * 
+        * or conversely (D>0):
+        * 
+        *   |--------*----------*------------------------|##########
+        *   1        bound_l    bound_h                  old_range old_range+D
+        * 
+        *   |--------*----------*+-----------------------|##########
+        *                         \\\\\\\\\\\\\\\\\\\\\\\\\
+        *                                      ...
+        *                                 \\\\\\\\\\\\\\\\\\\\\\\\\
+        *   |--------*----------*##########+-----------------------|
+        *   1        bound_l    bound_h                  old_range
+        *
+        * Finally, "INNER" must copy the given string value  of
+        * to the area starting at 'bound_l' in 'targetRep'.
+        *)
+       (# old_range: @integer;
+          D: @integer; (* length of "###" area *)
+          freshies: [D] ^l1Entity
+       do
+          targetRep.value.range->old_range;
+          length-bound_h+bound_l-1->D;
+
+          (if true
+           // D=0 then (* NO-OP *)
+              
+           // D<0 then
+              (for j:(old_range-bound_h) repeat 
+                   targetRep.value[bound_h+j][]
+                     ->targetRep.value[bound_h+j+D][]
+              for);
+              (thrd[],unwind##,old_range+D)
+                ->targetRep.adjustLength
+              
+           // D>0 then
+              (* extend target with new entities *)
+              (thrd[],unwind##,old_range+D)
+                ->targetRep.adjustLength;
+              
+              (* save the newly created entities *)
+              targetRep.value[old_range+1:old_range+D]->freshies;
+              
+              (* move the old entities (this creates aliasing, i.e., the
+               * same entity pointed to by >1 entry in the repetition) *)
+              (for j:(old_range-bound_h) repeat
+                   targetRep.value[old_range+1-j][]
+                     ->targetRep.value[old_range+1-j+D][]
+              for);
+              
+              (* move the freshies into the "hole" (####) above
+               * 'bound_h', "dealiasing" the aliased entries *)
+              (for j:freshies.range repeat
+                   freshies[j][]->targetRep.value[bound_h+j][]
+              for)
+          if)
+       #)
+   if)
+
+-- PutCRepStringCodeLib:attributes --
+
+impl2: impl
+  (# i: @integer;
+     l1obj: ^l1ObjectEntity;
+     coSlice: ^charObjectSlice;
+  do (for inx:length repeat inx->i; INNER for);
+     t[]->thrd.private.bvm.strings.push
+  #);
+
+execute_O: impl2
+  (# do targetRep.value[offset+i][]->l1obj[];
+     l1obj.private.slices.lastLink[]->coSlice[];
+     coSlice.value->t.put
+  #);
+
+execute_OR: impl2
+  (# l1oref: ^l1ObjectRefEntity
+  do targetRep.value[offset+i][]->l1oref[];
+     (if l1oref.value[]=NONE then 
+         ('Encountered NONE during string to char-rep coercion'
+         ,thrd[],unwind##)->refNoneError
+     if);
+     l1oref.value.private.slices.lastLink[]->coSlice[];
+     coSlice.value->t.put
+  #);
+
+execute_P: impl2
+  (# l1pref: ^l1PatternRefEntity
+  do targetRep.value[offset+i][]->l1pref[];
+     (if l1pref.value[]<>NONE then 
+         (thrd[],unwind##,NONE(*no attr*))
+           ->l1pref.value.instantiate
+           ->l1obj[]
+      else
+         ('Encountered NONE during string to char-rep coercion'
+         ,thrd[],unwind##)->refNoneError
+     if);
+     l1obj.private.slices.lastLink[]->coSlice[];
+     coSlice.value->t.put
+  #)
+
+-- PutCRepStringCodeInit:dopart --
+do
+   (if true 
+    // l2rdecl.ReferenceSpecification##<=l2StaticItem##
+    // l2rdecl.ReferenceSpecification##<=l2StaticComponent## then
+       (* object kind *)
+       execute_O##->executor##
+    // l2rdecl.ReferenceSpecification##<=l2DynamicItem##
+    // l2rdecl.ReferenceSpecification##<=l2DynamicComponent## then
+       (* object ref *)
+       execute_OR##->executor##
+    // l2rdecl.ReferenceSpecification##<=l2VariablePattern## then
+       (* pattern *)
+       execute_P##->executor##
+    else
+       'unexpected kind of reference specification in CRep->string b.code'
+         ->internalError
+   if)
+
+-- PutCRepStringCodeExecute:dopart --
+do
+   (if (bound_lo[]=NONE) and (bound_hi[]=NONE) then
+       1->bound_l;
+       targetRep.value.range->bound_h
+    else
+       (* assumable: (bound_lo[]<>NONE) and (bound_hi[]<>NONE); otherwise
+        * internal error, which we leave to the built-in RefNONE check *)
+       (thrd[],unwind##,dContext[])
+         ->bound_where.performDynamic
+           (# impossible::(# do bound_where[]->walkFail #)#)
+         ->bound_context[];
+       (thrd[],unwind##,bound_context[])
+         ->bound_lo.exitExecuteInternal;
+       thrd.private.bvm.integers.pop
+         ->bound_l;
+       (thrd[],unwind##,bound_context[])
+         ->bound_hi.exitExecuteInternal;
+       thrd.private.bvm.integers.pop
+         ->bound_h;
+       
+       (* The lower bound is checked rigidly, the upper more softly;
+        * this allows things like 'R[2:MAXINT]' for "all from 2"
+        * and 'R[1:0]' for the empty slice *)
+       (targetRep[],bound_l,thrd[],unwind##)->boundsCheck;
+       (if bound_h<bound_l then bound_l-1->bound_h if);
+       (if bound_h>targetRep.value.range then
+           targetRep.value.range->bound_h
+       if)
+   if);
+   bound_h-bound_l+1->length;
+   &text[]->t[]
+
+-- StringLengthCodeExecute:dopart --
+do
+   targetContext[]->soSlice[];
+   soSlice.value.length->thrd.private.bvm.integers.push
+
+-- StringAtCodeExecute:dopart --
+do
+   targetContext[]->soSlice[];
+   thrd.private.bvm.integers.pop->inx;
+   (if (1<=inx) and (inx<=soSlice.value.length) then
+       inx
+         ->soSlice.value.inxget
+         ->thrd.private.bvm.chars.push
+    else
+       ('Attempt to get char from string at non-existing index'
+       ,thrd[],unwind##)->indexError
+   if)
+
+-- ForkCodeExecute:dopart --
+do
+   targetContext[]->coSlice[];
+   (thrd[],unwind##)->coSlice.theFork.execute
+
+-- KillCodeExecute:dopart --
+do
+   targetContext[]->coSlice[];
+   (thrd[],unwind##)->coSlice.theKill.execute
+
+-- SuspendCodeExecute:dopart --
+do
+   targetContext[]->coSlice[];
+   (thrd[],unwind##)->coSlice.theSuspend.execute
+
+-- SemPCodeExecute:dopart --
+do
+   targetContext[]->soSlice[];
+   (thrd[],unwind##)->soSlice.theP.execute
+   
+-- SemVCodeExecute:dopart --
+do
+   targetContext[]->soSlice[];
+   (thrd[],unwind##)->soSlice.theV.execute
+   
+-- SemTryPCodeExecute:dopart --
+do
+   targetContext[]->soSlice[];
+   (thrd[],unwind##)->soSlice.theTryP.execute
+
+-- SemCountCodeExecute:dopart --
+do
+   targetContext[]->soSlice[];
+   soSlice.sem.count->thrd.private.bvm.integers.push
+   
+-- OsSystemInCodeExecute:dopart --
+do
+   (# t: ^text;
+      child: @process
+   do thrd.private.bvm.strings.pop->t[];
+      t.reset;
+      t.getline->child.init;
+      L: (if not t.eos then 
+             t.getline->child.argument.append;
+             restart L
+         if);
+      child.start;
+      (* !! this stops the global progress, so we would like to remove it,
+       * but then the output of different tasks would get mixed up.. *)
+      child.awaitstopped
+   #)
+
+-- OsSystemInOutCodeExecute:dopart --
+do
+   (# child: @process;
+      output: @pipe; (* to this interpreter from the child stdout *)
+      cmd: ^text;
+      stdout: ^text
+   do 
+      (* initialize the child process object *)
+      thrd.private.bvm.strings.pop->cmd[];
+      cmd.reset;
+      cmd.getline->child.init;
+      
+      (* retrieve and set up arguments to the child process *)
+      L: (if not cmd.eos then
+             cmd.getline->child.argument.append;
+             restart L
+         if);
+      
+      (* set up the connection that delivers the child process output to us *)
+      output.init;
+      output.writeEnd[]->child.redirectToChannel;
+
+      (* start the child process *)
+      child.start;
+
+      (* retrieve the output produced by the child process *)
+      &text[]->stdout[];
+      L: (if not output.readend.eos then
+             output.readend.get->stdout.put; 
+             restart L
+         if);
+
+      (* finish the child process *)
+      output.readend.close;
+      (* !!! used to do 'child.awaitStopped' here, but that blocks this 
+       * process, seemingly forever; so now we just let gbeta handle
+       * SIGCHLD in a signal handler that always does 'wait' and
+       * drops the status info from that child process; this means that
+       * we enforce a global don`t-care policy wrt. child process 
+       * success/failure, but the alternatives do not seem to work.. *)
+
+      (* remove the EOF "-1" char at the end of the output, if present *)
+      (if (not stdout.empty) and
+          ((stdout.length->stdout.inxget)='\377') then
+          stdout.lgth-1->stdout.lgth
+      if);
+
+      (* deliver the output on the string stack *)
+      stdout[]->thrd.private.bvm.strings.push
+   #)
+
+-- EvalInCodeExecute:dopart --
+do
+   (# t: ^text;
+      child: @process
+   do thrd.private.bvm.strings.pop->t[];
+      t.reset;
+      L: (thrd[],t[],thrd.private.currentImp[])->parseAndInterpret
+      (# parseError::
+           (# do 'Parse error! Command not executed.'->putline; leave L #);
+         noContextWarning::
+           (# do 'Could not find the dynamic context!'->internalError #);
+         leavingWarning::
+           (* !!! wouldn`t it be natural to allow this? *)
+           (# do 'attempt to leave/restart out of the "eval"'->putline #);
+         errorWarning::
+           (# do 'A run-time error occurred within the "eval"'->putline #);
+         killWarning::
+           (# do 'The thread was killed during the "eval"'->putline #)
+      #)
+   #)
+
+-- EvalInOutCodeExecute:dopart --
+do
+   (* !!! consider error handling here *)
+   (# impSource: ^text;
+      output: ^text
+   do &text[]->output[];
+      thrd.private.bvm.strings.pop->impSource[];
+      impSource.reset;
+      L: (thrd[],impSource[],thrd.private.currentImp[])->parseAndInterpret
+      (# parseError::
+           (# do 'Parse error! Command not executed.'->output.putline; 
+              leave L 
+           #);
+         noContextWarning::
+           (# do 'Could not find the dynamic context!'->internalError #);
+         leavingWarning::
+           (* !!! wouldn`t it be natural to allow this? *)
+           (# do 'attempt to leave/restart out of the "eval"'
+                ->output.putline 
+           #);
+         errorWarning::
+           (# do 'A run-time error occurred within the "eval"'
+                ->output.putline
+           #);
+         killWarning::
+           (# do 'The thread was killed during the "eval"'
+                ->output.putline 
+           #)
+      #);
+      output[]->thrd.private.bvm.strings.push
+   #)
+
+-- InstallCodePrint:dopart --
+do
+   'in `'->output;
+   (l2adcl.scope.location).mpsPosition->output;
+   L: (if l2adcl.Names.size=1 then
+          ' at "'->output;
+          (dest[],indentation,false)->(l2adcl.getTheNameDcl).print;
+          '"'->output
+       else
+          l2adcl.Names.scan
+          (#
+          do (if current.offset=offset then
+                 '"'->output;
+                 (dest[],indentation,false)->current.print;
+                 '" '->output;
+                 leave L
+             if)
+          #);
+          (* OOPS, bug, no names with that offset!  However, we
+           * do not kill everything during a printout *)
+          '<unknown-name-decl>'->output
+      if);
+   INNER
+
+-- InstallCodePrintCode:dopart --
+do
+   ' '->output;
+   (offset-1)->outputInteger;
+   INNER
+   
+-- InstallPatternCodeExecute:dopart --
+do
+   thrd.private.bvm.attributes.pop->attr[];
+   thrd.private.bvm.patterns.pop->l1pat[];
+   (if l1pat[]<>NONE then
+       l1pat[]->attr.to[]
+    else
+       ('Attempt to initialize a pattern valued attribute with NONE'
+       ,thrd[],unwind##)->refNoneError
+   if)
+
+-- InstallStaticPatternCodeInit:dopart --
+do
+   staticPatternMark->mark;
+   this(installStaticPatternCode)[]->staticByteCode.append
+
+-- InstallStaticPatternCodePrintCode:dopart --
+do
+   ' '->output; mark->outputInteger
+
+-- InstallStaticPatternCodePrintSP:dopart --
+do
+   (dest[],0,false)->sptype.gbcPrint(# do mark->outputInteger #)
+
+-- InstallStaticPatternCodeExecute:dopart --
+do
+   thrd.private.bvm.attributes.pop->attr[];
+   (&l1PatternEntity[]).init->l1pat[];
+   sptype.slices.scan
+   (# do (thrd[],unwind##,dContext[])
+        ->current.createPatternSlice
+        ->l1pat.private.slices.append
+   #);
+   l1pat[]->attr.to[]
+
+-- InstallObjectCodeExecute:dopart --
+do
+   thrd.private.bvm.attributes.pop->attr[];
+   thrd.private.bvm.objRefs.pop->l1obj[];
+   (if attr.to[]<>NONE then
+       l1obj[]->attr.to[]
+    else
+       ('Attempt to initialize an object valued attribute with NONE'
+       ,thrd[],unwind##)->refNoneError
+   if)
+
+-- InstallStaticObjectCodeInit:dopart --
+do
+   staticPatternMark->mark;
+   this(installStaticObjectCode)[]->staticByteCode.append
+
+-- InstallStaticObjectCodePrintCode:dopart --
+do
+   ' '->output; mark->outputInteger
+
+-- InstallStaticObjectCodePrintSP:dopart --
+do
+   (dest[],0,false)->sptype.gbcPrint(# do mark->outputInteger #)
+
+-- InstallStaticObjectCodeExecute:dopart --
+do
+   thrd.private.bvm.attributes.pop->attr[];
+   
+   (* create the pattern & object *)
+   
+   (* NB: here we initialize l1obj with an empty
+    * pattern - we fill in the pattern later *)
+   (&l1PatternEntity[]).init
+     ->l1pat[]
+     ->(&l1ObjectEntity[]).init
+     ->l1obj[];
+   sptype.slices.scan
+   (# pSlice: ^patternSlice
+   do (thrd[],unwind##,dContext[])
+        ->current.createPatternSlice
+        ->pSlice[]
+        ->l1pat.private.slices.append;
+      l1obj[]
+        ->pSlice.createObjectSlice
+        ->l1obj.private.slices.append
+   #);
+   
+   (* initialize the object attributes, in a frame *)
+   (NONE,thrd[])->newStackableObject->oofo[];
+   l1obj.private.slices.scan
+   (# do (thrd[],unwind##)->current.fillInAttributes #);
+   oofo[]->thrd.private.bvm.restoreFrame;
+   
+   (* install the result *)
+   l1obj[]->attr.to[]
+
+-- InstallQuaPatternCodeExecute:dopart --
+do
+   thrd.private.bvm.attributes.pop->attr[];
+   thrd.private.bvm.patterns.pop->l1pat[];
+   (if l1pat[]<>NONE then
+       (l1pat[],NONE)
+         ->(&l1PatternRefEntity[]).init
+         ->attr.to[]
+    else
+       ('Attempt to initialize a variable pattern with a NONE qualification'
+       ,thrd[],unwind##)->refNoneError
+   if)
+
+-- InstallQuaStaticPatternCodeInit:dopart --
+do
+   staticPatternMark->mark;
+   this(installQuaStaticPatternCode)[]->staticByteCode.append
+
+-- InstallQuaStaticPatternCodePrintCode:dopart --
+do
+   ' '->output; mark->outputInteger
+
+-- InstallQuaStaticPatternCodePrintSP:dopart --
+do
+   (dest[],0,false)->sptype.gbcPrint(# do mark->outputInteger #)
+
+-- InstallQuaStaticPatternCodeExecute:dopart --
+do
+   thrd.private.bvm.attributes.pop->attr[];
+   ((thrd[],unwind##,dContext[])->sptype.createPattern,NONE)
+     ->(&l1PatternRefEntity[]).init
+     ->attr.to[]
+
+-- InstallQuaObjectCodeExecute:dopart --
+do
+   thrd.private.bvm.attributes.pop->attr[];
+   thrd.private.bvm.patterns.pop->l1pat[];
+   (if l1pat[]<>NONE then
+       (l1pat[],NONE,exact)
+         ->(&l1ObjectRefEntity[]).init
+         ->attr.to[]
+    else
+       ('Attempt to initialize a variable object with a NONE qualification'
+       ,thrd[],unwind##)->refNoneError
+   if)
+
+-- InstallQuaStaticObjectCodeInit:dopart --
+do 
+   staticPatternMark->mark;
+   this(installQuaStaticObjectCode)[]->staticByteCode.append
+
+-- InstallQuaStaticObjectCodePrintCode:dopart --
+do
+   ' '->output; mark->outputInteger
+
+-- InstallQuaStaticObjectCodePrintSP:dopart --
+do
+   (dest[],0,false)->sptype.gbcPrint(# do mark->outputInteger #)
+
+-- InstallQuaStaticObjectCodeExecute:dopart --
+do
+   thrd.private.bvm.attributes.pop->attr[];
+   ((thrd[],unwind##,dContext[])->sptype.createPattern,NONE,exact)
+     ->(&l1ObjectRefEntity[]).init
+     ->attr.to[]
+
+-- InstallVirtualItemCodeInit:dopart --
+do
+   defaultProgram.init
+
+-- InstallVirtualItemCodePrint:dopart --
+do
+   ' (default'->output;
+   (dest[],indentation+indent_delta,false,true)->defaultProgram.print;
+   '\n)'->output
+
+-- InstallVirtualItemCodePrintCode:dopart --
+do
+   ' (default'->output;
+   (dest[],indentation+indent_delta,false,true)->defaultProgram.printCode;
+   '\n)'->output
+
+-- InstallVirtualItemCodeExecute:dopart --
+do
+   (# defaultSolution:
+        (* there is no final bound; we might define this to be
+         * an error, but that would introduce some patterns (of 
+         * 'enclosing') which could not be instantiated; that 
+         * would be a _gross_ change in the language since _any_ 
+         * polymorphic object creation (e.g. an invocation of a
+         * virtual method) would potentially cause a 
+         * "non-instantiable pattern" run-time error *)
+        (# 
+        do (thrd[],unwind##,dContext[])->defaultProgram.execute;
+           thrd.private.bvm.objRefs.pop->attr.to[]
+        #)
+   do 
+      thrd.private.bvm.attributes.pop->attr[];
+      
+      L: (if dContext.pred[]<>NONE then
+             (* go out and search the final static item; use it if available *)
+             dContext.pred.scanBackward
+             (# cur_oSlice: ^compositeObjectSlice;
+                cur_attr: ^l1MapElement;
+                cur_sdcl: ^l2SimpleDecl;
+                l2fsit: ^l2FinalStaticItem
+             do (if current##<=compositeObjectSlice## then
+                    current[]->cur_oSlice[];
+                    (if cur_oSlice.cpSlice.MainPart.private.hasFinalObjs then
+                        (* visit each final static item *)
+                        cur_oSlice.cpSlice.MainPart.scanFinalStaticItemsAndInxs
+                        (# 
+                        do cur_oSlice.attrs[currentInx][]->cur_attr[];
+                           (if currentItem.getVirtualDecl=l2vsit[] then
+                               (* found it! *)
+                               (thrd[],unwind##,cur_attr.from[])
+                                 ->cur_oSlice.attrsLookup
+                                 ->attr.to[];
+                               (* done *)
+                               leave L
+                           if)
+                        #)
+                    if)
+                if)
+             #);
+             (* never did 'leave L', so we never found final bound *)
+             defaultSolution
+          else
+             (* no slices below l2vsit: no place to find the final bound *)
+             defaultSolution
+         if)
+   #)
+
+-- InstallRepetitionCodeExecute:dopart --
+do
+   thrd.private.bvm.attributes.pop->attr[];
+   
+   (* create the raw repetition; since l2adcl is known to be an
+    * l2AttributeDecl but not an l2RepetitionDecl this will 
+    * cause a ref.assign. warning; it will never fail, though, 
+    * since we only create this kind of bytecode where it is 
+    * statically known that the l2adcl is actually a rep.decl. *)
+   (l2adcl[],dContext[])
+     ->(&l1RepetitionEntity[]).init
+     ->l1rep[];
+   
+   (* retrieve the qualification; since it is used even with 
+    * staticItem (for renew) it is needed in all cases *)
+   thrd.private.bvm.patterns.pop->l1pat[];
+   (if l1pat[]<>NONE then
+       l1pat[]->l1rep.qual[];
+       (* !!!!! should initialize qualExact here, too *)
+    else
+       ('Attempt to initialize a repetition with a NONE qualification'
+       ,thrd[],unwind##)->refNoneError
+   if);
+   
+   (* retrieve the requested number of entries *)
+   thrd.private.bvm.integers.pop
+     ->len
+     ->l1rep.value.new;
+   
+   (* create the entries *)
+   INNER;
+   
+   (* announce the result - !!! could we do this earlier? *)
+   l1rep[]->attr.to[]
+
+-- InstallStaticItemRepCodeExecute:dopart --
+do
+   (for inx:len repeat
+        (thrd[],unwind##,NONE)
+          ->l1rep.qual.instantiate
+          ->l1rep.value[inx][]
+   for)
+
+-- InstallDynamicItemRepCodeExecute:dopart --
+do
+   (for inx:len repeat
+        (l1rep.qual[],NONE,Exact)
+          ->(&l1ObjectRefEntity[]).init
+          ->l1rep.value[inx][]
+   for)
+
+-- InstallStaticComponentRepCodeExecute:dopart --
+do
+   (for inx:len repeat
+        (thrd[],unwind##,NONE)
+          ->l1rep.qual.instantiate
+          ->l1rep.value[inx][]
+   for)
+
+-- InstallDynamicComponentRepCodeExecute:dopart --
+do
+   (for inx:len repeat
+        (l1rep.qual[],NONE,Exact)
+          ->(&l1ObjectRefEntity[]).init
+          ->l1rep.value[inx][]
+   for)
+
+-- InstallVariablePatternRepCodeExecute:dopart --
+do
+   (for inx:len repeat
+        (l1rep.qual[],NONE)
+          ->(&l1PatternRefEntity[]).init
+          ->l1rep.value[inx][]
+   for)
+
+-- InstallObjectPatternCodeExecute:dopart --
+do
+   thrd.private.bvm.attributes.pop->attr[];
+   predefinedSubstance.private.objectPattern[]
+     ->attr.to[]
+
+-- InstallBooleanPatternCodeExecute:dopart --
+do
+   thrd.private.bvm.attributes.pop->attr[];
+   predefinedSubstance.private.booleanPattern[]
+     ->attr.to[]
+
+-- InstallCharPatternCodeExecute:dopart --
+do
+   thrd.private.bvm.attributes.pop->attr[];
+   predefinedSubstance.private.charPattern[]
+     ->attr.to[]
+
+-- InstallIntegerPatternCodeExecute:dopart --
+do
+   thrd.private.bvm.attributes.pop->attr[];
+   predefinedSubstance.private.integerPattern[]
+     ->attr.to[]
+
+-- InstallRealPatternCodeExecute:dopart --
+do
+   thrd.private.bvm.attributes.pop->attr[];
+   predefinedSubstance.private.realPattern[]
+     ->attr.to[]
+
+-- InstallStringPatternCodeExecute:dopart --
+do
+   thrd.private.bvm.attributes.pop->attr[];
+   predefinedSubstance.private.stringPattern[]
+     ->attr.to[]
+
+-- InstallComponentPatternCodeExecute:dopart --
+do
+   thrd.private.bvm.attributes.pop->attr[];
+   predefinedSubstance.private.componentPattern[]
+     ->attr.to[]
+
+-- InstallSemaphorePatternCodeExecute:dopart --
+do
+   thrd.private.bvm.attributes.pop->attr[];
+   predefinedSubstance.private.semaphorePattern[]
+     ->attr.to[]
+
+-- InstallObjectObjectCodeExecute:dopart --
+do
+   thrd.private.bvm.attributes.pop->attr[];
+   (thrd[],unwind##,NONE)
+     ->predefinedSubstance.private.objectPattern.instantiate
+     ->attr.to[]
+
+-- InstallBooleanObjectCodeExecute:dopart --
+do
+   thrd.private.bvm.attributes.pop->attr[];
+   (thrd[],unwind##,NONE)
+     ->predefinedSubstance.private.booleanPattern.instantiate
+     ->attr.to[]
+
+-- InstallCharObjectCodeExecute:dopart --
+do
+   thrd.private.bvm.attributes.pop->attr[];
+   (thrd[],unwind##,NONE)
+     ->predefinedSubstance.private.charPattern.instantiate
+     ->attr.to[]
+
+-- InstallIntegerObjectCodeExecute:dopart --
+do
+   thrd.private.bvm.attributes.pop->attr[];
+   (thrd[],unwind##,NONE)
+     ->predefinedSubstance.private.integerPattern.instantiate
+     ->attr.to[]
+
+-- InstallRealObjectCodeExecute:dopart --
+do
+   thrd.private.bvm.attributes.pop->attr[];
+   (thrd[],unwind##,NONE)
+     ->predefinedSubstance.private.realPattern.instantiate
+     ->attr.to[]
+
+-- InstallStringObjectCodeExecute:dopart --
+do
+   thrd.private.bvm.attributes.pop->attr[];
+   (thrd[],unwind##,NONE)
+     ->predefinedSubstance.private.stringPattern.instantiate
+     ->attr.to[]
+
+-- InstallComponentObjectCodeExecute:dopart --
+do
+   thrd.private.bvm.attributes.pop->attr[];
+   (thrd[],unwind##,NONE)
+     ->predefinedSubstance.private.componentPattern.instantiate
+     ->attr.to[]
+
+-- InstallSemaphoreObjectCodeExecute:dopart --
+do
+   thrd.private.bvm.attributes.pop->attr[];
+   (thrd[],unwind##,NONE)
+     ->predefinedSubstance.private.semaphorePattern.instantiate
+     ->attr.to[]
+
+-- GatherVirtualCodePrint:dopart --
+do
+   (dest[],indentation,false)->(l2virtdcl.getTheNameDcl).print
+
+-- GatherVirtualCodePrintShort:dopart --
+do
+   (dest[],indentation,false)->(l2virtdcl.getTheNameDcl).print
+
+-- GatherVirtualCodePrintCode:dopart --
+do
+   (# l2ndcl: ^l2NameDcl
+   do ' "'->output;
+      l2virtdcl.getTheNameDcl->l2ndcl[];
+      (dest[],indentation,false)->l2ndcl.printCode;
+      '" in "`'->output;
+      (l2ndcl.scope.location).mpsPosition->output;
+      '"'->output
+   #)
+
+-- GatherVirtualCodeExecute:dopart --
+do
+   (* This is similar to l2VirtualDecl.instantiate, 
+    * there are a few more comments there.  Note that we 
+    * are checking finals dynamically.  Static checks are
+    * performed whenever possible, but the dynamic checks
+    * are performed in _all_ cases.  This means that errors 
+    * in the static checking will at least be detected at 
+    * run-time, and hence the semantics will always be 
+    * dynamically correct.  However, we would like to 
+    * avoid the dynamic checks for all those cases where 
+    * the static checks are complete.  Note that dynamic 
+    * merging of patterns may bring together two different
+    * final bounds and hence create a violation of one or
+    * the other (if they are different they cannot both be 
+    * satisfied), so we cannot support general merging _and_ 
+    * complete static final bound checking at the same time *)
+   (if dContext##<=compositeObjectSlice## then 
+       dContext[]->oSlice[];
+       (* maxlen is an upper limit; default is "OK", so we make it large *)
+       MAXINT->maxlen;
+       (* let this virtual decl itself contribute *)
+       (thrd[],unwind##,oSlice[])->l2virtdcl.contribute;
+       (if oSlice.pred[]<>NONE then
+           (* visit other contributors to this virtual *)
+           oSlice.pred.scanBackward
+           (# cur_oSlice: ^compositeObjectSlice
+           do (if current##<=compositeObjectSlice## then
+                  current[]->cur_oSlice[];
+                  (* visit each specialized virtual attribute *)
+                  L: cur_oSlice.cpSlice.MainPart.scanSpecializedVDecls
+                    (# 
+                    do (if current.getVirtualDecl=l2virtdcl[] then
+                           (* OK, this is mine, do the merging *)
+                           (thrd[],unwind##,cur_oSlice[])
+                             ->current.contribute;
+                           (* lower bound related checks *)
+                           (if not current.Restrictions.empty then
+                               (if restrs[]=NONE then
+                                   (&l1PatternList[]->restrs[]).init;
+                               if);
+                               current.Restrictions.scan
+                               (# do (thrd[],unwind##,dContext[])
+                                    ->current.getPattern;
+                                  thrd.private.bvm.patterns.pop
+                                    ->restrs.append
+                               #)
+                           if);
+                           (* final decl. related checks *)
+                           (if current##<=l2FinalDecl## then
+                               current[]->l2fdcl[];
+                               (* ensure that counts are initialized *)
+                               (if (l2fdcl.staticSliceCount=0) and
+                                   (l2fdcl.staticVChainLength=0) then
+                                   l2fdcl.localcheck
+                               if);
+                               (if l2fdcl.staticallyKnown then
+                                   (* Type 1 treatment of finals *)
+                                   true->checkSlice;
+                                   (if l2fdcl.staticSliceCount<maxLen then
+                                       l2fdcl.staticSliceCount->maxLen
+                                   if)
+                                else
+                                   (* Type 2 treatment of finals *)
+                                   true->checkVChain;
+                                   (if l2fdcl.staticVChainLength<maxLen then
+                                       l2fdcl.staticVChainLength->maxLen
+                                   if)
+                               if)
+                           if);
+                           (if checkVChain then actualLen+1->actualLen if);
+                           leave L (* no need to check more attrs here *)
+                       if)
+                    #)
+              if)
+           #)
+       if);
+       
+       (* check final binding constraints *)
+       (if checkSlice then
+           (* Type 1 treatment of final binding *)
+           (# l1pat: ^l1PatternEntity
+           do thrd.private.bvm.patterns.peek->l1pat[];
+              (if l1pat.private.slices.size>maxLen then
+                  (# msg: ^text
+                  do 'Violation of final binding (statically known) "'->msg[];
+                     (l2virtdcl.getTheNameDcl).value[]->msg.puttext;
+                     '"'->msg.puttext;
+                     (msg[],thrd[],unwind##)->badFinalError
+                  #)
+              if)
+           #)
+       if);
+       (if checkVChain then
+           (* Type 2 treatment of final binding *)
+           (# l1pat: ^l1PatternEntity
+           do thrd.private.bvm.patterns.peek->l1pat[];
+              (if actualLen>maxLen then
+                  (# msg: ^text
+                  do 'Violation of final binding (known by upper bound) "'
+                       ->msg[];
+                     (l2virtdcl.getTheNameDcl).value[]->msg.puttext;
+                     '"'->msg.puttext;
+                     (msg[],thrd[],unwind##)->badFinalError
+                  #)
+              if)
+           #)
+       if);
+       (* check restrictions *)
+       (if restrs[]<>NONE then
+           (# l1pat: ^l1PatternEntity
+           do thrd.private.bvm.patterns.peek->l1pat[];
+              (* for all P in restr we should have P<=l1pat *)
+              restrs.scan
+              (# 
+              do (if not (current[]->l1pat.lessEqual) then
+                     (# msg: ^text
+                     do 'Violation of lower bound on virtual "'->msg[];
+                        (l2virtdcl.getTheNameDcl).value[]->msg.puttext;
+                        '":\n'->msg.puttext;
+                        'Virtual pattern: '->msg.puttext;
+                        (msg[],15,false,NONE)->l1pat.print;
+                        '\nViolated bound:  '->msg.puttext;
+                        (msg[],15,false,NONE)->current.print;
+                        (msg[],thrd[],unwind##)->lowerBoundError
+                     #)
+                 if)
+              #)
+           #)
+       if)
+    else
+       'Virtual pattern seems to live in non-compositeObjectSlice'
+         ->internalError
+   if)
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

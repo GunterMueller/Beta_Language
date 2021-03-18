@@ -1,0 +1,45 @@
+\section{Computed Remotes}
+\label{comprem}
+A special feature of the BETA language is the \em Computed Remote\/\em\
+attribute denotation.  It has the syntax:
+\begin{quote}{\tt (}{\it evaluation\/}{\tt ).}{\it attribute}
+\end{quote}
+There are two restrictions on {\it evaluation\/}:
+\begin{itemize}
+\item It must compute to something, that has an exit list of length one.
+\item The exited value must be an object reference.  The referenced
+    \tq{object} becomes the base for the lookup of \tq{attribute}.
+\end{itemize}
+To correctly process the lookup of \tq{attribute}, we must know
+the type of \tq{object}.  That in principle requires to analyze
+\tq{evaluation}.  However, in the compiler, all attribute
+denotations including the computed remotes are processed before
+any evaluations are checked.  Therefore, the normal routines for
+the reduction of evaluations cannot be used to determine the
+requested type.  Rather, an individual routine has to be written.
+As said before, the to be analyzed \tq{evaluation} must have
+exactly one element on its exit list, and that element must
+reference an object.  This leads to the following alternatives:
+\begin{enumerate}
+\item \tq{evaluation} is an object reference, that is either
+    \cqq{\tq{o}[]} with some object \tq{o} or \cqq{\&\tq{p}[]}
+    with some pattern \tq{p}, where \tq{p} can be both specified
+    as a name or as an object descriptor.  No further processing
+    is necessary in this case, the type of the evaluation is
+    either \tq{p} or the object descriptor of \tq{o}.
+\item \tq{evaluation} is an object evaluation, as in
+    \cqq{\tq{o}}, \cqq{\&\tq{p}} or \cqq{\tq{p}}.  Then we will
+    have to look up the exit list of \tq{o} respective \tq{p},
+    replace \tq{evaluation} with it, and go back to step 1 above.
+\item There is an assignment \cqq{\tq{exp1}->\tq{exp2}}.
+    Use \tq{exp2} as new \tq{evaluation} and start over.
+\end{enumerate}
+These rules may be too strict.  In particular an evaluation like
+\cqq{(\tq{A},\tq{B})}, where \tq{A} exits zero values and \tq{B}
+exactly one value would in principal be legal for a computed
+remote, but is currently rejected.  On the other hand, the only
+reason, why one would want to put \tq{A} into that evaluation is
+because of its side effects.  Using a computed remote in an
+attribute denotation to force such side effects usually is just
+bad coding style, making it a good thing for the compiler to
+reject it.

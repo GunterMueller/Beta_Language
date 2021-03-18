@@ -1,0 +1,581 @@
+(* FILE "./private/basicinterplib2body.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: basicinterplib2body.bet,v 1.8 2001/07/01 21:44:10 eernst Exp $
+ *)
+
+ORIGIN 'basicinterplib';
+INCLUDE '~beta/basiclib/file';
+INCLUDE '~beta/basiclib/random';
+INCLUDE '~beta/containers/sets';
+INCLUDE '~beta/containers/arrayContainer';
+INCLUDE '../gbeta2abeta/gbeta2abeta';
+INCLUDE '../beta2abeta/beta2abeta';
+INCLUDE '../beta2abeta/astutil';
+INCLUDE '../beta2abeta/fragmentGraph';
+INCLUDE '../ibetaIter';
+INCLUDE 'ibetaStaticlib';
+INCLUDE 'ibetaSlicelib';
+INCLUDE 'ibetaOnelib';
+INCLUDE 'interplib'
+
+-- StringValueSTypeInst:dopart --
+do
+   L: (# fail: 
+           (# problem: ^text;
+              msg: ^text
+           enter problem[]
+           do 'Attempt to look up \'value\' in '->msg[]; 
+              (context.typename).withIndefArticle->msg.puttext;
+              problem[]->msg.puttext;
+              (msg[],
+              'Use a \'string\' object (ref), or an instance of a subpattern'
+              ,usageAst[])->staticError
+           #);
+         stocp: ^staticOCP;
+         ssSlice: ^stringStaticSlice
+      do (if context##<=staticOCP## then
+             context[]->stocp[];
+             stocp.sptype.slices.scanReverse
+             (# (* scan reverse because the string slice is probably last *)
+             do (if current##<=stringStaticSlice## then
+                    current[]->ssSlice[];
+                    stocp.getInitialSyntax
+                      ->(&ssSlice.theValue[]).init
+                      ->stsub[];
+                    path.deliverCopy->stsub.pathTo.assign;
+                    leave L
+                if)
+             #);
+             (* not found *)
+             ' with no \'string\' slice'->fail
+          else
+             (* not even an object! *)
+             ''->fail
+         if)
+      #)
+
+-- LengthSTypeInst:dopart --
+do
+   L: (# fail: 
+           (# problem: ^text;
+              msg: ^text
+           enter problem[]
+           do 'Attempt to look up \'length\' in '->msg[]; 
+              (context.typename).withIndefArticle->msg.puttext;
+              problem[]->msg.puttext;
+              (msg[],
+              'Use a \'string\' object (ref), or an instance of a subpattern'
+              ,usageAst[])->staticError
+           #);
+         stocp: ^staticOCP;
+         ssSlice: ^stringStaticSlice;
+         lensub: ^staticIntSource
+      do (if context##<=staticOCP## then
+             context[]->stocp[];
+             stocp.sptype.slices.scanReverse
+             (# (* scan reverse because the string slice is probably last *)
+             do (if current##<=stringStaticSlice## then
+                    current[]->ssSlice[];
+                    stocp.getInitialSyntax
+                      ->(&ssSlice.theLength[]).init
+                      ->stsub[];
+                    path.deliverCopy->stsub.pathTo.assign;
+                    leave L
+                if)
+             #);
+             (* not found *)
+             ' with no \'string\' slice'->fail
+          else
+             (* not even an object! *)
+             ''->fail
+         if)
+      #)
+
+-- AtSTypeInst:dopart --
+do
+   L: (# fail: 
+           (# problem: ^text;
+              msg: ^text
+           enter problem[]
+           do 'Attempt to look up \'at\' in '->msg[]; 
+              (context.typename).withIndefArticle->msg.puttext;
+              problem[]->msg.puttext;
+              (msg[],
+              'Use a \'string\' object (ref), or an instance of a subpattern'
+              ,usageAst[])->staticError
+           #);
+         stocp: ^staticOCP;
+         ssSlice: ^stringStaticSlice;
+         atsub: ^staticIntSinkCharSource
+      do (if context##<=staticOCP## then
+             context[]->stocp[];
+             stocp.sptype.slices.scanReverse
+             (# (* scan reverse because the string slice is probably last *)
+             do (if current##<=stringStaticSlice## then
+                    current[]->ssSlice[];
+                    stocp.getInitialSyntax
+                      ->(&ssSlice.theAt[]).init
+                      ->stsub[];
+                    path.deliverCopy->stsub.pathTo.assign;
+                    leave L
+                if)
+             #);
+             (* not found *)
+             ' with no \'string\' slice'->fail
+          else
+             (* not even an object! *)
+             ''->fail
+         if)
+      #)
+
+-- ForkSTypeStaticInstantiate:dopart --
+do
+   L: (# stocp: ^staticOCP
+      do (* qua-warn, but a 'fork' is always located in a component slice *)
+         context[]->stocp[];
+         (* NB: we do 'scan' (not 'scanReverse') because the component
+          * slice is likely to be at the most general end of 'sptype'
+          * and we are just searching 'sptype' so the order is immaterial *)
+         stocp.sptype.slices.scan
+         (# csSlice: ^componentStaticSlice
+         do (if current##<=componentStaticSlice## then
+                current[]->csSlice[];
+                stocp.getInitialSyntax
+                  ->(&csSlice.theFork[]).init
+                  ->stsub[];
+                path.deliverCopy->stsub.pathTo.assign;
+                leave L
+            if)
+         #);
+         (* no 'component' slice here?! *)
+         'Trying to inst. "fork" of staticOCP with no component slice'
+           ->internalError
+      #)
+
+-- KillSTypeStaticInstantiate:dopart --
+do
+   L: (# stocp: ^staticOCP
+      do (* qua-warn, but a 'kill' is always located in a component slice *)
+         context[]->stocp[];
+         (* NB: we do 'scan' (not 'scanReverse') because the component
+          * slice is likely to be at the most general end of 'sptype'
+          * and we are just searching 'sptype' so the order is immaterial *)
+         stocp.sptype.slices.scan
+         (# csSlice: ^componentStaticSlice
+         do (if current##<=componentStaticSlice## then
+                current[]->csSlice[];
+                stocp.getInitialSyntax
+                  ->(&csSlice.theKill[]).init
+                  ->stsub[];
+                path.deliverCopy->stsub.pathTo.assign;
+                leave L
+            if)
+         #);
+         (* no 'component' slice here?! *)
+         'Trying to inst. "kill" of staticOCP with no component slice'
+           ->internalError
+      #)
+
+-- SuspendSTypeStaticInstantiate:dopart --
+do
+   L: (# stocp: ^staticOCP
+      do (* qua-warn, but a 'suspend' is always located in a component slice *)
+         context[]->stocp[];
+         (* NB: we do 'scan' (not 'scanReverse') because the component
+          * slice is likely to be at the most general end of 'sptype'
+          * and we are just searching 'sptype' so the order is immaterial *)
+         stocp.sptype.slices.scan
+         (# csSlice: ^componentStaticSlice
+         do (if current##<=componentStaticSlice## then
+                current[]->csSlice[];
+                stocp.getInitialSyntax
+                  ->(&csSlice.theSuspend[]).init
+                  ->stsub[];
+                path.deliverCopy->stsub.pathTo.assign;
+                leave L
+            if)
+         #);
+         (* no 'component' slice here?! *)
+         'Trying to inst. "suspend" of staticOCP with no component slice'
+           ->internalError
+      #)
+
+-- StatusSTypeStaticInstantiate:dopart --
+do
+   'basicinterplib2body.bet/228'->notyet; (* !!! *)
+
+-- SemVSTypeStaticInstantiate:dopart --
+do
+   L: (# stocp: ^staticOCP
+      do (* qua-warn, but a 'semV' is always located in a semaphore slice *)
+         context[]->stocp[];
+         (* NB: we do 'scan' (not 'scanReverse') because the semaphore
+          * slice is likely to be at the most general end of 'sptype'
+          * and we are just searching 'sptype' so the order is immaterial *)
+         stocp.sptype.slices.scan
+         (# ssSlice: ^semaphoreStaticSlice
+         do (if current##<=semaphoreStaticSlice## then
+                current[]->ssSlice[];
+                stocp.getInitialSyntax
+                  ->(&ssSlice.theV[]).init
+                  ->stsub[];
+                path.deliverCopy->stsub.pathTo.assign;
+                leave L
+            if)
+         #);
+         (* no 'semaphore' slice here?! *)
+         'Trying to inst. "semV" of staticOCP with no semaphore slice'
+           ->internalError
+      #)
+
+-- SemPSTypeStaticInstantiate:dopart --
+do
+   L: (# stocp: ^staticOCP
+      do (* qua-warn, but a 'semP' is always located in a semaphore slice *)
+         context[]->stocp[];
+         (* NB: we do 'scan' (not 'scanReverse') because the semaphore
+          * slice is likely to be at the most general end of 'sptype'
+          * and we are just searching 'sptype' so the order is immaterial *)
+         stocp.sptype.slices.scan
+         (# ssSlice: ^semaphoreStaticSlice
+         do (if current##<=semaphoreStaticSlice## then
+                current[]->ssSlice[];
+                stocp.getInitialSyntax
+                  ->(&ssSlice.theP[]).init
+                  ->stsub[];
+                path.deliverCopy->stsub.pathTo.assign;
+                leave L
+            if)
+         #);
+         (* no 'semaphore' slice here?! *)
+         'Trying to inst. "semP" of staticOCP with no semaphore slice'
+           ->internalError
+      #)
+
+-- SemTryPSTypeStaticInstantiate:dopart --
+do
+   L: (# stocp: ^staticOCP
+      do (* qua-warn, but a 'semTryP' is always located in a semaphore slice *)
+         context[]->stocp[];
+         (* NB: we do 'scan' (not 'scanReverse') because the semaphore
+          * slice is likely to be at the most general end of 'sptype'
+          * and we are just searching 'sptype' so the order is immaterial *)
+         stocp.sptype.slices.scan
+         (# ssSlice: ^semaphoreStaticSlice
+         do (if current##<=semaphoreStaticSlice## then
+                current[]->ssSlice[];
+                stocp.getInitialSyntax
+                  ->(&ssSlice.theTryP[]).init
+                  ->stsub[];
+                path.deliverCopy->stsub.pathTo.assign;
+                leave L
+            if)
+         #);
+         (* no 'semaphore' slice here?! *)
+         'Trying to inst. "semTryP" of staticOCP with no semaphore slice'
+           ->internalError
+      #)
+
+-- SemCountSTypeStaticInstantiate:dopart --
+do
+   L: (# stocp: ^staticOCP
+      do (* qua-warn, but a 'semCount' is always located in a semaphore slice *)
+         context[]->stocp[];
+         (* NB: we do 'scan' (not 'scanReverse') because the semaphore
+          * slice is likely to be at the most general end of 'sptype'
+          * and we are just searching 'sptype' so the order is immaterial *)
+         stocp.sptype.slices.scan
+         (# ssSlice: ^semaphoreStaticSlice
+         do (if current##<=semaphoreStaticSlice## then
+                current[]->ssSlice[];
+                stocp.getInitialSyntax
+                  ->(&ssSlice.theCount[]).init
+                  ->stsub[];
+                path.deliverCopy->stsub.pathTo.assign;
+                leave L
+            if)
+         #);
+         (* no 'semaphore' slice here?! *)
+         'Trying to inst. "semCount" of staticOCP with no semaphore slice'
+           ->internalError
+      #)
+
+-- RangeDNodeGetType:dopart --
+do 
+   (# strep: ^staticRepetition
+   do (* qua-warn, but 'range' is always in context of a rep. *)
+      context[]->strep[];
+      (strep.getInitialSyntax,rangeDcl[])
+        ->(&strep.theRangeType[]).init
+        ->stype[]
+   #)
+
+-- ExtendDNodeGetType:dopart --
+do 
+   (# strep: ^staticRepetition
+   do (* qua-warn, but 'extend' is always in context of a rep. *)
+      context[]->strep[];
+      (strep.getInitialSyntax,rangeDcl[])
+        ->(&strep.theExtendType[]).init
+        ->stype[]
+   #)
+
+-- NewDNodeGetType:dopart --
+do 
+   (# strep: ^staticRepetition
+   do (* qua-warn, but 'new' is always in context of a rep. *)
+      context[]->strep[];
+      (strep.getInitialSyntax,rangeDcl[])
+        ->(&strep.theNewType[]).init
+        ->stype[]
+   #)
+
+-- FalseSubstanceGetCplr:dopart --
+do
+   &exeCompiler[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- FalseSubstanceGetEnterCplr:dopart --
+do
+   ('Attempt to assign to a \'false\' literal'
+   ,'Use a boolean object or obj.reference'
+   ,falseDcl[])->staticError
+
+-- FalseSubstanceGetExitCplr:dopart --
+do
+   &exitOnceCompiler
+   (# generate::
+        (# do ('basicinterplib2body.bet/358',false)
+             ->(&literalBooleanCode[]).init
+             ->program.append;
+           (&staticBooleanTransient[]).init->stran[]
+        #)
+   #)[]->xc[]
+
+-- FalseSubstanceEnterExitGetCplr:dopart --
+do
+   ('Attempt to assign-then-evaluate a \'false\' literal'
+   ,'Use a boolean object or obj.reference'
+   ,falseDcl[])->staticError
+
+-- FalseSTypeStaticInst:dopart --
+do
+   context.getInitialsyntax
+     ->(&falseSubstance[]).init
+     ->stsub[];
+   context.pathTo.deliverCopy->stsub.pathTo.assign
+
+-- TrueSubstanceGetCplr:dopart --
+do
+   &exeCompiler[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- TrueSubstanceGetEnterCplr:dopart --
+do
+   ('Attempt to assign to a \'true\' literal'
+   ,'Use a boolean object or obj.reference'
+   ,trueDcl[])->staticError
+
+-- TrueSubstanceGetExitCplr:dopart --
+do
+   &exitOnceCompiler
+   (# generate::
+        (# do ('basicinterplib2body.bet/392',true)
+             ->(&literalBooleanCode[]).init
+             ->program.append;
+           (&staticBooleanTransient[]).init->stran[]
+        #)
+   #)[]->xc[]
+
+-- TrueSubstanceGetEnterExitCplr:dopart --
+do
+   ('Attempt to assign-then-evaluate a \'true\' literal'
+   ,'Use a boolean object or obj.reference'
+   ,trueDcl[])->staticError
+
+-- TrueSTypeStaticInst:dopart --
+do
+   context.getInitialsyntax
+     ->(&trueSubstance[]).init
+     ->stsub[];
+   context.pathTo.deliverCopy->stsub.pathTo.assign
+
+-- StdioSubstanceGetStaticTransientOut:dopart --
+do
+   createSingletonTransient(# type::staticStringTransient #)->stran[]
+
+-- StdioSubstanceGetStaticTransientIn:dopart --
+do
+   createSingletonTransient(# type::staticStringTransient #)->stran[]
+
+-- StdioSubstanceGetCompiler:dopart --
+do
+   &exeCompiler[]->ec[];
+   stdioDcl[]->ec.usageAst[]
+
+-- StdioSubstanceGetEnterCompiler:dopart --
+do
+   &enterOnceCompiler
+   (# generate::
+        (# do 'basicinterplib2body.bet/428'
+             ->(&stdioOutCode[]).init
+             ->program.append;
+           false
+             ->(&staticStringTransient[]).init
+             ->stran[]
+        #)
+   #)[]->nc[];
+
+-- StdioSubstanceGetExitCompiler:dopart --
+do
+   &exitOnceCompiler
+   (# generate::
+        (# do 'basicinterplib2body.bet/441'
+             ->(&stdioInCode[]).init
+             ->program.append;
+           false
+             ->(&staticStringTransient[]).init
+             ->stran[]
+        #)
+   #)[]->xc[]
+
+-- StdioSubstanceGetEnterExitCompiler:dopart --
+do
+   (* no tmps, so the canonical representative ("generating AST") 
+    * is not used; we just use 'stdioDcl' *)
+   (world[],stdioDcl[],usageAst[],false)
+     ->getEnterCompiler
+     ->nc[];
+   (world[],stdioDcl[],usageAst[])
+     ->getExitCompiler
+     ->xc[]
+
+-- StdioDNodeGetType:dopart --
+do
+   (context.getInitialSyntax,stdioDcl[])
+     ->(&stdioSType[]).init
+     ->stype[] 
+
+-- OsSystemSubstanceGetCompiler:dopart --
+do
+   ('Attempt to execute \'osSystem\''
+   ,'Always at least give an argument, "..->osSystem.."'
+   ,usageAst[])->staticError
+
+-- OsSystemSubstanceGetEnterCompiler:dopart --
+do
+   &enterOnceCompiler
+   (# generate::
+        (# do 'basicinterplib2body.bet/477'
+             ->(&ossystemInCode[]).init
+             ->program.append;
+           false->(&staticStringTransient[]).init->stran[]
+        #)
+   #)[]->nc[]
+
+-- OsSystemSubstanceGetExitCompiler:dopart --
+do
+   ('Attempt to evaluate \'ossystem\''
+   ,'Always give an input to \'ossystem\' ("..->ossystem")'
+   ,usageAst[])->staticError
+
+-- OsSystemSubstanceGetEnterExitCompiler:dopart --
+do
+   &enterOnceCompiler
+   (# generate::
+        (# do 'basicinterplib2body.bet/494'
+             ->(&ossystemInOutCode[]).init
+             ->program.append;
+           false->(&staticStringTransient[]).init->stran[]
+        #)
+   #)[]->nc[];
+   &exitOnceCompiler
+   (# generate::(# do false->(&staticStringTransient[]).init->stran[] #)
+   #)[]->xc[]
+
+-- OsSystemDNodeGetType:dopart --
+do
+   (context.getInitialSyntax,osSystemDcl[])
+     ->(&osSystemSType[]).init
+     ->stype[]
+
+-- EvalSubstanceGetCompiler:dopart --
+do
+   ('Attempt to execute \'eval\''
+   ,'Always at least give an argument, "..->eval.."'
+   ,usageAst[])->staticError
+
+-- EvalSubstanceGetEnterCompiler:dopart --
+do
+   &enterOnceCompiler
+   (# generate::
+        (# do 'basicinterplib2body.bet/520'
+             ->(&evalInCode[]).init
+             ->program.append;
+           false->(&staticStringTransient[]).init->stran[]
+        #)
+   #)[]->nc[]
+
+-- EvalSubstanceGetExitCompiler:dopart --
+do
+   ('Attempt to evaluate \'eval\''
+   ,'Always give an input to \'eval\' ("..->eval")'
+   ,usageAst[])->staticError
+
+-- EvalSubstanceGetEnterExitCompiler:dopart --
+do
+   &enterOnceCompiler
+   (# generate::
+        (# do 'basicinterplib2body.bet/537'
+             ->(&evalInOutCode[]).init
+             ->program.append;
+           false->(&staticStringTransient[]).init->stran[]
+        #)
+   #)[]->nc[];
+   &exitOnceCompiler
+   (# generate::(# do false->(&staticStringTransient[]).init->stran[] #)
+   #)[]->xc[]
+
+-- EvalDNodeGetType:dopart --
+do
+   (context.getInitialSyntax,evalDcl[])
+     ->(&evalSType[]).init
+     ->stype[]
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

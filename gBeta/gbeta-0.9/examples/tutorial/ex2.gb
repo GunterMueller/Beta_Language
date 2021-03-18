@@ -1,0 +1,34 @@
+(* FILE ex2.gb *)
+-- betaenv:descriptor --
+(# 
+   putline: (# enter stdio do '\n'->stdio #);
+   person: 
+     (# init: (# enter (name,height) #);
+        name: @string;
+        height: @real;
+        loves: (* we _love_ small persons *)
+          (# other: ^person;
+             value: @boolean
+          enter other[] 
+          do (other.height<=height)->value
+          exit value 
+          #);
+        thumpOnHead: (# do height-0.1 -> height; 'Ouch!!'->putline #);
+        greet:
+          (# other: ^person
+          enter other[]
+          do 'Hi, '+other.name+'!'->putline
+          #)
+     #);
+   thyNeighbor,thySelf: @person;
+do 
+   ('me',6.5)->thySelf.init;
+   ('pal',6.7)->thyNeighbor.init;
+   
+   L: (if (thyNeighbor[]->thySelf.loves)=(thySelf[]->thySelf.loves) then 
+          thyNeighbor[]->thySelf.greet
+       else
+          thyNeighbor.thumpOnHead;
+          restart L
+      if)
+#)

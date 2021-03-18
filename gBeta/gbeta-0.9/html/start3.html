@@ -1,0 +1,148 @@
+
+
+
+
+
+
+
+<HTML>
+<HEAD><TITLE>gbeta Getting Started:: Command Line Interaction</TITLE></HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF"
+  LINK="#0000FF" VLINK="#800080" ALINK="#FF00FF">
+<TABLE WIDTH="100%">
+<TR><TD ALIGN="right">
+<TABLE><TR ALIGN="center">
+  <TD><A HREF="start_index2.html" TARGET="display"><IMG SRC="left.gif"></A></TD>
+  <TD><A HREF="start_index4.html" TARGET="display"><IMG SRC="right.gif"></A></TD>
+</TR></TABLE></TD></TR>
+<TR><TD ALIGN="left"><H1>Getting Started: Command Line Interaction</H1></TD></TR>
+</TABLE>
+<P><HR></P>
+<TABLE><TR><TD WIDTH="25%">&nbsp;</TD><TD WIDTH="50%">
+
+<P>
+Since <B>gbeta</B> is biased towards language design and semantics, the
+support for observation of program executions has a high priority.
+When running interactively, i.e. when giving the <CODE>-i</CODE>
+option:
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>gbeta -i ...</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+the execution stops at the first statement of the program, and you can
+investigate what is going on much like in a source level debugger.
+You can print the state of objects, execute ad-hoc statements, and
+retrieve static analysis information about program elements, e.g. the
+statically known type of a reference attribute.  Moreover, you can
+control the program execution by single-stepping, setting breakpoints,
+and running the program. 
+</P>
+
+<H3>Starting an interactive session</H3>
+<P>
+Try to execute the program <CODE>hello2.gb</CODE> interactively: 
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>gbeta -i hello2</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+The program looks like this:
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE> 
+(* FILE hello2.gb *)
+-- betaenv:descriptor --
+(# s: @string;
+   hello: (# exit 'Hello' #)
+do 'world!'->s;
+   hello+', '+s->stdio
+#) </PRE></TD></TR>
+  </TABLE>
+</P>
+
+When <B>gbeta</B> starts executing this program interactively, you
+will have the usual startup message, and then:
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE> 
+====================
+(#`196
+   s: @string;
+   hello: (#`74
+      exit 'Hello'
+      #)
+do <B><U>'world!'->s;</U></B>
+   hello+', '+s->stdio
+#)
+====================
+
+executing~1> _ </PRE></TD></TR>
+  </TABLE>
+</P>
+
+The source code surrounding the currently executing imperative
+(statement) is pretty-printed before the interactive prompt
+<CODE>"executing~1> _"</CODE>.  Depending on the capabilities of the
+terminal, the exact imperative to execute next is emphasized one way
+or another, in this case by an underlined and bold font.  The
+<CODE>-c</CODE> option is used to select other color coding schemes;
+in particular, option <CODE>-cc</CODE> selects the most expressive one
+using ISO 6429 color escape sequences.  This is also an ANSI standard,
+and it is often used e.g. under Linux to show color coded directory
+listings.
+</P>
+
+<H3>The interactive prompt</H3>
+<P>
+There are two different interactive prompts, namely 
+<CODE>"terminated> _"</CODE> and prompts like 
+<CODE>"executing~1> _"</CODE>.  The first one indicates that no
+threads are currently executing.  In this situation many commands are
+disabled, but the program can e.g. be started with <CODE>run</CODE>
+or <CODE>step</CODE>. 
+</P>
+
+<P>
+The second kind of prompt, <CODE>"executing~1> _"</CODE>, indicates
+that the program is currently being executed, and it specifies the
+identifying number for the thread which is the current run-time
+context.  For programs without concurrency, the thread number is
+always one.  For programs with concurrency it is nice to know just
+what thread was trapped at a given breakpoint..
+</P>
+
+<P>
+After these preparations, the <A HREF="start_index4.html" TARGET="display">next</A> section deals with the
+actual executing of the program.
+</P>
+
+</TD><TD WIDTH="20%">&nbsp;</TD></TR></TABLE>
+<P><HR></P>
+<SMALL>
+  <I>
+    <CENTER>
+      <STRONG>Signed by: </STRONG>
+      <A HREF="mailto:eernst@cs.auc.dk">eernst@cs.auc.dk</A>.
+      Last Modified:  3-Jul-01
+<BR>
+    </CENTER>
+  </I>
+</SMALL>
+</BODY>
+</HTML>
+

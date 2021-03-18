@@ -1,0 +1,39 @@
+ORIGIN 'special';
+INCLUDE 'backlevel';
+INCLUDE 'bitch';
+INCLUDE '../namebitch';
+INCLUDE '../objectdesc';
+INCLUDE '../repetition';
+--- SpecialDenotationFindIt: DoPart ---
+do
+   startod[]->od[];
+   0->i;
+   (if destod[]=NONE then
+      'Internal compiler error: the "'->t[];
+      str[]->t.append;
+      '" pattern is not defined!'->t.append;
+      (FailureTrace, t[])->stop;
+   if);
+   loop: (if od[]
+     // NONE then
+	'Internal compiler error:\nCan''t locate main "'->t[];
+	str[]->t.append;
+	'" pattern!'->t.append;
+	(FailureTrace, t[])->stop;
+     // destod.private.outer[] then
+	destod.encl[]->att.att[];
+	att.att.names.ptr[]->nme[];
+	(startod[],i)->&DirectBacklevel->prec[];
+     else
+	od.private.outer[]->od[];
+	i+1->i;
+	restart loop
+   if);
+
+
+--- SpecialDenotationCheckFollow: DoPart ---
+do (if not value and (att.att[]<>NONE) then att.att.checkFollow->value if)
+
+
+--- RepetitionDenotationResolve: DoPart ---
+do (encl.encl[],Repetition.pattern[])->&findit

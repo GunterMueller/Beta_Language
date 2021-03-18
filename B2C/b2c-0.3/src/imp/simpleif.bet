@@ -1,0 +1,42 @@
+ORIGIN '../imperative';
+INCLUDE '../evaluation';
+BODY 'simpleifbody';
+--- CompilerLib: Attributes ---
+SimpleIfImp: Imperative
+  (#
+     ev: @EvaluationPtr;
+     thenprt: @ImperativePtr;
+     elseprt: @ImperativePtr;
+     print::
+       (#
+       do
+	  (0,'')->s.newlevel;
+	  '(if '->s.append;
+
+	  (0,'')->s.newlevel;
+	  s[]->ev.print;
+	  s.newline;
+	  ' then '->s.append;
+	  s.backlevel;
+	  s.newline;
+
+	  (s[],'')->thenprt.print;
+	  (if elseprt.ptr[]<>NONE then
+	     ' else '->s.append;
+	     s.newline;
+	     (s[],'')->elseprt.print;
+	  if);
+	  ' if)'->s.append;
+	  s.backlevel;
+       #);
+     checkFollow::
+       (# do ev.checkFollow; thenprt.checkFollow; elseprt.checkFollow #);
+     checkComplete::
+       (# do ev.checkComplete; thenprt.checkComplete; elseprt.checkComplete #);
+     reduce::
+       (# red: @ev.ptr.reduceexitsingle; type: @integer; newev: ^evaluation;
+       <<SLOT SimpleIfImpReduce: DoPart>>
+       #);
+  enter (ev,thenprt,elseprt)
+  do this(SimpleIfImp)[]->ev.encl->thenprt.encl->elseprt.encl
+  #);

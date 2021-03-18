@@ -1,0 +1,76 @@
+ORIGIN 'cgen';
+INCLUDE 'funcdecl';
+INCLUDE '../ctype';
+INCLUDE '../specialdesc';
+--- ObjectDescriptorDoCstrucForw: DoPart ---
+do
+   (if sd[]<>NONE then
+      (if sd.toexternal then
+	 (if exitprt[]<>NONE then
+	    exitprt.getod->od[];
+	    od.private.sd.ctype[]->c_file.cstream.puttext;
+	 else
+	    cintf.voidfunc->c_file.cstream.puttext;
+	 if);
+	 ' '->c_file.cstream.put;
+	 sd.ctype[]->c_file.cstream.puttext;
+	 '('->c_file.cstream.put;
+	 (if cintf.ansidecl then
+	    (if enterprt[]<>NONE then
+	       enterprt.getod->od[];
+	       od.private.sd.ctype[]->c_file.cstream.puttext;
+	    else
+	       cintf.voidarglist->c_file.cstream.puttext;
+	    if);
+	 if);
+	 ');\n'->c_file.cstream.puttext;
+	 leave DoCstrucForw;
+      if);
+   if);
+   'struct O'->c_file.cstream.puttext;
+   mapname[]->c_file.cstream.puttext;
+   ';\nstruct P'->c_file.cstream.puttext;
+   mapname[]->c_file.cstream.puttext;
+   ';\n'->c_file.cstream.puttext;
+
+
+--- ObjectDescriptorDoCfuncForw: DoPart ---
+do
+   (if encl[]=NONE then 'encl is NONE in OD: '->puttext; nme[]->putline if);
+   (if (encl##<=Fragment##) and not (funcname[]=mapname[]) then
+      'int S'->c_file.cstream.puttext;
+      mapname[]->c_file.cstream.puttext;
+      mapname[]->cintf.funcdecl;
+      ';\n'->c_file.cstream.puttext;
+   if);
+   (if (doprt<>NONE) or (encl##<=Fragment##) then
+      'int F'->c_file.cstream.puttext;
+      mapname[]->c_file.cstream.puttext;
+      mapname[]->cintf.funcdecl;
+      ';\n'->c_file.cstream.puttext;
+   if);
+   'struct O'->c_file.cstream.puttext;
+   mapname[]->c_file.cstream.puttext;
+   ' *N'->c_file.cstream.puttext;
+   mapname[]->c_file.cstream.puttext;
+   (if outer[]<>NONE then
+      outer.private.mapname[]->cintf.funcdecl;
+   else
+      NONE->cintf.funcdecl;
+   if);
+   ';\n'->c_file.cstream.puttext;
+
+(* JO Creation of marking function declaration*)
+--- ObjectDescriptorDoCmarkForw: DoPart ---
+do
+   'int M'->c_file.cstream.puttext;
+   mapname[]->c_file.cstream.puttext;
+   '('->c_file.cstream.put;
+   (if cintf.ansidecl then
+      cintf.void->c_file.cstream.puttext;
+      ' *'->c_file.cstream.puttext;
+      cintf.const->c_file.cstream.puttext;
+     'th'->c_file.cstream.puttext;
+   if);
+   ');\n'->c_file.cstream.puttext;
+(* JO *)

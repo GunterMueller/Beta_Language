@@ -1,0 +1,97 @@
+ORIGIN 'getopt';
+--- GetoptException: DoPart ---
+do
+   Failure->termCode;
+   1->Arguments->ename[];
+   0->p;
+   '/'->ename.findAll (# do inx->p #);
+   (p+1,ename.length)->ename.sub->msg.append;
+   ': Option "'->msg.append;
+   opt->msg.put;
+   '"'->msg.append;
+   INNER;
+
+
+--- GetoptUnknownOption: DoPart ---
+do ' unknown!'->msg.putline; INNER;
+
+
+--- GetoptMissingArgument: DoPart ---
+do ' requires an argument!'->msg.putline; INNER;
+
+
+--- GetoptNotANumber: DoPart ---
+do ' requires a number as argument!'->msg.putline; INNER;
+
+
+--- GetoptDoPart: DoPart ---
+do
+   2->optind;
+   argloop: (if optind<=NoOfArguments then
+      optind->Arguments->arg[];
+      (if arg.length<1 then leave argloop if);
+      (if (1->arg.inxGet) <> '-' then leave argloop if);
+
+      (* !!! eventually add processing of long options here *)
+      optloop: (if arg.length>1 then
+	 (2,arg.length)->arg.sub->arg[];
+	 (if (1->arg.inxGet->opt)<>':' then
+	    opt->optstr.findAll
+	      (#
+	      do
+		 (if inx<optstr.length then
+		    (if (inx+1->optstr.inxGet)=':' then
+		       (* this command line option requires an argument *)
+		       (if arg.length>1 then
+			  (2,arg.length)->arg.sub->arg[];
+		       else
+			  (if optind>=NoOfArguments then
+			     missingArgument;
+			     ':'->opt;
+			  else
+			     optind+1->optind->Arguments->arg[];
+			  if);
+		       if);
+		       INNER getopt;
+		       leave optloop;
+		    if);
+		 if);
+		 (* options without argument go here *)
+		 INNER getopt;
+		 restart optloop;
+	      #);
+	 if);
+	 (* option not found *)
+	 unknownOption;
+	 '?'->opt;
+	 INNER getopt;
+	 restart optloop;
+      if);
+      optind+1->optind;
+      restart argloop;
+   if);
+
+
+--- GetoptAtoi: DoPart ---
+do
+   0->value->sign;
+   arg.scanAll
+     (#
+     do
+        (if not (ch->ascii.isdigit) then
+	   (if true
+	   // (sign=0) and (ch='-') then -1->sign
+	   // (sign=0) and (ch='+') then 1->sign
+	   else -2->sign
+	   if);
+	else
+	   (if sign=0 then 1->sign if);
+	   value*10+ch-'0'->value;
+	if);
+     #);
+
+  value=value*sign;
+  (if sign=-2 then
+     -1->value;
+     notANumber;
+  if);

@@ -1,0 +1,13 @@
+ORIGIN 'betaenv';
+-- program:merge --
+(# s: @string;
+   i: @integer;
+do '/bin/ls'->ossystem->s;
+   (for j:s.length repeat 
+      (if (j->s.at)='\n' then i+1->i if);
+   for);
+   'There are '->puttext;
+   i->putint;
+   ' files here.'->putline;
+#)
+

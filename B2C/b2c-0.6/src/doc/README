@@ -1,0 +1,4 @@
+This directory contains various documentation about the source of the
+compiler.  To make the large .tex document, use:
+
+	latex main.tex

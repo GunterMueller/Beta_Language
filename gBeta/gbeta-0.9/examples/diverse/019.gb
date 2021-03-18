@@ -1,0 +1,5 @@
+-- betaenv:descriptor --
+(# (* used to show bug in name-binding with remote & basic slices *)
+   i: @integer(# do INNER #);
+do i.value 
+#)

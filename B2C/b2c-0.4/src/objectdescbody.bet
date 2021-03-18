@@ -1,0 +1,333 @@
+ORIGIN 'objectdesc';
+INCLUDE 'attributebitch';
+INCLUDE 'eelib';
+INCLUDE 'imp/inner';
+INCLUDE 'nametable';
+INCLUDE 'repetition';
+INCLUDE 'specialdesc';
+INCLUDE 'virtual';
+INCLUDE 'ad/backlevel';
+INCLUDE 'od/cgen';
+--- ObjectDescriptorCheckName: DoPart ---
+do
+   true->private.namesChecked;
+   ObjectDescriptor##->encl.findencltype->private.outer[];
+   private.att.checkName
+
+
+--- ObjectDescriptorResolvePrefix: DoPart ---
+do private.resolvePrefix
+
+
+--- ObjectDescriptorCheckFollow: DoPart ---
+do value->private.checkFollow->value
+
+
+--- ObjectDescriptorCheckComplete: DoPart ---
+do private.checkComplete; INNER
+
+
+--- ObjectDescriptorIsbasic: DoPart ---
+do (private.sd[]<>NONE)->value
+
+
+--- ObjectDescriptorIsrep: DoPart ---
+do
+   (if private.super[]<>NONE then
+      (if private.super.private.sd[]<>NONE then
+	 private.super.private.sd.isrepetition->value
+      if)
+   if)
+
+
+--- ObjectDescriptorPrivateDoPart: DoPart ---
+do
+   (odserial->serial)+1->odserial;
+   (if innerVirtual<>0 then
+      (failureTrace,'ObjectDescriptor executed more than once!')->stop;
+   if);
+   this(ObjectDescriptor)[]->att.encl;
+   (* this setting is temporary only: *)
+   (if prefix[]<>NONE then this(ObjectDescriptor)[]->prefix.encl[] if);
+   (if enterprt[]<>NONE then this(ObjectDescriptor)[]->enterprt.encl[] if);
+   this(ObjectDescriptor)[]->doprt.encl;
+   (if exitprt[]<>NONE then this(ObjectDescriptor)[]->exitprt.encl[] if);
+   NONE->super[]->outer[];
+   NONE->sd[];
+   NONE->funcname[];
+   (if mapname.length<>0 then
+      exception
+        (# do 'ObjectDescriptor executed more than once!'->msg.putline #)
+   if);
+   c_file.NameMapper.state->mapname;
+   c_file.NameMapper.advance;
+   doFunction.init;
+   -1->innerVirtual;
+   0->llabel->lins->ldyn->nsuper;
+   false->outernew->namesChecked->noAtts;
+
+
+--- ObjectDescriptorPrint: DoPart ---
+do
+   (if private.prefix[]<>NONE then s[]->private.prefix.print; ' '->s.append if);
+   (2,'')->s.newlevel;
+   '(# '->s.append;
+   s[]->private.att.print;
+   s.newline;
+   (if private.enterprt[]<>NONE then
+      (3,' enter ')->s.newlevel;
+      s[]->private.enterprt.print;
+      s.backlevel;
+      s.newline
+   if);
+   (s[],' do ')->private.doprt.print;
+   (if private.exitprt[]<>NONE then
+      (3,' exit ')->s.newlevel;
+      s[]->private.exitprt.print;
+      s.backlevel;
+      s.newline
+   if);
+   ' #)'->s.append;
+   s.backlevel;
+
+
+--- ObjectDescriptorLabReduce: DoPart ---
+do doprt.reduce
+
+
+--- ObjectDescriptorScanSuper: DoPart ---
+do
+   this(ObjectDescriptor)[]->current[];
+   loop: (if current[]<>NONE then
+      INNER; current.private.super[]->current[]; restart loop
+   if)
+
+
+--- ObjectDescriptorOnlySuper: DoPart ---
+do
+   private.super[]->current[];
+   loop: (if current[]<>NONE then
+      INNER; current.private.super[]->current[]; restart loop
+   if)
+
+
+--- ObjectDescriptorScanOuter: DoPart ---
+do
+   this(ObjectDescriptor)[]->current[];
+   0->level;
+   loop: (if current[]<>NONE then
+      INNER; current.private.outer[]->current[]; level+1->level; restart loop
+   if)
+
+
+--- ObjectDescriptorScanBoth: DoPart ---
+do ScanOuter
+     (#
+     do
+	current.ScanSuper
+	  (#
+	  do
+	     current[]->this(ScanBoth).current[];
+	     level->this(ScanBoth).level;
+	     INNER ScanBoth
+	  #)
+     #)
+
+
+--- ObjectDescriptorPrivateLib: Attributes ---
+resolvePrefix:
+  (# ad: ^AttributeDenotation; bl: ^Backlevel
+  do
+     (if not namesChecked then checkName if);
+     prefixtest: (if prefix[]<>NONE then
+	(if super[]<>NONE then leave resolvePrefix if);
+	(*
+	 * The prefix is *not* a real part of this ObjectDescriptor.
+	 * Otherwise, the prefix could reference Attributes from this
+	 * ObjectDescriptor, which clearly is an error.
+	 *)
+	encl[]->prefix.encl[];
+	prefix.resolve;
+	(*
+	 * For references, we have to treat the prefix, as if it came
+	 * from this ObjectDescriptor, not from the enclosing OD.  Add
+	 * a backlevel of 1.
+	 *)
+	prefix[]->ad[];
+	loop: (if ad.prec[]<>NONE then ad.prec[]->ad[]; restart loop if);
+	(if ad##<=Backlevel## then
+	   ad[]->bl[];
+	   this(ObjectDescriptor)[]->bl.startod[];
+	   bl.nlevel+1->bl.nlevel;
+	else
+	   (this(ObjectDescriptor)[],1)->&DirectBacklevel->ad.prec[]
+	if);
+
+	(if (prefix.getod->super[])=NONE then leave prefixtest if);
+	(if prefix.isvirtual then
+	   'Virtual super-patterns are not allowed!'->prefix.error;
+	   NONE->super[];
+	   leave prefixtest
+	if);
+	(if super.isslot then
+	   'You cannot use a slot as a superpattern!'->prefix.error;
+	   leave prefixtest
+	if);
+     if);
+     (if (super[]=NONE) and (this(ObjectDescriptor)[]<>objectPattern[]) then
+	objectPattern[]->super[];
+     if);
+  #);
+
+
+callGen: (# do genFunction #);
+
+
+checkFollow: BooleanObject
+  (# newexternal: @boolean; isnormal: @boolean; isinnerimp: @boolean
+  do
+     (if om[]<>NONE then leave checkFollow if);
+     resolvePrefix;
+
+     (if prefix[]<>NONE then
+	(if prefix.checkFollow then
+	   (* break circles *)
+	   true->value; objectPattern[]->super[];
+        if)
+     if);
+
+     (if not ((sd[]=NONE)->isnormal) then
+	sd.isexternal or sd.isrepetition->isnormal
+     if);
+
+     (if att.ptr[]=NONE then true->noAtts if);
+     (if super[]<>NONE then
+	(if not super.private.noAtts then false->noAtts if);
+	(if prefix[]=NONE then super.checkFollow if);
+	(if super.isbasic then
+	   (if true
+	     // super.private.sd.isexternal and
+		not super.private.sd.toexternal
+	     then
+		('',false,true)->&SpecialDescriptor->sd[];
+		false->isnormal;
+		true->newexternal;
+	     // super.private.sd.isrepetition then (* do nothing *)
+	     else
+		'Basic patterns (Integer, Boolean, etc.) may not be used as superpatterns!'
+		  ->prefix.error;
+	   if);
+	if);
+	super.private.nsuper+1->nsuper;
+	super.private.vm->vm;
+	super.private.funcname[]->funcname[];
+	(if (super[]<>objectPattern[]) and (super[]<>Repetition.pattern[]) then
+	   prefix.getmap->om[]
+	if);
+     if);
+     mapouter;
+     (if isnormal then
+	DoCstrucForw##->c_file.cstrucforw;
+	DoCfuncForw##->c_file.cfuncforw;
+
+        (* JO Adding mark function declaration to todolist of .h file*)
+	DoCmarkForw##->c_file.cfuncforw;
+        (* JO *)
+
+     if);
+
+     (if att.checkFollow then true->value if);
+     (if enterprt[]<>NONE then enterprt.checkFollow if);
+     doprt.checkFollow;
+     (if exitprt[]<>NONE then exitprt.checkFollow if);
+
+     def: (if not isslot and isnormal then
+	DoCstrucDef##->c_file.cstrucdef;
+	DoCstrucDecl##->c_file.cstrucdecl;
+	(if sd[]<>NONE then (if sd.isrepetition then leave def if) if);
+	callGen##->c_file.todoReduce;
+     if);
+     (if doprt<>NONE then
+	(if super[]<>NONE then
+	   (if super.private.innerVirtual=-1 then
+	      'The superpattern has no INNER!'->error
+	   if)
+	if);
+	(doprt.ptr##<=InnerImp##)->isinnerimp;
+	(if (innerVirtual=-1) or (doprt.ptr.next[]<>NONE) or not isinnerimp then
+	   (if not doprt.ptr.isslot and isnormal then
+	      doFunction.DoDo##->c_file.cfunction
+	   if);
+	   (if funcname[]=NONE then mapname[]->funcname[] if);
+	   (if innerVirtual>=0 then
+	      1->vm.vm.extend;
+	      vm.vm.range->innerVirtual;
+	      (* DEBUG 'OD '->puttext;
+	      nme[]->puttext;
+	      ': setting innerVirtual to '->puttext;
+	      innerVirtual->putint;
+	      '\n'->puttext; *)
+	      this(ObjectDescriptor)[]->&VirtualInner->vm.vm[innerVirtual][];
+	   if);
+	   (if super[]<>NONE then
+	      (if super.private.innerVirtual>0 then
+		 (* DEBUG 'OD '->puttext;
+		 nme[]->puttext;
+		 ': super.private.innerVirtual = '->puttext;
+		 super.private.innerVirtual->putint;
+		 '\n'->puttext; *)
+		 (super.private.innerVirtual,this(ObjectDescriptor)[])->vm.setod
+	      if)
+	   if)
+	else
+	   (* In case, that there is exactly one INNER statement in the
+	    * Do-Part, do not issue a seperate function.  Rather, just
+	    * propagate the INNER function of the super pattern. *)
+	   (if super[]<>NONE then super.private.innerVirtual->innerVirtual if)
+	if)
+     else
+	(* always declare a function for fragments *)
+	(if encl##<=Fragment## then
+	   (if not isnormal then
+	      'You cannot put special descriptors (like externals) into Fragments!'->error
+	   if);
+	   doFunction.DoDo##->c_file.cfunction;
+	   (if funcname[]=NONE then mapname[]->funcname[] if);
+	if);
+	(if isslot and (funcname[]=NONE) then mapname[]->funcname[] if);
+     if);
+ 
+     (* JO Preparing of concrete mark function generating*)
+     (if not isslot and isnormal then doMark##->c_file.cfunction; if);
+     (* JO *)
+
+     (if newexternal then checkExternal if);
+  #);
+
+
+checkComplete:
+  (#
+  do
+     dummylab.assign;
+     att.checkComplete;
+     (if enterprt[]<>NONE then enterprt.checkComplete if);
+     (if exitprt[]<>NONE then exitprt.checkComplete if);
+     (* Do not call `deassign' for dummy labels - or b2c might output
+      * unnecessary C declarations for these dummy labels.
+      *)
+     dummylab.enclLabel[]->currentLabel.l[];
+     lab.assign;
+     doprt.checkComplete;
+     lab.deassign;
+     red:
+       (#
+       do
+	  (if sd[]<>NONE then
+	     (if sd.isexternal and sd.toexternal then leave red if);
+	  if);
+	  reduce##->c_file.todoReduce;
+       #);
+  #);
+
+
+reduce: (# do doFunction[]->ee[]; lab.reduce; #);

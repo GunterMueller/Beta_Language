@@ -1,0 +1,24 @@
+ORIGIN 'list'
+
+-- listPrivate:attributes --
+
+storage: [10]^element;
+top: @integer;
+sz: @integer
+
+-- listAppend:dopart --
+do 
+   e[]->storage[top+1->top][];
+   sz+1->sz
+
+-- listScan:dopart --
+do 
+   (for i:top repeat storage[i][]->current[]; INNER for)
+
+-- listSize:dopart --
+do
+   sz->i
+   
+-- listHead:dopart --
+do
+   (if top>0 then storage[1][]->e[] else fail; NONE->e[] if)

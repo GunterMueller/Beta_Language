@@ -1,0 +1,63 @@
+ORIGIN 'nameref';
+INCLUDE 'bitch';
+INCLUDE '../attributelib';
+INCLUDE '../getcexprlib';
+INCLUDE '../namebitch';
+INCLUDE '../objectdesc';
+--- NameRefGetcexpr: DoPart ---
+do
+   INNER;
+   (if not (att.att##<=PatternDecl##) then denote if);
+   (t[],nme.mapname[])->att.att.getcexpr->ctype;
+   (if hascast then ')'->t.put if);
+
+
+--- NameRefWrite: DoPart ---
+do
+   'Denotation of attribute '''->s.puttext;
+   (if att.att[]<>NONE then
+      att.att.names.ptr.str[]->s.puttext;
+      (if not (att.att.names.ptr.str[]->str.equalNCS) then
+	 ''' (name in denotation: '''->s.puttext;
+	 str[]->s.puttext;
+	 ''')'->s.puttext;
+      else
+	 ''''->s.put
+      if);
+   else
+      str[]->s.puttext;
+      ''' (unresolved)'->s.puttext;
+   if);
+
+
+--- NameRefGetcexprCast: DoPart ---
+do
+   (if att.att##<=PatternDecl## then true->value if);
+   getpatt->od[];
+   (if (att.att.od[]<>od[])->hascast then
+      '((struct O'->t.append;
+      od.private.mapname[]->t.append;
+      ' *)'->t.append;
+   if);
+   INNER
+
+
+--- NameRefIsEqual: DoPart ---
+do
+   (if cmp##<=NameRef## then
+      cmp[]->nref[];
+      nme[]=nref.nme[]->value;
+      (if not value then
+	 (* !!! This REALLY is a hack, and not the real thing.  It needs
+	  *     to be distinguished between normal patterns and virtual
+	  *     patterns for example.  So a general overhaul is needed,
+	  *     but I put this here to get computed remotes working "the
+	  *     quick way" *)
+	 (if att.att.ispattern then
+	    (if nref.att.att.os##<=NameRef## then
+	       nref.att.att.os[]->nref[]; nme[]=nref.nme[]->value
+	    if);
+	 if);
+      if);
+      (if value then INNER if);
+   if)

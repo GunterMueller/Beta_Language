@@ -1,0 +1,1502 @@
+(* FILE "./private/ibetaTwoDeclbody.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaTwoDeclbody.bet,v 1.104 2001/07/03 00:54:17 eernst Exp $
+ *)
+
+ORIGIN 'ibetaTwobody';
+INCLUDE '../ibetaSType';
+INCLUDE 'basicinterplib';
+INCLUDE 'ibetaCommonlib';
+INCLUDE 'ibetaTwolib';
+INCLUDE 'ibetaOnelib';
+INCLUDE 'ibetaSlicelib'
+
+(*************************************************************
+ *                                                           *
+ *                       l2PatternDecl                       *
+ *                                                           *
+ *************************************************************)
+
+-- PatternDeclInit:dopart --
+do
+   ObjectSpecifications.init
+
+-- PatternDeclPrint:dopart --
+do
+   ' '->output;
+   (if ObjectSpecifications.size=1 then
+       (dest[],indentation+indent_delta,false)
+         ->(ObjectSpecifications.head).elm.print
+    else
+       (dest[],indentation+indent_delta,false,true)
+         ->ObjectSpecifications.print
+   if)
+
+-- PatternDeclScanImpl:dopart --
+do
+   (preCB[],postCB[])->ObjectSpecifications.scanImpl
+
+-- PatternDeclInst:dopart --
+do
+   (thrd[],unwind##,enclosing[],attr[])
+     ->ObjectSpecifications.obtainPattern
+     ->l1ent[]
+
+-- PatternDeclGetInitCplr:dopart --
+do
+   (# stype: ^staticType
+   do objectSpecifications.localStaticType->stype[];
+      (if staticInstallPatternFlag
+          and stype.knownStatically
+          and (stype.kind=patternTypeKind) then
+          &exeCompiler
+          (# generate::
+               (# sptype: ^staticPatternType
+               do stype[]->sptype[];
+                  (if staticPredefinedPatternFlag
+                      and sptype.isPredefined then
+                      sptype.predefinedCases
+                      (# onObject::
+                           (# do ('ibetaTwoDeclbody.bet/84'
+                              ,this(l2PatternDecl)[])
+                                ->(&installObjectPatternCode[]).init
+                                ->program.append
+                           #);
+                         onBoolean::
+                           (# do ('ibetaTwoDeclbody.bet/90'
+                              ,this(l2PatternDecl)[])
+                                ->(&installBooleanPatternCode[]).init
+                                ->program.append
+                           #);
+                         onChar::
+                           (# do ('ibetaTwoDeclbody.bet/96'
+                              ,this(l2PatternDecl)[])
+                                ->(&installCharPatternCode[]).init
+                                ->program.append
+                           #);
+                         onInteger::
+                           (# do ('ibetaTwoDeclbody.bet/102'
+                              ,this(l2PatternDecl)[])
+                                ->(&installIntegerPatternCode[]).init
+                                ->program.append
+                           #);
+                         onReal::
+                           (# do ('ibetaTwoDeclbody.bet/108'
+                              ,this(l2PatternDecl)[])
+                                ->(&installRealPatternCode[]).init
+                                ->program.append
+                           #);
+                         onString::
+                           (# do ('ibetaTwoDeclbody.bet/114'
+                              ,this(l2PatternDecl)[])
+                                ->(&installStringPatternCode[]).init
+                                ->program.append
+                           #);
+                         onComponent::
+                           (# do ('ibetaTwoDeclbody.bet/120'
+                              ,this(l2PatternDecl)[])
+                                ->(&installComponentPatternCode[]).init
+                                ->program.append
+                           #);
+                         onSemaphore::
+                           (# do ('ibetaTwoDeclbody.bet/126'
+                              ,this(l2PatternDecl)[])
+                                ->(&installSemaphorePatternCode[]).init
+                                ->program.append
+                           #)
+                      #)
+                   else
+                      ('ibetaTwoDeclbody.bet/134',this(l2PatternDecl)[],stype[])
+                        ->(&installStaticPatternCode[]).init
+                        ->program.append
+                  if)
+               #)
+          #)[]->ec[];
+          usageAst[]->ec.usageAst[]
+       else
+          &exeCompiler
+          (# generate::
+               (# (*ignore_sptype: ^staticPatternType*)
+               do (context[],world[],usageAst[],program[],cInfo[],false)
+                    ->ObjectSpecifications.generateGetPattern
+                  (*->ignore_sptype[]*);
+                  ('ibetaTwoDeclbody.bet/91',this(l2PatternDecl)[])
+                    ->(&installPatternCode[]).init
+                    ->program.append
+               #)
+          #)[]->ec[];
+          usageAst[]->ec.usageAst[]
+      if)
+   #)
+
+-- PatternDeclCheck:dopart --
+do
+   (# path: @runtimePath;
+      stype: ^staticType;
+      sptype: ^staticPatternType;
+      stocp: ^staticOCP
+   do
+      (* check that the specified type is well-defined *)
+      (context[],world[],usageAst[])
+        ->ObjectSpecifications.getStaticType
+        ->stype[];
+      (if stype##<=staticPatternType## then
+          stype[]->sptype[];
+          (NONE,NONE,scope.location)
+            ->path.init;
+          scope.location
+            ->path.addStepUp;
+          (getTheNameDcl,false,false)
+            ->path.addStepLookup;
+          (context[],path[],NONE,this(l2PatternDecl)[])
+            ->sptype.staticInstantiate
+            ->stocp[];
+          (this(l2PatternDecl)[],unknownStackPos)
+            ->stocp.createTmpVersion
+            ->stocp[];
+          (world[],this(l2PatternDecl)[])
+            ->stocp.checkFinals
+       else
+          (# msg: ^text
+          do 'Attempt to declare a pattern by '->msg[];
+             (stype.typename).withIndefArticle->msg.puttext;
+             (msg[]
+             ,'Use a descriptor, a pattern or an entity that has a pattern'
+             ,this(l2PatternDecl)[])->staticError
+          #)
+      if)
+   #)
+
+-- PatternDeclGetType:dopart --
+do
+   (# desc_sptype: ^staticPatternType;
+      last_l2ospec: ^l2ObjectSpecification
+   do (context[],world[],usageAst[])
+        ->ObjectSpecifications.getStaticType
+        ->desc_sptype[];
+      (if desc_sptype.staticallyKnown then
+          true->desc_sptype.staticallyKnownBottom
+       (* else *)
+          (* used to set staticallyKnownBottom to true here if the
+           * last contribution were an object descriptor; however,
+           * this is not always correct since that last main part
+           * may still occur in the prefix somewhere (an example
+           * would be quite pathological, but still possible); so
+           * now we do not do that any more *)
+      if);
+      (if desc_sptype.kind<>patternTypeKind then
+          (patternTypeKind,usageAst[])
+            ->desc_sptype.coerce
+            ->desc_sptype[]
+          (* TYPE_COERCION: we extract a pattern from an object,
+           * objectRef, or patternRef; only the type kind needs to
+           * be abjusted for that; !! might want to remember the
+           * RefNONE potential for the ...Ref cases *)
+      if);
+      (* deliver *)
+      desc_sptype[]->stype[]
+   #)
+
+-- PatternDeclGetQuaType:dopart --
+do
+   ('Attempt to obtain the qualification of a pattern'
+   ,'Use an object reference or a pattern reference'
+   ,usageAst[])->staticError
+
+(************************************************************
+ *                                                          *
+ *                       l2SimpleDecl                       *
+ *                                                          *
+ ************************************************************)
+
+-- SimpleDeclPrint:dopart --
+do
+   (dest[],indentation+indent_delta,false)->ReferenceSpecification.print
+
+-- SimpleDeclPrintCode:dopart --
+do
+   (if ReferenceSpecification##<=l2FinalStaticItem## then
+       (# l2fsit: ^l2FinalStaticItem
+       do (* announce my virtual static item here *)
+          ReferenceSpecification[]->l2fsit[];
+          ' "`'->output;
+          (l2fsit.theIntro.scope.location).mpsPosition->output;
+          '"'->output
+       #)
+   if)
+
+-- SimpleDeclScanImpl:dopart --
+do
+   (preCB[],postCB[])->ReferenceSpecification.scanImpl
+
+-- SimpleDeclInst:dopart --
+do
+   (thrd[],unwind##,enclosing[],attr[])
+     ->ReferenceSpecification.instantiate
+     ->l1ent[]
+
+-- SimpleDeclGetInitCplr:dopart --
+do
+   (context[],world[],usageAst[],this(l2SimpleDecl)[])
+     ->ReferenceSpecification.getInitCompiler
+     ->ec[]
+
+-- SimpleDeclGetType:dopart --
+do
+   (context[],world[],usageAst[])
+     ->ReferenceSpecification.getStaticType
+     ->stype[]
+
+-- SimpleDeclGetQuaType:dopart --
+do
+   (if ReferenceSpecification##<=l2AssignableRefSpec## then
+       (# l2arsp: ^l2AssignableRefSpec
+       do
+          ReferenceSpecification[]->l2arsp[];
+          (context[],world[],usageAst[])
+            ->l2arsp.getStaticQuaType
+            ->(qual[],qualExact)
+       #)
+    else
+       (# msg: ^text;
+          stype: ^staticType
+       do 'Attempt to obtain the qualification of '->msg[];
+          localStaticType->stype[];
+          (stype.typename).withIndefArticle->msg.puttext;
+          (msg[]
+          ,'Use an object reference or a pattern reference'
+          ,usageAst[])->staticError
+       #)
+   if)
+
+(************************************************************
+ *                                                          *
+ *                     l2RepetitionDecl                     *
+ *                                                          *
+ ************************************************************)
+
+-- RepetitionDeclPrint:dopart --
+do
+   ' ['->output;
+   (dest[],indentation+indent_delta,false)->SimpleIndex.print;
+   ']'->output;
+   (dest[],indentation+indent_delta,false)->ReferenceSpecification.print
+
+-- RepetitionDeclScanImpl:dopart --
+do
+   (preCB[],postCB[])->SimpleIndex.scanImpl;
+   (preCB[],postCB[])->ReferenceSpecification.scanImpl
+
+-- RepetitionDeclInst:dopart --
+do
+   (# l1rep: ^l1RepetitionEntity;
+      position: @runtimePath;
+      sContext: ^staticContext;
+      l0tri: ^l0TransientInteger;
+      xi: ^exitIterator;
+      count: @integer
+   do (this(l2RepetitionDecl)[],enclosing[])
+        ->(&l1RepetitionEntity[]).init
+        ->l1rep[];
+
+      (* compute number of entities requested *)
+      (NONE,NONE,scope.location)
+        ->position.init;
+      (position[],scope.world[],this(l2RepetitionDecl)[])
+        ->scope.getInitialContext
+        ->sContext[];
+      (thrd[],unwind##,sContext[],scope.world[]
+      ,this(l2RepetitionDecl)[],enclosing[])
+        ->SimpleIndex.Evaluation.getExitIter
+        ->xi[];
+      (thrd[],unwind##,xi[])
+        ->exitOneValue(# context::(# do 'ibetaTwoDeclbody.bet/117'->value[]#)#)
+        ->transient_many2integer
+        ->l0tri[];
+      l0tri->count;
+
+      (* set up the qualification information; since this is used
+       * for 'renew' even with staticItem we need it in all cases *)
+      (thrd[],unwind##,enclosing[])
+        ->ReferenceSpecification.obtainPattern
+        ->l1rep.qual[];
+      (if true
+       // ReferenceSpecification##<l2DynamicItem## then
+          (# l2ditem: ^l2DynamicItem
+          do ReferenceSpecification[]->l2ditem[];
+             l2ditem.Exact->l1rep.qualExact
+          #)
+       // ReferenceSpecification##<l2DynamicComponent## then
+          (# l2dcomp: ^l2DynamicComponent
+          do ReferenceSpecification[]->l2dcomp[];
+             l2dcomp.Exact->l1rep.qualExact
+          #)
+       else
+          false->l1rep.qualExact
+      if);
+
+      (* allocate the repetition entries *)
+      count->l1rep.value.new;
+      (thrd[],unwind##,1,count)->l1rep.renewEntries;
+
+      (* announce that it exists; !! could this be done earlier? *)
+      (if attr[]<>NONE then l1rep[]->attr.to[] if);
+
+      (* deliver *)
+      l1rep[]->l1ent[]
+   #)
+
+-- RepetitionDeclGetInitCplr:dopart --
+do
+   &exeCompiler
+   (# generate::
+        (# cplr: ^exeCompiler;
+           xcplr: ^exitCompiler;
+           stran: ^staticTransient
+        do
+           (* Put the qualification on the 'patterns' stack; note that
+            * we _always_ need the qualification of a repetition, for
+            * renew with static ones and for ref. assign with dynamic
+            * ones *)
+           (context[],world[],this(l2RepetitionDecl)[])
+             ->ReferenceSpecification.getQualCompiler
+             ->cplr[];
+           (program[],cInfo[])
+             ->cplr.generate;
+           (* Put the requested rep. length on the 'integers' stack *)
+           (context[],world[],this(l2RepetitionDecl)[])
+             ->SimpleIndex.Evaluation.getExitCompiler
+             ->xcplr[];
+           (program[],cInfo[])
+             ->xcplr.prepare;
+           (if not xcplr.more then
+               'RepetitionDeclGetInitCplr: no values'
+                 ->internalError
+           if);
+           (program[],cInfo[])
+             ->xcplr.generate
+             ->stran[];
+           (if xcplr.more then
+               'RepetitionDeclGetInitCplr: several values'
+                 ->internalError
+           if);
+           (program[],cInfo[])->xcplr.cleanup;
+           (* now generate coercion code, if needed *)
+           (if stran##<>staticIntegerTransient## then
+               (* non-trivial coercion required *)
+               (program[],program.lastLink[],stran[]
+               ,&staticIntegerTransient[],this(l2RepetitionDecl)[])
+                 ->SimpleIndex.Evaluation.assignmentCoerce
+           if);
+           (* initialize the repetition *)
+           (context[],world[],this(l2RepetitionDecl)[]
+           ,this(l2RepetitionDecl)[])
+             ->ReferenceSpecification.getRepInitCompiler
+             ->cplr[];
+           (program[],cInfo[])
+             ->cplr.generate
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- RepetitionDeclGetType:dopart --
+do
+   (# rspecType: ^staticType;
+      l2arsp: ^l2AssignableRefSpec;
+      rspecQual: ^staticType;
+      rspecExact: @boolean
+   do
+      (context[],world[],usageAst[])
+        ->ReferenceSpecification.getStaticType
+        ->rspecType[];
+      (if ReferenceSpecification##<=l2AssignableRefSpec## then
+          ReferenceSpecification[]->l2arsp[];
+          (context[],world[],usageAst[])
+            ->l2arsp.getStaticQuaType
+            ->(rspecQual[],rspecExact)
+       else
+          (* This repetition has no qualification, shown like this: *)
+          NONE->rspecQual[];
+          false->rspecExact
+      if);
+      (if rspecType##<=staticPatternType## then
+          (context.getInitialSyntax,rspecType[],rspecQual[],rspecExact
+          ,this(l2RepetitionDecl)[],SimpleIndex.Evaluation[])
+            ->(&staticRepetitionType[]).init
+            ->stype[]
+       else
+          (# msg: ^text
+          do 'The reference specification is '->msg[];
+             (rspecType.typename).withIndefArticle->msg.puttext;
+             (msg[]
+             ,'Use a pattern after "[..] @" or "[..] ^"'
+             ,usageAst[])->staticError
+          #)
+      if)
+   #)
+
+-- RepetitionDeclGetQuaType:dopart --
+do
+   ('Attempt to obtain the qualification of a repetition'
+   ,'Use an object reference or a pattern reference'
+   ,usageAst[])->staticError
+
+
+(************************************************************
+ *                                                          *
+ *                   l2NamedRepetitionDecl                  *
+ *                                                          *
+ ************************************************************)
+
+-- NamedRepetitionDeclPrint:dopart --
+do
+   (dest[],indentation,false)->RepetitionScope.print
+
+-- NamedRepetitionDeclScanImpl:dopart --
+do
+   (preCB[],postCB[])->RepetitionScope.scanImpl
+
+-- NamedRepetitionDeclInst:dopart --
+do
+   'ibetaTwoDeclbody.bet/361'->notyet; (* !!! *)
+
+-- NamedRepetitionDeclGetInitCplr:dopart --
+do
+   'ibetaTwoDeclbody.bet/365'->notyet; (* !!! *)
+
+-- NamedRepetitionDeclGetType:dopart --
+do
+   'ibetaTwoDeclbody.bet/369'->notyet; (* !!! *)
+
+-- NamedRepetitionDeclGetQuaType:dopart --
+do
+   'ibetaTwoDeclbody.bet/369'->notyet; (* !!! *)
+
+-- NamedRepetitionDeclIsIndirect:dopart --
+do
+   RepetitionScope.ReferenceSpecification.isIndirect->value
+
+-- RepetitionScopePrint:dopart --
+do
+   '['->output;
+   (dest[],indentation+indent_delta,false)->NamedIndex.print;
+   ']'->output;
+   (dest[],indentation+indent_delta,false)->ReferenceSpecification.print
+
+-- RepetitionScopeScanImpl:dopart --
+do
+   (preCB[],postCB[])->NamedIndex.scanImpl;
+   (preCB[],postCB[])->ReferenceSpecification.scanImpl
+
+-- RepetitionScopeScopeGIC:dopart --
+do
+   (# stRep: ^staticRepSubstance;
+      worldPos: ^runtimePath
+   do (* get hold of enclosing objects *)
+      position.copyRTP->worldPos[];
+      (scope.location,false)->worldPos.addStepOut;
+      (worldPos[],world[],usageAst[])
+        ->enclosing.getInitialContext;
+
+      (* add the substance for this rep.scope *)
+      (worldPos.getInitialSyntax,this(l2RepetitionScope)[])
+        ->(&staticRepSubstance[]).init
+        ->stRep[];
+      (scope.location,false)->stRep.originPath.addStepOut;
+      position[]->stRep.adjustPaths;
+      stRep[]->world.enhance;
+
+      (* deliver *)
+      stRep[]->stcon[]
+   #)
+
+-- RepetitionScopeScopeFind:dopart --
+do
+   (if (name[],NamedIndex.NameDcl[])->private.theNameEqual then
+       NamedIndex.NameDcl[]->l2ndcl[]
+    else
+       (* wrong name *)
+       NONE->l2ndcl[]
+   if)
+
+-- RepetitionScopeScopeGetIType:dopart --
+do
+   &staticIntSourceType
+   (# staticInstantiate::
+        (# strsub: ^staticRepSubstance
+        do (* we cannot deliver the static substance using the
+            * syntax alone, since the syntax does not have a
+            * position in the analysis universe; hence we use
+            * the position in the given 'staticForSubstance',
+            * indirectly, by delivering the nested 'theIndex' *)
+           context[]->strsub[];
+           strsub.theIndex[]->stsub[]
+        #)
+   #)[]->stype[]
+
+(*************************************************************
+ *                                                           *
+ *                          l2VDecl                          *
+ *                                                           *
+ *************************************************************)
+
+-- VDeclInit:dopart --
+do
+   ObjectSpecifications.init;
+   Restrictions.init;
+   mergeProgram.init;
+   INNER
+
+-- VDeclPrint:dopart --
+do
+   INNER;
+   (if Swap then '! '->output if);
+   (if Disown then '- '->output if);
+   (if ObjectSpecifications.size=1 then
+       (dest[],indentation+indent_delta,false)
+         ->(ObjectSpecifications.head).elm.print
+    else
+       (dest[],indentation+indent_delta,false,true)
+         ->ObjectSpecifications.print
+   if);
+   (if not Restrictions.empty then
+       (if Restrictions.size=1 then
+           ' :> '->output;
+           (dest[],indentation+indent_delta,false)
+             ->(Restrictions.head).elm.print
+        else
+           ' :>'->output;
+           (dest[],indentation+indent_delta,true,false)
+             ->Restrictions.print
+       if)
+   if)
+
+-- VDeclPrintCode:dopart --
+do
+   'virtual'->output;
+   INNER;
+   (if not mergeCompiled then mergeCompile; true->mergeCompiled if);
+   mergeProgram.scan
+   (# do (dest[],indentation+indent_delta,true)->current.printCode #);
+   '\n   END_OF_GATHERVIRT_CODE'->output
+
+-- VDeclScanImpl:dopart --
+do
+   (preCB[],postCB[])->ObjectSpecifications.scanImpl;
+   (preCB[],postCB[])->Restrictions.scanImpl;
+   INNER
+
+-- VDeclContribute:dopart --
+do
+   (if not mergeCompiled then mergeCompile; true->mergeCompiled if);
+   (thrd[],unwind##,dContext[],mergeProgram[])->thrd.private.bvm.execute
+
+-- VDeclMergeCompile:dopart --
+do
+   (# context: ^staticContext;
+      position: @runtimePath;
+      cplr: ^exeCompiler;
+      cInfo: @compileInfo
+   do (* always starting analysis with local point of view *)
+      (NONE,NONE,scope.location)->position.init;
+      this(l2AttributeDecl)[]->scope.world.setAst;
+      (position[],scope.world[],this(l2AttributeDecl)[])
+        ->scope.getInitialContext
+        ->context[];
+      (context[],scope.world[],this(l2AttributeDecl)[])
+        ->getMergeCompiler
+        ->cplr[];
+      (mergeProgram[],cInfo[])
+        ->cplr.generate
+   #)
+
+-- VDeclGetMergeCplr:dopart --
+do
+   (* just a hook for observation etc. *)
+   (*check context[]->checkContext; *)
+   INNER
+
+-- VDeclCheck:dopart --
+do
+   (* NB: it would have been nice to check for correctness of the
+    * vchain wrt. final bindings in it here, but this is currently
+    * done in VDeclGetType; the reasons for this are:
+    *
+    *   (1) VDeclGetType gets invoked from here via localStaticType,
+    *   so this check implies the final binding check anyway
+    *
+    *   (2) VDeclGetType will have to check for final binding correctness
+    *   for all the more specialized points of view where this virtual
+    *   may have grown in sundry ways
+    *)
+   getVirtualDecl;
+   (getTheNameDcl).localStaticSubstance;
+   INNER
+
+-- VDeclGetVirtualDecl:dopart --
+do
+   INNER;
+   (*test-obs  (':< of','v')->observe; *)
+   (*test-obs  ('     ','v')->l2vdcl.observe; *)
+
+-- VDecllib:attributes --
+
+checkVDeclDisown:
+  (* assumes that the virtual of this l2VDecl has been 
+   * disowned; find the affected 'l2VirtualDecl' and check *)
+  (# context: ^staticContext;
+     world: ^staticContextDB;
+     vchain: ^virtualChain
+  enter (context[],world[],vchain[])
+  do vchain.iterateReverse
+     (# l2desc: ^l2ObjectDescriptor;
+        l2vdcl: ^l2VDecl;
+        iddcl: ^l2VirtualDecl
+     do (if current.elm.Disown then
+            (current.elm.scope.location).father[]->l2desc[];
+            l2desc.getVDecl->l2vdcl[];
+            (if (l2vdcl[]<>NONE) then
+                (* OK: this is a virtual-in-a-virtual, as it should be;
+                 * check that the enclosing virtual ('l2vdcl') respects
+                 * the disown declaration *)
+                (if current.pred[]<>NONE then
+                    (* "same virtual"="same :<"; find ":<" of 'l2vdcl' *)
+                    l2vdcl.getVirtualDecl->iddcl[];
+                    (* search for elements in the chain given by
+                     * same enclosing virtual; that is the bad thing
+                     * we must find and reject *)
+                    current.pred[]->vchain.iterateReverseFrom
+                    (# otherDesc: ^l2ObjectDescriptor;
+                       otherVDcl: ^l2VDecl
+                    do (current.elm.scope.location).father[]->otherDesc[];
+                       otherDesc.getVDecl->otherVDcl[];
+                       (if (otherVDcl[]<>NONE) and
+                           (otherVDcl.getVirtualDecl=iddcl[]) then
+                           (* added more bindings, said you wouldn`t! *)
+                           (# msg: @text
+                           do (msg[],0,true,verboseOutput)
+                                ->l2vdcl.printWithContextBase
+                              (# title::(# do 'DISOWNED'->value[] #)#);
+                              '\nAdding a binding to a virtual '->msg.puttext;
+                              'which has been disowned (using \n'->msg.puttext;
+                              'the `-\' mark) in this virtual'->msg.puttext;
+                              (msg[],'Remove this binding or the disown mark'
+                              ,otherVDcl[])->staticError
+                           #)
+                       if)
+                    #)
+                 (* else: *)
+                    (* End of chain, violations have no place to be: OK *)
+                if)
+             else
+                (* Static error: disown inside a non-virtual *)
+                ('Found disown marker `-\' on virtual inside non-virtual'
+                ,'Disown markers can only be used inside a virtual'
+                ,this(l2VDecl)[])->staticError
+            if)
+        if)
+     #)
+  #);
+
+checkVDeclFinal:
+  (# context: ^staticContext;
+     world: ^staticContextDB;
+     sptype: ^staticPatternType;
+     vchain: ^virtualChain;
+     nonbottom: @boolean;
+     l2fdcl: ^l2FinalDecl
+  enter (context[],world[],sptype[],vchain[])
+  do (* check that final decls have not been violated *)
+     vchain.scan
+     (# 
+     do (if current##<=l2FinalDecl## then
+            (* NB!! We must detect the single case where final decl
+             * violation is by definition impossible.  This is in
+             * the local type computed from the final decl itself.
+             * This case is used to find the (final) pattern of the
+             * virtual which all other points of view are not allowed
+             * to exceed.  We are _allowed_ to skip this test since
+             * by def. it succeeds, and we _have_ to skip it since
+             * otherwise we create an infinite loop. *)
+            current[]->l2fdcl[];
+            (if nonbottom or
+                (world[]<>scope.world[]) or
+                (current[]<>this(l2VDecl)[]) then
+                (* _not_ the special case *)
+                l2fdcl.localCheck; (* causes the special case *)
+                (if l2fdcl.staticallyKnown then
+                    (* Type 1 treatment of final binding *)
+                    (if l2fdcl.staticSliceCount<sptype.slices.size then
+                        (# msg,solution: ^text
+                        do 'Inconsistency with virtual pattern "'->msg[];
+                           (l2fdcl.getTheNameDcl).value[]->msg.puttext;
+                           '" --\nFinal bound to:'->msg.puttext;
+                           (msg[],10,true)
+                             ->(l2fdcl.theDeclNode.localStaticType).print;
+                           '\nSpecialized to:'->msg.puttext;
+                           (msg[],10,true)->sptype.print;
+                           'Don\'t specialize the virtual, '->solution[];
+                           'or relax the final binding'->solution.puttext;
+                           (msg[],solution[],l2fdcl[])->staticError
+                        #)
+                    if)
+                 else
+                    (* Type 2 treatment of final binding *)
+                    (if l2fdcl.staticVChainLength<vchain.size then
+                        (# msg,solution: ^text;
+                           l2mpar: ^l2MainPart;
+                           context_stocp: ^staticOCP;
+                           vchain: ^virtualChain
+                        do 'Inconsistency with virtual pattern "'->msg[];
+                           (l2fdcl.getTheNameDcl).value[]->msg.puttext;
+                           '" --\nFinal bound to:'->msg.puttext;
+                           l2fdcl.scope.location->l2mpar[];
+                           l2mpar.localStaticType
+                             ->l2fdcl.gatherVirtualChain
+                             ->vchain[];
+                           (msg[],10,false,true)->vchain.print;
+                           '\nSpecialized to:'->msg.puttext;
+                           context[]->context_stocp[];
+                           context_stocp.sptype[]
+                             ->l2fdcl.gatherVirtualChain
+                             ->vchain[];
+                           (msg[],10,false,true)->vchain.print;
+                           'Don\'t specialize the virtual, '->solution[];
+                           'or relax the final binding'->solution.puttext;
+                           (msg[],solution[],l2fdcl[])->staticError
+                        #)
+                    if)
+                if)
+             else
+                (* special case: local analysis from the finaldecl; we
+                 * set up the 'static...Length' here since this is
+                 * the place where info about the vchain is available *)
+                (if sptype.staticallyKnown then
+                    (* Type 1 treatment selected *)
+                    true->l2fdcl.staticallyKnown;
+                    sptype.slices.size->l2fdcl.staticSliceCount
+                 else
+                    (* Type 2 treatment selected *)
+                    (* This is delicate: in the general case just
+                     * counting the length of the vchain and
+                     * ensuring that this stays unchanged does not
+                     * imply anything, it just imposes a useless
+                     * constraint on the virtual.  However, when a
+                     * virtual which is otherwise stat-known gets
+                     * final-bound to another virtual then
+                     *)
+                    false->l2fdcl.staticallyKnown;
+                    vchain.size->l2fdcl.staticVChainLength
+                    (* (# msg,solution: ^text;
+                     *    l2mpar: ^l2MainPart;
+                     *    context_stocp: ^staticOCP;
+                     *    vchain: ^virtualChain
+                     * do 'Attempt to final-bind the virtual "'->msg[];
+                     *    (l2fdcl.getTheNameDcl).value[]->msg.puttext;
+                     *    '" which depends on an open virtual'->msg.puttext;
+                     *    '\nin this list or depended upon '->msg.puttext;
+                     *    'by a member of this list:'->msg.puttext;
+                     *    context[]->context_stocp[];
+                     *    context_stocp.sptype[]
+                     *      ->l2fdcl.gatherVirtualChain
+                     *      ->vchain[];
+                     *    (msg[],10,false,true)->vchain.print;
+                     *    'Remove the open virtual '->solution[];
+                     *    'or final bind it, too'->solution.puttext;
+                     *    (msg[],solution[],usageAst[])->staticError
+                     * #)
+                     *)
+                if)
+            if)
+        if);
+        true->nonbottom
+     #)
+  #)
+
+-- VDeclGetType:dopart --
+do
+   (* The static type of a virtual attribute is constructed
+    * by merging all available types in the virtual chain
+    * (this may of course fail).  So we need to find the
+    * statically known enclosing object, extract all
+    * virtual declarations from it that constitute the
+    * virtual chain (possibly telling the user that
+    * it is not well-formed), and then merging. Each
+    * contributing type _must_ be a 'staticPatternType'
+    *
+    * PLEASE NOTE: it is important that the merging
+    * algorithm does not depend on (call, that is)
+    * 'getStaticType' on an object descriptor, since
+    * we need to be able to call this operation when
+    * computing the static type of an object descriptor,
+    * and that could give rise to an infinite loop
+    * (did that, actually ;-) *)
+   (# vchain: ^virtualChain;
+      stocp: ^staticOCP;
+      result_sptype: ^staticPatternType;
+      disownCount: @integer; (* how many disownment marks in vchain? *)
+      mergeCount: @integer; (* how many mergings performed? *)
+   do
+      (* init *)
+      (if context##<=staticOCP## then
+          context[]->stocp[];
+          stocp.sptype[]
+            ->gatherVirtualChain
+            ->vchain[]
+       else
+          'VDecl seems to live in non-object'
+            ->internalError
+      if);
+      (context.getInitialSyntax,patternTypeKind)
+        ->(&staticPatternType[]).init
+        ->result_sptype[];
+
+      (* the virtual type starts out stat-known; any contributor may
+       * spoil this, and the entire virtual type may be deemed
+       * known-by-upper-bound-only, because it lives in a context
+       * where more contributions may be added to the virtual chain *)
+      result_sptype.makeKnownStatically;
+
+      (*test-obs  ('context','v')->context.observe; *)
+
+      (* combine the patterns in the chain *)
+      (* 0->disownCount; 0->mergeCount; but they are already zero *)
+      vchain.scanReverse
+      (# next_sptype: ^staticPatternType
+      do
+         (if current.Disown then disownCount+1->disownCount if);
+         context.resetFocus;
+
+         (*test-obs  ('scan','v')->current.observe; *)
+         (*test-obs  ('scan/context','v')->context.observe; *)
+
+         (* get the contribution from this vdcl *)
+         (context[],world[],usageAst[])
+           ->current.ObjectSpecifications.getRawStaticType
+           ->next_sptype[];
+         (* a contribution to a virtual is always a pattern *)
+         (if next_sptype.kind<>patternTypeKind then
+             (patternTypeKind,usageAst[])
+               ->next_sptype.coerce
+               ->next_sptype[]
+             (* TYPE_COERCION: we extract a pattern from an object,
+              * objectRef, or patternRef; only the type kind needs to
+              * be abjusted for that *)
+         if);
+         (if true
+          // next_sptype[]->result_sptype.lessEqual then
+             (* merging a strictly more special pattern: takes it all *)
+             next_sptype.copy->result_sptype[]
+          // result_sptype[]->next_sptype.lessEqual then
+             (* merging a strictly more general pattern: no effect *)
+          else
+             (* does not reduce - add new contribution to the running total *)
+             mergeCount+1->mergeCount;
+             (if current.swap then
+                 (* swap-merge *)
+                 (result_sptype[],this(l2VDecl)[],usageAst[])
+                   ->next_sptype.mergeMustSucceed;
+                 (* the result must still be in result_sptype *)
+                 next_sptype.copy->result_sptype[]
+              else
+                 (* merge *)
+                 (next_sptype[],this(l2VDecl)[],usageAst[])
+                   ->result_sptype.mergeMustSucceed
+             if)
+         if);
+
+         (* set up restrictions *)
+         (if not current.Restrictions.empty then
+             current.Restrictions.scan
+             (# do (context[],world[],usageAst[])
+                  ->current.AttributeDenotation.getStaticType
+                  ->result_sptype.lowerbounds.add
+             #)
+         if)
+      #);
+
+      (if disownCount<>0 then
+          (context[],world[],vchain[])->checkVDeclDisown
+      if);
+
+      (* set up the context information which allows us to recognize
+       * that this is the type of a particular virtual attribute,
+       * hence allowing us to know that another type will grow
+       * exactly like this one because they are the _same_ virtual *)
+      (if result_sptype.rinfo[]<>NONE then
+          (if (mergeCount>0) or not context.knownStatically then
+              (* mark the existing rinfo-s as less-equal, because this
+               * virtual will generally only be less-equal where any of
+               * its contributions may have been equal *)
+              result_sptype.rinfo.scan(# do true->current.maybeless #)
+           (*else*)
+              (* We did not merge at all, so this is an existing 
+               * type that we just received from somewhere else;
+               * that also means that it is still equal to whatever
+               * it used to be equal to.  Note that we need to know 
+               * that the context is knownStatically - otherwise 
+               * there could be merged additional contributions into
+               * this virtual, and then mergeCount would just be a 
+               * lower bound.  We really need to know that it _is_
+               * zero.  An example:
+               *   l: (# e:< object #);
+               *   a: (# w:< object #);
+               *   b: a(# x: @l(# e::w #)#);
+               * In b, x.e is _exactly_ w because there are exactly
+               * two operands in the merging process and the 
+               * w contribution is statically known to be a subpattern
+               * of the other one, 'object'.  (Phew, here we can preserve
+               * the 'equal' relations, so examples/diverse/stack.gb
+               * will be considered safe, as it should :-)
+               *)
+          if);
+          (* insert a new rinfo in front of the others *)
+          (# rinfo: ^relativeType
+          do &relativeType[]->rinfo[];
+             result_sptype.rinfo[]->rinfo.glueSucc;
+             rinfo[]->result_sptype.rinfo[]
+          #)
+       else
+          &relativeType[]->result_sptype.rinfo[];
+      if);
+      (* now the first rinfo is the new one, whether or not it is alone *)
+      (stocp[],(getVirtualDecl).getTheNameDcl,false)
+        ->result_sptype.rinfo.init;
+
+      (if vchain.isFinal then
+          (context[],world[],result_sptype[],vchain[])->checkVDeclFinal
+       else
+          (* a non-final virtual from a context known-by-upper-bound
+           * is itself only known by upper bound; note that this
+           * does _not_ invalidate relative knowledge, so we must
+           * only reset staticallyKnown[Bottom] and not rinfo *)
+          (if not context.knownStatically then
+              false
+                ->result_sptype.staticallyKnown
+                ->result_sptype.staticallyKnownBottom
+          if)
+      if);
+
+      (if not result_sptype.lowerbounds.empty then
+          (* check that lowerbounds have not been violated *)
+          result_sptype.lowerbounds.scan
+          (# (* !! we ought to register the syntactic location of each
+              * restriction and display the one which causes the conflict *)
+          do (if not (current.sptype[]->result_sptype.rawLessEqual) then
+                 ('Violation of declared restriction on virtual type'
+                 ,'Use a more general pattern or relax the restriction'
+                 ,this(l2VDecl)[])->staticError
+             if)
+          #)
+      if);
+
+      (* if 'staticallyKnown' survived all this, then it also has
+       * a 'staticallyKnownBottom' *)
+      (if result_sptype.staticallyKnown then
+          true->result_sptype.staticallyKnownBottom
+      if);
+
+      (* deliver result *)
+      result_sptype[]->stype[]
+   #)
+
+-- VDeclGetQuaType:dopart --
+do
+   ('Attempt to obtain the qualification of a virtual pattern'
+   ,'Use an object reference or a pattern reference'
+   ,usageAst[])->staticError
+
+(*************************************************************
+ *                                                           *
+ *                       l2VirtualDecl                       *
+ *                                                           *
+ *************************************************************)
+
+-- RestrictionInit:dopart --
+do
+   program.init
+
+-- RestrictionPrint:dopart --
+do
+   (dest[],indentation,false)->AttributeDenotation.print
+
+-- RestrictionScanImpl:dopart --
+do
+   (preCB[],postCB[])->AttributeDenotation.scanImpl
+
+-- RestrictionGetPattern:dopart --
+do
+   (if not compiled then compile; true->compiled if);
+   (thrd[],unwind##,dContext[])->program.execute
+
+-- RestrictionCompile:dopart --
+do
+   (# context: ^staticContext;
+      position: @runtimePath;
+      cInfo: @compileInfo;
+      (* ignore_sptype: ^staticPatternType *)
+   do (* always starting analysis with local point of view *)
+      (NONE,NONE,AttributeDenotation.scope.location)->position.init;
+      AttributeDenotation[]->scope.world.setAst;
+      (position[],AttributeDenotation.scope.world[],AttributeDenotation[])
+        ->AttributeDenotation.scope.getInitialContext
+        ->context[];
+      (context[],AttributeDenotation.scope.world[]
+      ,AttributeDenotation[],program[],cInfo[],false)
+        ->AttributeDenotation.generateGetPattern
+        (* ->ignore_sptype[] *)
+   #)
+
+-- RestrictionListPrint:dopart --
+do
+   ', '->output;
+
+-- VirtualDeclPrint:dopart --
+do
+   '< '->output
+
+-- VirtualDeclInst:dopart --
+do
+   (* The value of a virtual pattern attribute is
+    * constructed by merging all contributing patterns
+    * in the virtual chain (this may fail for dynamically
+    * created patterns).  So we need to find the enclosing
+    * object, extract all virtual attributes from it that
+    * constitute the virtual chain, and then merging.
+    *)
+   (*test-trace  ('(inst. virtual','v')->trace; *)
+   (*test-trace  'v'->traceIndent; *)
+   (*test-trace  ('org. of virtual','v')->enclosing.trace; *)
+   (if enclosing##<=compositeObjectSlice## then
+       (# oSlice: ^compositeObjectSlice;
+          l1pat,l1pat2: ^l1PatternEntity;
+          l2vdcl: ^l2VDecl;
+          l2fdcl: ^l2FinalDecl;
+          maxLen,actualLen: @integer;
+          checkSlice,checkVChain: @boolean
+       do enclosing[]->oSlice[];
+          MAXINT->maxLen;
+
+          (* obtain the initial pattern value to merge unto *)
+          (&l1PatternEntity[]).init->l1pat[];
+
+          (* visit all contributors to this virtual pattern *)
+          oSlice.scanBackward
+          (# cur_oSlice: ^compositeObjectSlice
+          do (* we cannot use 'lookupName' on the 'current' o-slice
+              * since we must find the _syntax_ of the vdecl and look
+              * up the contribution of this slice; 'lookupName' will
+              * use the redirection, discover that this virtual is
+              * under construction, and halt the interpreter with
+              * a "dynamic dependency" exception; this is perfectly
+              * OK since the construction of a virtual must be
+              * different from the transparent, delegating lookup;
+              * _somewhere_ it must be created in the first place *)
+             (if current##<=compositeObjectSlice## then
+                 current[]->cur_oSlice[];
+                 (for inx:cur_oSlice.attrs.range repeat
+                      (if cur_oSlice.attrs[inx].from.decl.kind
+                          =vdecldeclkind then
+                          cur_oSlice.attrs[inx].from.decl.location->l2vdcl[];
+                          (if l2vdcl.getVirtualDecl=this(l2VirtualDecl)[] then
+                              (* everything is OK, do the actual merging *)
+                              (thrd[],unwind##,cur_oSlice[],NONE)
+                                ->l2vdcl.ObjectSpecifications.obtainPattern
+                                ->l1pat2[];
+                              (if not l2vdcl.Swap then
+                                  (* normal merging *)
+                                  (thrd[],unwind##,l1pat2[])->l1pat.merge
+                               else
+                                  (* inverse merging; don`t destroy l1pat2! *)
+                                  l1pat2.copy->l1pat2[];
+                                  (thrd[],unwind##,l1pat[])->l1pat2.merge;
+                                  l1pat2[]->l1pat[]
+                              if);
+                              (if l2vdcl##<=l2FinalDecl## then
+                                  l2vdcl[]->l2fdcl[];
+                                  (* ensure that counts are initialized *)
+                                  (if (l2fdcl.staticSliceCount=0) and
+                                      (l2fdcl.staticVChainLength=0) then
+                                      l2fdcl.localcheck
+                                  if);
+                                  (if l2fdcl.staticallyKnown then
+                                      (* Type 1 treatment of final binding *)
+                                      true->checkSlice;
+                                      (if l2fdcl.staticSliceCount<maxLen then
+                                          l2fdcl.staticSliceCount->maxLen
+                                      if)
+                                   else
+                                      (* Type 2 treatment of final binding *)
+                                      true->checkVChain;
+                                      (if l2fdcl.staticVChainLength<maxLen then
+                                          l2fdcl.staticVChainLength->maxLen
+                                      if)
+                                  if)
+                              if);
+                              (if checkVChain then actualLen+1->actualLen if);
+                              (*test-trace  ('virt. grew','v')->l1pat.trace; *)
+                          if)
+                      if)
+                 for)
+             if)
+          #);
+
+          (* check final binding constraints *)
+          (if checkSlice then
+              (* Type 1 treatment of final binding *)
+              (if l1pat.private.slices.size>maxLen then
+                  (# msg: ^text
+                  do 'Violation of final binding (statically known) "'->msg[];
+                     (getTheNameDcl).value[]->msg.puttext;
+                     '"'->msg.puttext;
+                     (msg[],thrd[],unwind##)->badFinalError
+                  #)
+              if)
+          if);
+          (if checkVChain then
+              (* Type 2 treatment of final binding *)
+              (if actualLen>maxLen then
+                  (# msg: ^text
+                  do 'Violation of final binding (known by upper bound) "'
+                       ->msg[];
+                     (getTheNameDcl).value[]->msg.puttext;
+                     '"'->msg.puttext;
+                     (msg[],thrd[],unwind##)->badFinalError
+                  #)
+              if)
+          if);
+
+          (* deliver *)
+          l1pat[]->l1ent[];
+          (if attr[]<>NONE then l1ent[]->attr.to[] if) (* !! do this earlier? *)
+       #)
+    else
+       'Virtual pattern seems to live in non-compositeObjectSlice'
+         ->internalError
+   if);
+   (*test-trace  'v'->traceOutdent; *)
+   (*test-trace  ('inst. virtual)','v')->l1ent.trace; *)
+
+-- VirtualDeclGetInitCplr:dopart --
+do
+   &exeCompiler
+   (# generate::
+        (#
+        do ('ibetaTwoDeclbody.bet/1206',this(l2VirtualDecl)[])
+             ->(&gatherVirtualCode[]).init
+             ->program.append;
+           ('ibetaTwoDeclbody.bet/1209',this(l2VirtualDecl)[])
+             ->(&installPatternCode[]).init
+             ->program.append
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- VirtualDeclGetMergeCplr:dopart --
+do
+   (* This is supposed to initiate the merging process,
+    * so we just need to push the contributing pattern *)
+   &exeCompiler
+   (# generate::
+        (# (*ignore_sptype: ^staticPatternType*)
+        do (context[],world[],usageAst[],program[],cInfo[],false)
+             ->ObjectSpecifications.generateGetPattern
+             (*->ignore_sptype[]*)
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- VirtualDeclGetVirtualDecl:dopart --
+do
+   this(l2VirtualDecl)[]->l2vdcl[]
+
+-- SpecializedVDeclPrintCode:dopart --
+do
+   ' "'->output;
+   (dest[],indentation,false)->((getVirtualDecl).getTheNameDcl).printCode;
+   '" in "`'->output;
+   ((getVirtualDecl).scope.location).mpsPosition->output;
+   '"'->output
+
+-- SpecializedVDeclInst:dopart --
+do
+   (* set up delegation to my virtual decl *)
+   (# l2vdcl: ^l2VirtualDecl;
+      l2ndcl: ^l2NameDcl;
+      l2ast: ^l2AstNode;
+      oSlice: ^objectSlice;
+      coSlice: ^compositeObjectSlice;
+      l1del: ^l1DelegateEntity
+   do
+      (* obtain a world view *)
+      getVirtualDecl->l2vdcl[]; (* !! faster/unsafe: use 'theVirtualDecl' *)
+      l2vdcl.getTheNameDcl->l2ndcl[];
+      l2vdcl.scope.location->l2ast[];
+      enclosing[]->oSlice[];
+
+      (* search for prefix containing my virtual decl *)
+      L: (if oSlice[]<>NONE then
+             (if oSlice.getSyntax=l2ast[] then
+                 (* found the right slice *)
+                 (if oSlice##<=compositeObjectSlice## then
+                     oSlice[]->coSlice[];
+                     (for inx:coSlice.attrs.range repeat
+                          (if coSlice.attrs[inx].from[]=l2ndcl[] then
+                              (* found, delegate to current *)
+                              coSlice.attrs[inx][]
+                                ->(&l1DelegateEntity[]).init
+                                ->l1del[];
+                              (* deliver *)
+                              l1del[]->l1ent[];
+                              (if attr[]<>NONE then l1ent[]->attr.to[] if);
+                              leave L
+                          if)
+                     for);
+                     (* not found! *)
+                     'Virtual decl not found in object slice'
+                       ->internalError
+                  else
+                     'Virtual decl seems to live in non-compositeObjectSlice'
+                       ->internalError
+                 if)
+              else
+                 oSlice.succ[]->oSlice[];
+                 restart L
+             if)
+          else
+             (* slice not found! *)
+             'Virtual decl not found in object'
+               ->internalError
+         if)
+   #)
+
+-- SpecializedVDeclGetMergeCplr:dopart --
+do
+   (* This is supposed to continue the merging process,
+    * so we need to push the contributing pattern and merge *)
+   &exeCompiler
+   (# generate::
+        (# (*ignore_sptype: ^staticPatternType*)
+        do (context[],world[],usageAst[],program[],cInfo[],false)
+             ->ObjectSpecifications.generateGetPattern
+             (*->ignore_sptype[]*);
+           (if not Swap then
+               (* normal merging *)
+               'ibetaTwoDeclbody.bet/1224'
+                 ->(&mergePatternCode[]).init
+                 ->program.append
+            else
+               (* swapped merging *)
+               'ibetaTwoDeclbody.bet/1220'
+                 ->(&swapMergePatternCode[]).init
+                 ->program.append
+           if)
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- SpecializedVDeclGetInitCplr:dopart --
+do
+   (* The initial (:<) virtual declaration will do the real work; in
+    * each further- or final-binding we just ask for the result from
+    * the initial declaration *)
+   &exeCompiler
+   (# generate::
+        (# pathTo: ^runtimePath;
+           l2vdcl: ^l2VirtualDecl;
+        do (NONE,NONE,context.getInitialSyntax)
+             ->(&runtimePath[]).init
+             ->pathTo[];
+           getVirtualDecl->l2vdcl[];
+           l2vdcl.scope.location
+             ->pathTo.addStepUp;
+           (l2vdcl.getTheNameDcl
+           ,false (* not indirect *)
+           ,false (* not repeated *))
+             ->pathTo.addStepLookup;
+           ('ibetaTwoDeclbody.bet/1021',pathTo[],theDeclNode.localStaticType)
+             ->(&getPatternCode[]).init
+             ->program.append;
+           ('ibetaTwoDeclbody.bet/1027',this(l2SpecializedVDecl)[])
+             ->(&installPatternCode[]).init
+             ->program.append
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- SpecializedVDeclGetVirtualDecl:dopart --
+do
+   (* make sure 'theVirtualDecl' is initialized *)
+   (if theVirtualDecl[]=NONE then
+       (# fail:
+            (# msg,solution: ^text
+            do 'There is no virtual declaration for this '->msg[];
+               typename->msg.puttext;
+               'Change the name, the prefix of the enclosing '->solution[];
+               'pattern, or use ":<"'->solution.puttext;
+               (msg[],solution[],this(l2SpecializedVDecl)[])->staticError
+            #);
+          l2ast: ^l2AstNode;
+          l2mpar: ^l2MainPart;
+          sptype: ^staticPatternType;
+          name: ^text;
+          l2ndcl: ^l2NameDcl
+       do scope.location->l2ast[];
+          (if l2ast##<=l2MainPart## then
+              l2ast[]->l2mpar[];
+              l2mpar.localStaticType->sptype[];
+              (getTheNameDcl).value[]->name[];
+
+              (* search the type slice stack for my "home" virtual decl *)
+              L: (# foundMe: @boolean
+                 do
+                    (if sptype.slices.size<2 then
+                        (* this is a binding/final decl, so there _must_
+                         * be at least one slice above this one where
+                         * the virtual decl can live *)
+                        fail
+                     else
+                        (* We must skip "myself" so we search through the
+                         * slices until we find "myself", then the real
+                         * search starts; NBNBNB: there is a subtle
+                         * semantic choice to make here:  When
+                         * inverse merging is used, should we allow a
+                         * further/final binding in a more _general_
+                         * slice to contribute to a virtual in a more
+                         * _special_ slice, i.e., should we wrap
+                         * around when hitting the top, and then search
+                         * on from the bottom? The choice taken is "No!",
+                         * so we preserve the property that virtual
+                         * chains _must_ be aligned with the enclosing
+                         * mixin list.  "If you need to further/final-bind
+                         * a virtual, please line up in behind the
+                         * others, not up there at the privileged end!" *)
+                        sptype.slices.scan
+                        (# l2ast: ^l2AstNode;
+                           l2vdcl: ^l2VDecl
+                        do (if not foundMe then
+                               (if current.getSyntax=l2mpar[] then
+                                   (* current contains this spec.vdcl *)
+                                   true->foundMe;
+                                else
+                                   (* this spec.vdcl not yet found, continue *)
+                               if)
+                            else
+                               (* above "myself": my virt.decl can be here *)
+                               (if (name[]->current.lookupName->l2ndcl[])<>NONE
+                                   then
+                                   (* found a declaration with the right name *)
+                                   l2ndcl.decl.location->l2ast[];
+                                   (if true
+                                    // l2ast##<=l2VirtualDecl## then
+                                       (* found! *)
+                                       l2ast[]->theVirtualDecl[];
+                                       leave L
+                                    // l2ast##<=l2BindingDecl## then
+                                       (* this decl knows the goal *)
+                                       l2ast[]->l2vdcl[];
+                                       l2vdcl.getVirtualDecl->theVirtualDecl[]
+                                    // l2ast##<=l2FinalDecl## then
+                                       (* clashing into previous chain.. *)
+                                       fail
+                                    (* else: *)
+                                       (* !! intermediate declaration of
+                                        * same name; we might decide that
+                                        * a static item etc. breaks a virtual
+                                        * chain; for now we simply skip such
+                                        * "irrelevant" declarations *)
+                                   if)
+                                (* else: *)
+                                   (* wrong name, search continues *)
+                               if)
+                           if)
+                        #);
+                        (* no virtual decl. found or "myself" not found *)
+                        (if foundMe then
+                            fail
+                         else
+                            'Did not find "myself" in getVirtualDecl'
+                              ->internalError
+                        if)
+                    if)
+                 #)
+           else
+              'Virtual binding/final declaration found in non-object'
+                ->internalError
+          if)
+       #)
+   if);
+
+   (* deliver it *)
+   theVirtualDecl[]->l2vdcl[]
+
+(*************************************************************
+ *                                                           *
+ *                       l2BindingDecl                       *
+ *                                                           *
+ *************************************************************)
+
+-- BindingDeclPrint:dopart --
+do
+   ':< '->output
+
+(*************************************************************
+ *                                                           *
+ *                        l2FinalDecl                        *
+ *                                                           *
+ *************************************************************)
+
+-- FinalDeclPrint:dopart --
+do
+   ': '->output
+
+-- FinalDeclCheck:dopart --
+do
+   (# stocp: ^staticOCP
+   do theDeclNode.localStaticType;
+      (if context##<=staticOCP## then
+          context[]->stocp[];
+          (world[],usageAst[],this(l2FinalDecl)[])->stocp.checkFinal
+       else
+          'FinalDecl seems to be declared in a non-object context'
+            ->internalError
+      if)
+   #)
+
+(*
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

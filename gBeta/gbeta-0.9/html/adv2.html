@@ -1,0 +1,133 @@
+
+
+
+
+
+
+
+<HTML>
+<HEAD><TITLE>gbeta Advanced Issues:: Industrial Method Combination..</TITLE></HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF"
+  LINK="#0000FF" VLINK="#800080" ALINK="#FF00FF">
+<TABLE WIDTH="100%">
+<TR><TD ALIGN="right">
+<TABLE><TR ALIGN="center">
+  <TD><A HREF="advanced_index1.html" TARGET="display"><IMG SRC="left.gif"></A></TD>
+  <TD><A HREF="advanced_index3.html" TARGET="display"><IMG SRC="right.gif"></A></TD>
+</TR></TABLE></TD></TR>
+<TR><TD ALIGN="left"><H1>Advanced Issues: Industrial Method Combination..</H1></TD></TR>
+</TABLE>
+<P><HR></P>
+<TABLE><TR><TD WIDTH="25%">&nbsp;</TD><TD WIDTH="50%">
+
+<P>
+<EM>Method combination</EM> is the support in an object-oriented
+language for the implicit construction of behavior of a method based
+on the behavior of more than one implementation of that method.  In
+CLOS, this is achieved using <CODE>:before</CODE> and
+<CODE>:after</CODE> methods, and <CODE>call-next-method</CODE>.  In
+BETA, method combination is achieved using the <CODE>INNER</CODE>
+imperative in virtual methods.  The <CODE>:before</CODE> and
+<CODE>:after</CODE> based method combination would be a particular
+way of using the existing constructs in BETA.
+</P>
+
+<P>
+In <B>gbeta</B>, there is support for a more large scale method combination,
+because a top-level <A HREF="advanced_index7.html" TARGET="display">type combination</A> operation might give
+rise to any number of consequent, implicit type combination
+operations, depending on the declarations in the participating
+patterns. 
+</P>
+
+<h3>Example 2</h3>
+<P>
+As an example, it is possible to construct a <CODE>stack</CODE>
+data-structure which supports being used in a concurrent context by
+means of the combination of two <EM>aspects</EM>, in this case the
+concurrency aspect and the implementation aspect.  Other aspects could
+be brought into play as well, in combinations as you wish.
+</P>
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE><SMALL>
+(* FILE aex2.gb *)
+-- betaenv:descriptor --
+(# (* This example shows how the constraint based type analysis
+    * makes it possible to combine several patterns by doing
+    * just one top-level inheritance operation, in the
+    * declaration of 'myStack'.  This is an important reason
+    * why the constraint based inheritance mechanism supports
+    * a deeper separation of concerns. 
+    *
+    * The basic idea is that we separate the concurrency
+    * control aspect and the sequential implementation
+    * aspect in the expression of a stack datatype which
+    * must be usable in a multithreaded context.
+    *
+    * The implementation is largely absent, but there
+    * should be enough of it to make it understandable
+    * what is going on by single-stepping the program
+    *)
+
+   monitor: 
+     (# mutex: @semaphore;
+        init: (# do mutex.V #);
+        entry: (# do mutex.P; INNER; mutex.V #)
+     #); 
+   list: (* just a dummy impl. with a type parameter *)
+     (# element:&lt; object #);
+   stack: 
+     (# element:&lt; object;
+        init:&lt; object;
+        push:&lt; (# e: ^element enter e[] do INNER #);
+        pop:&lt; (# e: ^element do INNER exit e[] #)
+     #);
+   threadsafeStack: stack
+     (# mon: @monitor;
+        init::&lt; (# do mon.init; INNER #);
+        push::&lt; mon.entry;
+        pop::&lt; mon.entry
+     #);
+   listStack: stack
+     (# storage: @list(# element::this(listStack).element #);
+        push::&lt; (# do (* .. *) INNER #);
+        pop::&lt; (# do (* .. *) INNER #)
+     #);
+   myStack: @ threadSafeStack & listStack
+do 
+   myStack.init;
+   &object[]-&gt;myStack.push
+#)</SMALL></PRE></TD></TR>
+  </TABLE>
+</P>
+
+The implementation of the <CODE>push</CODE> method consists of two
+different contributions, namely the contribution from
+<CODE>threadSafeStack</CODE> and the contribution
+<CODE>listStack</CODE>.  The contributions are merges in accordance
+with the general <A HREF="advanced_index7.html" TARGET="display">type combination</A> rules.
+</P>
+
+<P>
+The <A HREF="advanced_index3.html" TARGET="display">next</A> topic is the interplay of mutual recursion and
+specialization (inheritance). 
+</P>
+
+</TD><TD WIDTH="20%">&nbsp;</TD></TR></TABLE>
+<P><HR></P>
+<SMALL>
+  <I>
+    <CENTER>
+      <STRONG>Signed by: </STRONG>
+      <A HREF="mailto:eernst@cs.auc.dk">eernst@cs.auc.dk</A>.
+      Last Modified:  3-Jul-01
+<BR>
+    </CENTER>
+  </I>
+</SMALL>
+</BODY>
+</HTML>
+

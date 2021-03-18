@@ -1,0 +1,8 @@
+-- betaenv:descriptor --
+(# 
+   chars: [10] @char;
+   crefs: [0] ^char
+do 
+   chars[4:7][] -> crefs[]
+#)
+

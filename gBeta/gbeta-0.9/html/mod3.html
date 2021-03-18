@@ -1,0 +1,122 @@
+
+
+
+
+
+
+
+<HTML>
+<HEAD><TITLE>gbeta Modularization:: A Concrete Example</TITLE></HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF"
+  LINK="#0000FF" VLINK="#800080" ALINK="#FF00FF">
+<TABLE WIDTH="100%">
+<TR><TD ALIGN="right">
+<TABLE><TR ALIGN="center">
+  <TD><A HREF="modularization_index2.html" TARGET="display"><IMG SRC="left.gif"></A></TD>
+  <TD><A HREF="modularization_index4.html" TARGET="display"><IMG SRC="right.gif"></A></TD>
+</TR></TABLE></TD></TR>
+<TR><TD ALIGN="left"><H1>Modularization: A Concrete Example</H1></TD></TR>
+</TABLE>
+<P><HR></P>
+<TABLE><TR><TD WIDTH="25%">&nbsp;</TD><TD WIDTH="50%">
+
+<P>
+Many object oriented languages have a basic inheritance hierarchy
+where ordered entities inherit from an <TT>Ordered</TT> class, such 
+that the commonalities for all classes of ordered entities can be
+factored out.  There is no tradition to do this in the BETA family of
+languages, but it is possible to write some patterns that implement
+such a hierarchy.  The following example does just that (in <B>gbeta</B>, of
+course).
+</P>
+
+<P>
+First we must establish a universe wherein everything can be placed:
+</P>
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE>(* FILE betaenv.gb *)
+-- betaenv:descriptor --
+(#
+   &lt;&lt;SLOT lib:attributes&gt;&gt;;
+   puttext: (# enter stdio do INNER #);
+   putline: puttext(# do '\n'->stdio #);
+   theProgram: @&lt;&lt;SLOT program:merge&gt;&gt;
+do
+   theProgram
+#)</PRE></TD></TR>
+  </TABLE>
+</P>
+
+<P>
+This is a minimal basic library; this would normally be provided as
+part of the language implementation, but there is nothing magic about
+it so we show it here along with the other files.  For brevity we just
+include the few 
+things which are actually used, and we even leave out methods to print 
+numbers.  The name <TT>stdio</TT> denotes a primitive (built-in)
+entity which provides access to the standard input and standard
+output.  Note the <TT>lib:attributes</TT> slot; such a slot is
+conventionally defined in <TT>betaenv</TT>, and it provides us 
+with a "global" namespace.  We also have a <TT>program:merge</TT>
+slot; this slot is a placeholder for the program, so all we need to do
+when we write programs is to claim this place.  The following fragment
+does just that:
+</P>
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE>(* FILE orderedUser.gb *)
+ORIGIN 'betaenv';
+INCLUDE 'orderedNumber' 'orderedText' 'orderedAsString'
+
+-- program:merge --
+
+(# 
+   t1,t2: ^text;
+   n1,n2: ^number;
+   r: @real;
+do
+   'Hello, '->(&t1).init;
+   'world!'->(&t2).init;
+   (if t1[]->t2.lessEqual then t1.asString->puttext if);
+   (t1[]->t2.max).asString->putline;
+   
+   3.14159->float.init->n1[]; 
+   4->int.init->n2[];
+   (n1[]->n2.max).asString->putline
+#)</PRE></TD></TR>
+  </TABLE>
+</P>
+
+<P>
+The <TT>--program:merge--</TT> syntax means "Here comes the piece of
+code which is called program (and it is syntactically a merge
+construct)".  The INCLUDE properties ensure that the other fragments
+we need will be included, and the ORIGIN property specifies that the
+place where the piece of code called program is used is in
+<TT>betaenv</TT>.  This is the main program, in the sense that it is
+the intended argument to <TT>gbeta</TT>, it contains the application
+code which uses the libraries (the remaining files), and it ties all
+the pieces together.  The <A HREF="modularization_index4.html" TARGET="display">next</A> section presents the missing
+pieces.
+</P>
+
+</TD><TD WIDTH="20%">&nbsp;</TD></TR></TABLE>
+<P><HR></P>
+<SMALL>
+  <I>
+    <CENTER>
+      <STRONG>Signed by: </STRONG>
+      <A HREF="mailto:eernst@cs.auc.dk">eernst@cs.auc.dk</A>.
+      Last Modified:  3-Jul-01
+<BR>
+    </CENTER>
+  </I>
+</SMALL>
+</BODY>
+</HTML>
+

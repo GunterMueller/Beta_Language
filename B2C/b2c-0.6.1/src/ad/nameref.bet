@@ -1,0 +1,23 @@
+ORIGIN 'forward';
+INCLUDE '../name';
+BODY 'namerefbody';
+--- CompilerLib: Attributes ---
+(* general reference to a named object: *)
+NameRef: ForwardDenotation
+  (#
+     str: @text;
+     nme: ^Name;
+     type::< NameRef;
+     copy::<
+       (# do str->cpy.str; nme[]->cpy.nme[]; resolved->cpy.resolved; INNER #);
+     write:: (# <<SLOT NameRefWrite: DoPart>> #);
+     isequal::< (# nref: ^NameRef <<SLOT NameRefIsEqual: DoPart>> #);
+     getcexpr::<
+       (#
+          hascast: @Boolean;
+	  noprec::< (# <<SLOT NameRefGetcexprCast: DoPart>> #);
+	  od: ^ObjectDescriptor;
+       <<SLOT NameRefGetcexpr: DoPart>>
+       #);
+  do INNER
+  #);

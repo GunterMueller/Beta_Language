@@ -1,0 +1,134 @@
+ORIGIN 'bfile';
+INCLUDE 'attden';
+BODY 'attributebody';
+BODY 'namebitch';
+--- CompilerLib: Attributes ---
+NamePtrExt: <<SLOT NamePtrExt: ObjectDescriptor>>;
+
+Attribute: BETAlist
+  (#
+     listtype:: Attribute;
+     encltype:: ObjectDescriptor;
+
+     checked: @Integer;
+     os: ^ObjectSpecification;
+     od: ^ObjectDescriptor;
+     names: @NamePtrExt;
+
+     print::< (# printos:< BooleanValue <<SLOT AttributePrint: DoPart>> #);
+     checkName:< (# <<SLOT AttributeCheckName: DoPart>> #);
+     resolve:< (# ad: ^AttributeDenotation <<SLOT AttributeResolve: DoPart>> #);
+     checkFollow::< (# <<SLOT AttributeCheckFollow: DoPart>> #);
+     checkComplete::< (# <<SLOT AttributeCheckComplete: DoPart>> #);
+     getcdecl:<
+       (# t: @text; super: ^ObjectDescriptor
+       enter super[]
+       <<SLOT AttributeGetcdecl: DoPart>>
+       exit t[]
+       #);
+
+     (* JO Virtual method for creating mark function call*)
+     getmdef:<
+       (# t: @text; super: ^ObjectDescriptor
+       enter super[]
+       <<SLOT AttributeGetmdef: DoPart>>
+       exit t[]
+       #);
+     getisrefel:<
+       (# super: ^ObjectDescriptor; elisref: @Boolean;
+       enter super[]
+       <<SLOT AttributeGetisrefel: DoPart>>
+       exit elisref
+       #);
+     (* JO *)
+
+     getcexpr:<
+        (# t,mapname: ^text; ctype: @integer
+	enter (t[],mapname[])
+	do INNER
+	exit ctype
+	#);
+     DoInit:<
+       (# ad: ^AttributeDenotation; ev: ^Evaluation
+       enter ad[]
+       do INNER
+       exit ev[]
+       #);
+     ispattern:< BooleanValue;
+     ispvariable:< BooleanValue;
+     isvirtual:< BooleanValue;
+     isref:< BooleanValue;
+     isrep:< BooleanValue;
+     getRepEl:< (# att: ^Attribute do INNER exit att[] #);
+     maybesubpattern:< BooleanValue;
+     maybenone:< BooleanValue;
+  enter (names, os[])
+  <<SLOT AttributeDoPart: DoPart>>
+  exit this(Attribute)[]
+  #);
+
+
+SimpleDecl: Attribute
+  (#
+     type: @integer;
+     data_inline: @boolean;
+     print::< (# <<SLOT SimpleDeclPrint: DoPart>> #);
+     getcdecl::<
+       (# ad: ^AttributeDenotation <<SLOT SimpleDeclGetcdecl: DoPart>> #);
+
+     (* JO Extension of virtual method for mark function creation*)
+     getmdef::<
+        (# ad: ^AttributeDenotation; attod: ^ObjectDescriptor
+        <<SLOT SimpleDeclGetmdef: DoPart>>
+        #);
+     getisrefel::<
+       (# ad: ^AttributeDenotation; attod: ^ObjectDescriptor
+       <<SLOT SimpleDeclGetisrefel: DoPart>>
+       #);
+     (* JO *)
+
+     getcexpr::< (# <<SLOT SimpleDeclGetcexpr: DoPart>> #);
+     DoInit::<
+       (# pat,oad: ^AttributeDenotation;
+	  evold: ^Evaluation;
+	  att: ^Attribute
+       <<SLOT SimpleDeclDoInit: DoPart>>
+       #);
+     dontInit:< BooleanObject (# do (type=1)->value; INNER #);
+     resolve::< (# <<SLOT SimpleDeclResolve: DoPart>> #);
+     checkFollow::< (# <<SLOT SimpleDeclCheckFollow: DoPart>> #);
+     checkIsnotbasic: (# <<SLOT SimpleDeclCheckIsnotbasic: DoPart>> #);
+     ispattern:: (# do false->value #);
+     isvirtual:: (# do os.isvirtual->value #);
+     isref:: (# do type=1->value #);
+     isrep::< (# do false->value; INNER #);
+     maybesubpattern::
+       (# do (if type=1 then true->value else os.isvirtual->value if) #);
+     maybenone:: (# do type=1->value #);
+  enter type
+  do false->data_inline; INNER
+  #);
+
+
+TemporaryDecl: SimpleDecl (# dontinit:: (# do false->value #) #);
+
+
+AttributePtr: BETAlistPtr
+  (#
+     <<SLOT AtributePtrLib: AttributeDecl>>;
+     listtype:: Attribute;
+     print::
+       (#
+          nlev:: (# do (3,'')->s.newlevel #);
+	  sep2:: (# do '; '->t[] #);
+          blev:: (# do s.backlevel #);
+	  nline:: (# do s.newline #);
+       #);
+     checkName: iterate (# do el.checkName #);
+     checkFollow: iterate
+       (# value: @Boolean
+       <<SLOT AttributePtrCheckFollow: DoPart>>
+       exit value
+       #);
+     checkComplete: <<SLOT AttributePtrCheckComplete: Descriptor>>;
+  #);

@@ -1,0 +1,8 @@
+include(tutorialstd.m4)dnl
+_deflr(`',`')dnl
+define(`_tut_toc_entry',  
+  `_tutref(define(`inx',incr(inx))inx,<LI>$1</LI>)')dnl
+define(`inx',`0')dnl
+begin_tut(`Contents')
+
+<OL>

@@ -1,0 +1,22 @@
+(* implement a replacement for the getopt() function of the C library *)
+ORIGIN '~beta/basiclib/current/betaenv';
+BODY 'getoptbody';
+--- lib: attributes ---
+getopt:
+  (#
+     optstr: @text;
+     arg: ^text;
+     opt: @char;
+     optind: @integer;
+     atoi: (# value,sign: @integer <<SLOT GetoptAtoi: DoPart>> exit value #);
+     unknownOption:< GetoptException (# <<SLOT GetoptUnknownOption: DoPart>> #);
+     missingArgument:< GetoptException
+       (# <<SLOT GetoptMissingArgument: DoPart>> #);
+     notANumber:< GetoptException
+       (# <<SLOT GetoptNotANumber: DoPart>> #);
+     GetoptException: Exception
+       (# ename: ^text; p: @integer <<SLOT GetoptException: DoPart>> #);
+  enter optstr
+  <<SLOT GetoptDoPart: DoPart>>
+  exit optind
+  #);

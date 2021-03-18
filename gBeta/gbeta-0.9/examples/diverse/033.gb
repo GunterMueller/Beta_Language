@@ -1,0 +1,11 @@
+ORIGIN 'betaenv'
+-- program:merge --
+(# (* 'p[]' is supported for 'p' a pattern: transparent 
+    * whether 'p' is an object, an obj.ref, or a pattern *)
+   pv: ##integer; ir: ^integer
+do 5->(integer[]).value->putint; newline;
+   integer(# do value->putint; newline #)##->pv##;
+   pv[]->ir[];
+   10->ir
+#)
+

@@ -1,0 +1,64 @@
+ORIGIN '../attributelib';
+INCLUDE '../virtual';
+INCLUDE '../ad/forward';
+BODY 'declbody';
+BODY 'patternbody';
+BODY 'prefixbody';
+--- CompilerLib: Attributes ---
+VirtualDecl: PatternOrVirtualDecl
+  (#
+     <<SLOT VirtualDeclLib: Attributes>>;
+     VirtualPrefixDenotation: ForwardDenotation
+       (#
+	  virtualOverride:: (# do true->value #);
+	  type:: VirtualPrefixDenotation;
+	  resolve::
+	    (# od: ^ObjectDescriptor
+	    <<SLOT VirtualPrefixDenotationResolve: DoPart>>
+	    #);
+	  tryResolve:
+	    (# od: ^ObjectDescriptor
+	    <<SLOT VirtualPrefixDenotationTryResolve: DoPart>>
+	    #);
+	  checkFollow::
+	    (# <<SLOT VirtualPrefixDenotationCheckFollow: DoPart>> #);
+       exit this(VirtualPrefixDenotation)[]
+       #);
+     type: @integer;
+     vtindx: @integer;	(* index into virtual table *)
+     vp: @VirtualPattern;
+     vprefix: @VirtualPrefixDenotation;
+     tryPrefix:
+       (# vd: ^VirtualDecl <<SLOT VirtualDeclTryPrefix: DoPart>> exit vd[] #);
+
+     isvirtual:: (# do type<=1->value #);
+     maybesubpattern:: (# do type<=1->value #);
+     print::
+       (#
+       do
+          (if type
+	    // 0 then ':< '->s.append;
+	    // 1 then '::< '->s.append;
+	    // 2 then ':: '->s.append;
+	  if);
+       #);
+     checkName:: (# <<SLOT VirtualDeclCheckName: DoPart>> #);
+     checkFollow::
+       (# vd: ^VirtualDecl <<SLOT VirtualDeclCheckFollow: DoPart>> #);
+     checkComplete:: (# <<SLOT VirtualDeclCheckComplete: DoPart>> #);
+     getcexpr:: (# <<SLOT VirtualDeclGetcexpr: DoPart>> #);
+  enter type
+  do INNER
+  #);
+
+
+VirtualPattern: Virtual
+  (#
+     <<SLOT VirtualPatternLib: Attributes>>;
+     setVirtname: <<SLOT VirtualPatternSetVirtName: ObjectDescriptor>>;
+     att: ^VirtualDecl;
+     virtname: @text;
+     DoCDecl:: (# <<SLOT VirtualPatternDoCDecl: DoPart>> #);
+     DoCDef:: (# <<SLOT VirtualPatternDoCDef: DoPart>> #);
+  enter att[]
+  #);

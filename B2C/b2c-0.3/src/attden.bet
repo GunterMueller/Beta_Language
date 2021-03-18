@@ -1,0 +1,134 @@
+ORIGIN 'bfile';
+BODY 'attdenbody';
+BODY 'ev/misc';
+--- CompilerLib: Attributes ---
+Outermap: (# om: [0] ^AttributeDenotation; enter om exit om #);
+
+
+AttributeDenotation: ObjectSpecification
+  (#
+     <<SLOT AttributeDenotationLib: Attributes>>;
+     att: @<<SLOT AttributeDenotationAtt: ObjectDescriptor>>;
+     prec: ^AttributeDenotation;
+     type:< AttributeDenotation;
+     isequal:< BooleanValue
+       (# cmp: ^AttributeDenotation
+       enter cmp[]
+       do
+	  INNER;
+	  (if value then
+	     (if cmp.prec[]=NONE then
+		(if prec[]<>NONE then false->value if)
+	     else
+		(if prec[]=NONE then
+		   false->value
+		else
+		   cmp.prec[]->prec.isequal->value
+		if)
+	     if)
+	  if)
+       #);
+     ispattern:: (# <<SLOT AttributeDenotationIspattern: DoPart>> #);
+     ispvariable:: (# <<SLOT AttributeDenotationIspvariable: DoPart>> #);
+     isvirtual::
+       (# ad: ^AttributeDenotation
+       <<SLOT AttributeDenotationIsvirtual: DoPart>>
+       #);
+     virtualOverride:< BooleanObject;
+     isref:: (# <<SLOT AttributeDenotationIsref: DoPart>> #);
+     isrep:: (# <<SLOT AttributeDenotationIsrep: DoPart>> #);
+     maybesubpattern:: (# <<SLOT AttributeDenotationMaybeSubPattern:DoPart>> #);
+     maybenone:: (# <<SLOT AttributeDenotationMaybeNone: DoPart>> #);
+     copy:<
+       (# ad,toadd: ^AttributeDenotation; cpy: @type;
+       enter toadd[]
+       do cpy[]->ad[]; INNER
+       exit ad[]
+       #);
+     hasexpr::< (# do INNER; (if not value then prec.hasexpr->value if) #);
+     getcexpr:<
+       (#
+	  <<SLOT GetcexprLib: Attributes>>;
+          t: ^text;
+	  ctype: @integer;
+	  noprec:< BooleanValue;
+       enter t[]
+       <<SLOT AttributeDenotationGetcexpr: DoPart>>
+       exit ctype
+       #);
+     putcexpr:
+       (# exp,got: @integer; t: @text
+       enter exp
+       <<SLOT AttributeDenotationPutcexpr: DoPart>>
+       #);
+     print::< (# do (if prec[]<>NONE then s[]->prec.print if); INNER #);
+     (* Print out detailed information about this attribute denotation
+      * for debugging purposes: *)
+     write:<
+       (# s: ^stream;
+       enter s[]
+       do (if prec[]<>NONE then s[]->prec.write; '.'->s.put if); INNER
+       #);
+     getod:: (# <<SLOT AttributeDenotationGetod: DoPart>> #);
+     getpatt::
+       (# ad: ^AttributeDenotation
+       <<SLOT AttributeDenotationGetpatt: DoPart>>
+       #);
+     getmap:
+       (# map: ^Outermap; od: ^ObjectDescriptor
+       <<SLOT AttributeDenotationGetmap: DoPart>>
+       exit map[]
+       #);
+     checkPath:< Object;
+     resolved: @integer;
+     resolve:< (# <<SLOT AttributeDenotationResolve: DoPart>> #);
+     reduce:<
+       (# ad: ^AttributeDenotation; ev: ^Evaluation
+       <<SLOT AttributeDenotationReduce: DoPart>>
+       exit ev[]
+       #);
+  do 0->resolved; INNER;
+  #);
+
+
+(* Evaluation, the most basic type of a BETA expression *)
+Evaluation: BETAlist
+  (#
+     <<SLOT EvaluationLib: Attributes>>;
+     listtype:: evaluation;
+     reduceexit:
+       (#
+	  ev,thisexit: ^Evaluation;
+	  mainred: ^reducefn;
+	  red: ^thisexit.reducefn;
+	  type: @integer;
+	  toadd: ^AttributeDenotation;
+	  init:
+	    (# enter (ev[],toadd[])
+	    do &ev.reduce[]->mainred[]; toadd[]->mainred
+	    #);
+       enter init
+       <<SLOT ReduceExit: DoPart>>
+       exit (thisexit[],type)
+       #);
+     reduceexitsingle: reduceexit (# <<SLOT ReduceExitSingle: DoPart>> #);
+     reducefn:
+       (#
+	  <<SLOT ReduceLib: Attributes>>;
+          toadd: ^AttributeDenotation;
+	  before,enteropt,main,exitopt: ^Evaluation
+       enter toadd[]
+       do NONE->before[]->enteropt[]->main[]->exitopt[]; INNER
+       exit (before[],enteropt[],main[],exitopt[])
+       #);
+     reduce:< reducefn;
+     (* this evaluation's type *)
+     type:< IntegerValue;
+     assignable:< BooleanValue;
+     isconst:< BooleanValue; (* !!! this flag is currently not used *)
+     getod:< (# od: ^ObjectDescriptor do NONE->od[]; INNER exit od[] #);
+
+     DoDo:< (# do INNER #);
+     DoCexpr:< (# do INNER #);
+  do INNER
+  #);

@@ -1,0 +1,30 @@
+ORIGIN 'nameapl';
+BODY 'comprembody';
+--- CompilerLib: attributes ---
+ComputedRemote: NameApl
+  (#
+     ev: ^Evaluation;
+     objectptr,evpref: ^AttributeDenotation;
+     type:: ComputedRemote;
+     print:: (# do '('->s.append; s[]->ev.print; ').'->s.append #);
+     copy:: (# nr: ^NameRef <<SLOT ComputedRemoteCopy: DoPart>> #);
+     reduce::
+       (# doit: @<<SLOT ComputedRemoteReduce: ObjectDescriptor>> do doit #);
+     resolve::
+       (# doit: @<<SLOT ComputedRemoteResolve: ObjectDescriptor>> do doit #);
+     checkPath:: (# do ev.checkFollow #);
+     checkComplete:: (# do resolve; ev.checkComplete #);
+     getcexpr::
+       (#
+	  noprec:: (# do true->value #);
+	  <<SLOT ComputedRemoteGetCexpr: DoPart>>
+       #);
+     isequal::
+       (# cr: ^ComputedRemote
+       do (if cmp##<=ComputedRemote## then cmp[]->cr[]; cr.ev[]=ev[]->value if)
+       #);
+  enter ev[]
+  do
+     this(ComputedRemote)[]->ev.encl[];
+     NONE->objectptr[]->evpref[];
+  #);

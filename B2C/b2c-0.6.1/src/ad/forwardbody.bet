@@ -1,0 +1,60 @@
+ORIGIN 'forward';
+INCLUDE 'bitch';
+INCLUDE '../attributebitch';
+INCLUDE '../objectdesc';
+INCLUDE '../virt/decl';
+--- ForwardDenotationCopy: DoPart ---
+do
+   toadd[]->prec.copy->ad.prec[];
+   INNER;
+   (* Special handling for virtuals:
+    * If something is copied in front of this forward denotation,
+    * the type of the preceeding element may differ in the original
+    * and the copy (so that `prec.getpatt' and `ad.prec.getpatt'
+    * return different values).  This is not a problem, except for
+    * references to virtual pattern declarations, which have to be
+    * replaced with a reference to the most recent binding of that
+    * virtual.
+    *)
+   (if ((att.att[]->ad.att.att[])<>NONE) and (toadd[]<>NONE) then
+      (if att.att##<=VirtualDecl## then
+	 (*
+	 (# od: ^ObjectDescriptor; vd: ^VirtualDecl; vp: ^VirtualPattern
+	 do
+	    ad.prec.getpatt->od[];
+	    (if (prec.getpatt<>od[]) and (od[]<>NONE) then
+	       att.att[]->vd[];
+	       (if vd.vtindx>0 then
+		  od.private.vm.vm[vd.vtindx][]->vp[]; vp.att[]->ad.att.att[]
+	       if);
+	    if);
+	 #);
+	 *)
+
+	 (# vd, vvd: ^VirtualDecl; od,od2: ^ObjectDescriptor
+	 do
+	    ad.prec.getpatt->od[];
+	    prec.getpatt->od2[];
+	    loop: (if (od2[]<>od[]) and (od[]<>NONE) then
+	       od.private.att.iterate
+		 (#
+		 do
+		    (if el##<=VirtualDecl## then
+		       el[]->vd[]->vvd[];
+		       l: (if vvd[]<>NONE then
+			  (if vvd[]=att.att[] then
+			     vd.resolve;
+			     vd[]->ad.att.att[];
+			     leave loop;
+			  if);
+			  vvd.tryPrefix->vvd[];
+			  restart l;
+		       if);
+		    if);
+		 #);
+	       od.private.super[]->od[];
+	       restart loop;
+	    if);
+         #);
+      if);
+   if);

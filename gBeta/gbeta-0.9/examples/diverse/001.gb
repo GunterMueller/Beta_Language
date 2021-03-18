@@ -1,0 +1,11 @@
+-- betaenv:descriptor --
+(# 
+   ir: @integer&real;
+   p: (# #);
+   q: (# #);
+   x: @p&q(# #)
+do
+   (if p&q##=NONE then false if);
+   p&q;
+#)
+

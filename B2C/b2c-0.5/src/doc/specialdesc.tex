@@ -1,0 +1,68 @@
+\section{Special Object Descriptors}
+As any other language, BETA needs a set of basic types and basic
+functions respective methods on which it can operate.  An example
+of a basic type is \cq{Integer}, a basic method is the
+\cq{extend} method of a repetition.  A common feature of these
+basic types and functions is, that they cannot be represented
+within the language itself.
+
+Most languages therefore define a set of keywords for these types
+and functions, like the type \cq{int} or the function
+\cq{sizeof()} in C.  This is not true in BETA.  There are no
+keywords reserved for the basic types.  It is therefor possible
+to redefine names like \cq{Integer} in your own patterns.
+
+However, the compiler must still be able to recognise the basic
+types.  Therefore, certain pattern names are given special
+meaning --- but only in the outermost fragment, that is typically
+called \cq{betaenv}.  The list of special names is:
+\begin{quote}
+	Boolean \\
+	Char \\
+	Integer \\
+	Real \\
+	Shortint \\[2ex]
+	Data \\
+	External \\
+	Object \\
+	Repetition \\
+	Text
+\end{quote}
+
+Most special descriptors are accounted for in the fragment
+\ffq{PatternDeclCheck0}{DoPart}{attributebody.bet}.  The single
+exception is the \cq{Object} pattern.  Because it is the
+superpattern of all other patterns, it has to be checked before
+any other pattern is processed.  This special treatment of the
+name \cq{Object} is performed in
+\frq{PatternDeclCheckName}{DoPart}.
+
+\subsection{The basic types}
+The five patterns \cq{Boolean}, \cq{Char}, \cq{Integer},
+\cq{Real} and \cq{Shortint} all represent a storage cell, which
+holds a value.  To generate an object from one of those patterns
+means to allocate an appropriate storage cell.  To enter an value
+into that object means to put that value into the storage cell.
+To exit a value from the object means to retrieve the value
+stored in that cell.  In neither case, a DO-part is executed.
+
+To ensure type safety without sacrificing efficiency, all
+references to objects of these basic types must be static
+references.  That means, that these objects are well defined
+within the enclosing pattern, and only within that pattern.
+Objects of the basic types don't have a pointer to the pattern
+information or to the enclosing object.
+
+The backdraw is, that the basic types cannot be extended in any
+way.  No subclassing, no further attributes, no DO-Part is
+possible.  To partly overcome that shortage, the basic library
+\fq{betaenv.bet} defines full pattern versions
+\cq{IntegerObject}, \cq{CharObject}, \ldots\ of the basic types.
+
+\subsection{The \cq{Data} pattern}
+
+\subsection{The \cq{External} interface}
+
+\subsection{The \cq{Text} type}
+
+\subsection{The main superpattern: \cq{Object}}

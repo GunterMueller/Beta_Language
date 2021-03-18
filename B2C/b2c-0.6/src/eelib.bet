@@ -1,0 +1,82 @@
+ORIGIN 'compiler';
+INCLUDE 'attden';
+INCLUDE 'evaluation';
+INCLUDE 'label';
+BODY 'eebody';
+--- ExecutionEnvironmentLib: Attributes ---
+(* Create a dynamic item or an inserted item, depending, on whether the
+ * "dynamic" variable is true.
+ *
+ * Input:
+ * ad[]: a denotation of the pattern, from which the item shall be generated.
+ * dynamic: set this to true for dynamic items, to false for inserted items.
+ *
+ * Output:
+ * ad[]: A denotation of the newly created item.
+ * ev[]: An evaluation, which should be executed before the item is used.
+ *)
+item:
+   (#
+      ad: ^AttributeDenotation;
+      dynamic: @Boolean;
+      ev: ^Evaluation;
+      doit: @<<SLOT ExecutionEnvironmentItem: ObjectDescriptor>>;
+      dontinit:< BooleanValue;
+   enter (ad[],dynamic)
+   do doit
+   exit (ad[],ev[])
+   #);
+
+
+(* Create a pattern variable as a dynamic item *)
+dynamicPVariable:
+   (#
+      ad: ^AttributeDenotation;
+      ev: ^Evaluation;
+      doit: @<<SLOT ExecutionEnvironmentDynamicPVariable: ObjectDescriptor>>;
+      dontinit:< BooleanValue;
+   enter ad[]
+   do doit
+   exit (ad[],ev[])
+   #);
+
+
+(* Set a flag, that this execution environment has at least one qua check.
+ * This will define a declaration of the "qua" variable, when the according
+ * C function is generated. *)
+markQua: (# <<SLOT ExecutionEnvironmentMarkQua: DoPart>> #);
+
+
+(* Set a flag, that this execution environment has at least one qua
+ * check on a repetition.  This will cause a definition for the "i"
+ * index variable to be added to the according C function.
+ *)
+markRepQua: (# <<SLOT ExecutionEnvironmentMarkRepQua: DoPart>> #);
+
+
+(* Set a flag, that no objects may be inserted into this execution
+ * environment.  The result is, that all inserted items are created
+ * as dynamic items instead: *)
+disableInsertedAttributes: (# <<SLOT ExecutionEnvironmentDisableIA: DoPart>> #);
+
+
+(* Set a flag, that this execution environment shall always save and
+ * restore the root set state for GC: *)
+markRootSet: (# <<SLOT ExecutionEnvironmentMarkRootSet: DoPart>> #);
+
+
+(* Specify an AttributeDenotation, that will be prefixed to all
+ * inserted items. *)
+insertionBase:
+  (# ad: ^AttributeDenotation
+  enter ad[]
+  <<SLOT ExecutionEnvironmentInsertionBase: DoPart>>
+  #);
+
+
+(* Add a list of evaluations to this execution environment *)
+add: (# ev: ^Evaluation enter ev[] <<SLOT ExecutionEnvironmentAdd: DoPart>> #);
+
+
+(* Generate C output for all evaluations *)
+DoDo: (# od: ^ObjectDescriptor <<SLOT ExecutionEnvironmentDoDo: DoPart>> #);

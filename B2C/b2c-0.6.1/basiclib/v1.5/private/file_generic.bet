@@ -1,0 +1,23 @@
+ORIGIN 'filebody.bet';
+--- lib: attributes ---
+(* file modes - these are non-standard, so read them from header files *)
+O_RDONLY: CConstantInteger (# do ('<sys/fcntl.h>','O_RDONLY')->get #);
+O_WRONLY: CConstantInteger (# do ('<sys/fcntl.h>','O_WRONLY')->get #);
+O_RDWR:   CConstantInteger (# do ('<sys/fcntl.h>','O_RDWR')->get #);
+O_CREAT:  CConstantInteger (# do ('<sys/fcntl.h>','O_CREAT')->get #);
+O_TRUNC:  CConstantInteger (# do ('<sys/fcntl.h>','O_TRUNC')->get #);
+
+(* I hope, that every system uses the same values for permissions.  I hope *)
+P_RW:     (# exit 6+6*8+6*8*8 #);
+
+
+--- FileOpenRead: DoPart ---
+do (O_RDONLY, P_RW, false)->private.doopen;
+--- FileOpenWrite: DoPart ---
+do (O_WRONLY + O_TRUNC + O_CREAT, P_RW, false)->private.doopen;
+--- FileOpenAppend: DoPart ---
+do (O_WRONLY + O_CREAT, P_RW, true)->private.doopen;
+--- FileOpenReadWrite: DoPart ---
+do (O_RDWR + O_CREAT, P_RW, false)->private.doopen;
+--- FileOpenReadAppend: DoPart ---
+do (O_RDWR + O_CREAT, P_RW, true)->private.doopen;

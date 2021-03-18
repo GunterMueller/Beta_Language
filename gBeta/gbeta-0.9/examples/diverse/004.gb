@@ -1,0 +1,11 @@
+-- betaenv:descriptor --
+(# 
+   p: (# #);
+   q: (# #);
+   intbool: integer&boolean;
+   x: ^intbool;
+do
+   &x;
+   p&q(# #)## -> x##; (* NB: warning - we know too little about x *)
+   real(# do INNER #)##
+#)

@@ -1,0 +1,1492 @@
+(* FILE "./private/ibetaTwoDcl2body.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaTwoDcl2body.bet,v 1.81 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN 'ibetaTwobody';
+INCLUDE 'basicinterplib';
+INCLUDE 'ibetaTwolib'
+
+(************************************************************ 
+ *                                                          * 
+ *                       l2StaticItem                       * 
+ *                                                          * 
+ ************************************************************)
+
+-- StaticItemInit:dopart --
+do
+   ObjectSpecifications.init
+
+-- StaticItemPrint:dopart --
+do
+   ' @'->output;
+   (if ObjectSpecifications.size=1 then
+       (dest[],indentation,false)->(ObjectSpecifications.head).elm.print
+    else
+       (dest[],indentation,false,true)->ObjectSpecifications.print
+   if)
+
+-- StaticItemScanImpl:dopart --
+do
+   (preCB[],postCB[])->ObjectSpecifications.scanImpl
+
+-- StaticItemCheck:dopart --
+do
+   (# stype: ^staticType
+   do (* check that the RHS has a well-defined type of object-kind *)
+      ObjectSpecifications.localStaticType->stype[];
+      (if not (stype##<=staticPatternType##) then
+          (# msg,description: ^text 
+          do 'Attempt to define a static item as '->msg[];
+             (stype.kind->typeKindName).withIndefArticle->msg.puttext;
+             (msg[],'Use an object or a pattern to define static items'
+             ,this(l2StaticItem)[])->staticError
+          #)
+      if)
+   #)
+
+-- StaticItemGetType:dopart --
+do
+   (# ospec_sptype,sptype: ^staticPatternType;
+      last_l2ospec: ^l2ObjectSpecification
+   do (context[],world[],usageAst[])
+        ->ObjectSpecifications.getStaticType
+        ->ospec_sptype[];
+      (if ospec_sptype.kind<>objectTypeKind then
+          (objectTypeKind,usageAst[])
+            ->ospec_sptype.coerce
+            ->sptype[];
+          (* TYPE_COERCION: we are obtaining an object from the 
+           * entity described by ospec_sptype; cases:
+           * 
+           * patternTypeKind: the object is created by
+           * instantiating the pattern; this means that this 
+           * pattern is exactly the pattern of the object, and
+           * that means that sptype should have the same
+           * value for staticallyKnown[Bottom] as ospec_sptype
+           * 
+           * patternRefTypeKind: the object is created by
+           * instantiating a variable pattern; that pattern will
+           * never be staticallyKnown, and neither is the
+           * pattern of the object
+           * 
+           * objectTypeKind: impossible (if..)
+           * 
+           * objectRefTypeKind: "snapshotting" a variable object 
+           * as an object attribute; the staticallyKnown[Bottom]
+           * properties are of course unchanged since it is the
+           * same object
+           * 
+           * Conclusion: no need to adjust staticallyKnown[Bottom]
+           *)
+          
+          (* deliver *)
+          sptype[]->stype[]
+       else
+          
+          (* already known as an object, so this is a pure 
+           * aliasing dcl. and there is no need for coercion *)
+          ospec_sptype[]->stype[]
+      if)
+   #)
+
+-- StaticItemInstantiate:dopart --
+do
+   (thrd[],unwind##,enclosing[],false,attr[])
+     ->ObjectSpecifications.obtainObject
+     ->l1ent[]
+
+-- StaticItemInstantiateMany:dopart --
+do
+   (for i:count repeat 
+        ((thrd[],unwind##,NONE)->l1pat.instantiate->l1ent[],i)->cb
+   for)
+
+-- StaticItemObtainPattern:dopart --
+do
+   (thrd[],unwind##,dContext[],NONE)
+     ->ObjectSpecifications.obtainPattern
+     ->l1pat[]
+
+-- StaticItemGetInitCplr:dopart --
+do
+   (# stype: ^staticType
+   do ObjectSpecifications.localStaticType->stype[];
+      (if staticInstallObjectFlag
+          and stype.knownStatically
+          and (stype.kind=patternTypeKind) then
+          &exeCompiler
+          (# generate::
+               (# sptype: ^staticPatternType
+               do stype[]->sptype[];
+                  (if staticPredefinedPatternFlag
+                      and sptype.isPredefined then
+                      sptype.predefinedCases
+                      (# onObject::
+                           (# do ('ibetaTwoDcl2body.bet/151',l2adcl[])
+                                ->(&installObjectObjectCode[]).init
+                                ->program.append
+                           #);
+                         onBoolean::
+                           (# do ('ibetaTwoDcl2body.bet/156',l2adcl[])
+                                ->(&installBooleanObjectCode[]).init
+                                ->program.append
+                           #);
+                         onChar::
+                           (# do ('ibetaTwoDcl2body.bet/161',l2adcl[])
+                                ->(&installCharObjectCode[]).init
+                                ->program.append
+                           #);
+                         onInteger::
+                           (# do ('ibetaTwoDcl2body.bet/166',l2adcl[])
+                                ->(&installIntegerObjectCode[]).init
+                                ->program.append
+                           #);
+                         onReal::
+                           (# do ('ibetaTwoDcl2body.bet/171',l2adcl[])
+                                ->(&installRealObjectCode[]).init
+                                ->program.append
+                           #);
+                         onString::
+                           (# do ('ibetaTwoDcl2body.bet/176',l2adcl[])
+                                ->(&installStringObjectCode[]).init
+                                ->program.append
+                           #);
+                         onComponent::
+                           (# do ('ibetaTwoDcl2body.bet/181',l2adcl[])
+                                ->(&installComponentObjectCode[]).init
+                                ->program.append
+                           #);
+                         onSemaphore::
+                           (# do ('ibetaTwoDcl2body.bet/186',l2adcl[])
+                                ->(&installSemaphoreObjectCode[]).init
+                                ->program.append
+                           #)
+                      #)
+                   else
+                      ('ibetaTwoDcl2body.bet/192',l2adcl[],stype[])
+                        ->(&installStaticObjectCode[]).init
+                        ->program.append
+                  if)
+               #)
+          #)[]->ec[];
+          usageAst[]->ec.usageAst[]
+       else
+          &exeCompiler
+          (# generate::
+               (# (* ignore_stocp: ^staticOCP *)
+               do (context[],world[],usageAst[],program[],cInfo[],false,false)
+                    ->ObjectSpecifications.generateGetObject
+                  (*->ignore_stocp[]*);
+                  ('ibetaTwoDcl2body.bet/157',l2adcl[])
+                    ->(&installObjectCode[]).init
+                    ->program.append
+               #)
+          #)[]->ec[];
+          usageAst[]->ec.usageAst[]
+      if)
+   #)
+
+-- StaticItemGetQualCplr:dopart --
+do
+   &exeCompiler
+   (# generate::
+        (# (* ignore_sptype: ^staticPatternType *)
+        do (context[],world[],usageAst[],program[],cInfo[],false)
+             ->ObjectSpecifications.generateGetPattern
+           (* ->ignore_sptype[] *)
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- StaticItemGetRepInitCplr:dopart --
+do
+   &exeCompiler
+   (# generate::
+        (# do ('ibetaTwoDcl2body.bet/142',l2rdcl[])
+             ->(&installStaticItemRepCode[]).init
+             ->program.append
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+(************************************************************ 
+ *                                                          * 
+ *                    l2VirtualStaticItem                   * 
+ *                                                          * 
+ ************************************************************)
+
+-- VirtualStaticItemInit:dopart --
+do
+   INNER
+   
+-- VirtualStaticItemPrint:dopart --
+do
+   (if Disown then '< - @'->output else '< @'->output if);
+   (dest[],indentation,false)->AttributeDenotation.print
+
+-- VirtualStaticItemScanImpl:dopart --
+do
+   (preCB[],postCB[])->AttributeDenotation.scanImpl
+
+-- VirtualStaticItemCheck:dopart --
+do
+   (# stype: ^staticType;
+      l2desc: ^l2ObjectDescriptor
+   do 
+      (* check that the RHS has a well-defined type and is a ptn/obj. *)
+      AttributeDenotation.localStaticType->stype[];
+      (if not (stype##<=staticPatternType##) then
+          (# msg: ^text
+          do 'Attempt to use '->msg[];
+             (stype.typename).withIndefArticle->msg.puttext;
+             ' as an initial bound on a virtual item'->msg.puttext;
+             (msg[]
+             ,'Use a (possibly variable) pattern or object'
+             ,AttributeDenotation[])->staticError
+          #)
+      if);
+      
+      (* see if a virtual ptn promises not to final bind this virtual object *)
+      (if Disown then
+          (scope.location).father[]->l2desc[];
+          (if l2desc.getVDecl=NONE then
+              ('Found disown marker `-\' on virtual obj. inside non-virtual'
+              ,'Disown markers can only be used inside a virtual'
+              ,AttributeDenotation[])->staticError
+          if)
+      if)
+   #)
+
+-- VirtualStaticItemGetType:dopart --
+do
+   (# stocp: ^staticOCP;
+      fail:
+        (# msg,description: ^text;
+        enter description[]
+        do 'Attempt to introduce a virtual object using '->msg[];
+           description.withIndefArticle->msg.puttext;
+           (msg[],'Use a pattern to introduce a virtual object'
+           ,AttributeDenotation[])->staticError
+        #);
+      aden_stype: ^staticType;
+      aden_sptype: ^staticPatternType;
+      l2fsit: ^l2FinalStaticItem
+   do 
+      (* search 'context' to see if there is a final binding *)
+      (if context##<=StaticOCP## then
+          context[]->stocp[];
+          this(l2VirtualStaticItem)[]
+            ->stocp.getFinalStaticItem
+            ->l2fsit[];
+          (if l2fsit[]<>NONE then
+              (* got it; use the final binding to get the type *)
+              context.resetFocus;
+              (context[],world[],usageAst[])
+                ->l2fsit.getStaticType
+                ->stype[]
+           else
+              (* no final binding is known statically; use
+               * the qualification of this virtual item *)
+              (context[],world[],usageAst[])
+                ->AttributeDenotation.getStaticType
+                ->aden_stype[];
+              (if aden_stype##<=staticPatternType## then
+                  aden_stype[]->aden_sptype[];
+               else
+                  aden_stype.typename->fail
+              if);
+              (* must be a pattern (could coerce an object type,
+               * but it seems that using an object would very often
+               * be an error, so we prohibit that entirely)
+               * !!! This seems to be inconsistent: coercion from
+               * object to pattern is generally supported; should
+               * we change that policy in other places, give a
+               * warning, or just add coercion support here, too?
+               *)
+              (if aden_sptype.kind<>patternTypeKind then
+                  aden_sptype.kind->typeKindName->fail
+              if);
+              (* now make it an object *)
+              (objectTypeKind,usageAst[])
+                ->aden_sptype.coerce
+                ->aden_sptype[];
+              (* TYPE_COERCION: 'aden_sptype' was a pattern, but the
+               * virtual object will of course be an object, and it
+               * might be an instance of a more specific pattern
+               * than the one which is known as 'aden_sptype', so we
+               * must remove staticallyKnown *)
+              aden_sptype.makeNotKnownStatically;
+              (* deliver *)
+              aden_sptype[]->stype[]
+          if)
+       else
+          'Virtual static item seems to live in a non-object'
+            ->internalError
+      if)
+   #)
+
+-- VirtualStaticItemInstantiate:dopart --
+do
+   (* !! performance alert: there must be a faster way to do this.. *)
+   (# defaultSolution:
+        (* there is no final bound; we might define this to be
+         * an error, but that would introduce some patterns (of 
+         * 'enclosing') which could not be instantiated; that 
+         * would be a _gross_ change in the language since _any_ 
+         * polymorphic object creation (e.g. an invocation of a
+         * virtual method) would potentially cause a 
+         * "non-instantiable pattern" run-time error *)
+        (# do (thrd[],unwind##,enclosing[],false,attr[])
+             ->AttributeDenotation.obtainObject
+             ->l1ent[]
+        #);
+      l2sdcl: ^l2SimpleDecl;
+      name: ^text
+   do 
+      father[]->l2sdcl[];
+      (l2sdcl.getTheNameDcl).value[]->name[];
+      
+      L: (if enclosing.pred[]<>NONE then
+             (* go out and search the final static item; use it if available *)
+             enclosing.pred.scanBackward
+             (# cur_oSlice: ^compositeObjectSlice;
+                cur_sdcl: ^l2SimpleDecl;
+                cur_rspc: ^l2ReferenceSpecification;
+                l2fsit: ^l2FinalStaticItem
+             do
+                (if current##<=compositeObjectSlice## then
+                    current[]->cur_oSlice[];
+                    (for inx:cur_oSlice.attrs.range repeat
+                         (* check the name *)
+                         (if (name[],cur_oSlice.attrs[inx].from[])
+                               ->nameEqual then
+                             (* name is right; check decl kind *)
+                             (if cur_oSlice.attrs[inx].from.decl.kind
+                                 = simpleDeclDeclKind then
+                                 cur_oSlice.attrs[inx].from.decl.location
+                                   ->cur_sdcl[];
+                                 cur_sdcl.ReferenceSpecification[]
+                                   ->cur_rspc[];
+                                 (if true 
+                                  // cur_rspc##<=l2VirtualStaticItem## then
+                                     (* new chain *)
+                                     defaultSolution;
+                                     (* done *)
+                                     leave L
+                                  // cur_rspc##<=l2FinalStaticItem## then
+                                     (* found it! *)
+                                     cur_rspc[]->l2fsit[];
+                                     (thrd[],unwind##,cur_oSlice[],false,attr[])
+                                       ->l2fsit.ObjectSpecifications
+                                        .obtainObject
+                                       ->l1ent[];
+                                     (* done *)
+                                     leave L
+                                  (* else: *)
+                                     (* another kind of simple decl; skip *)
+                                 if)
+                              (* else: *)
+                                 (* not simple decl, cannot be "::@"; skip *)
+                             if)
+                         if)
+                    for)
+                 (* else: *)
+                   (* not a composite o.slice; could not contain my "::@" *)
+                if);
+                (* never did 'leave L', so we never found final bound *)
+                defaultSolution
+             #)
+          else
+             (* no more slices: no place to find the final bound *)
+             defaultSolution
+         if)
+   #)
+   
+-- VirtualStaticItemInstantiateMany:dopart --
+do
+   (* Do we really want to support repetitions of virtual objects?  
+    * I do not think it is worth the trouble *)
+   (# msg: ^text
+   do 'ibetaTwoDcl2body.bet/177 '->msg[];
+      '(rep.s of virt. objects will probably not be supported)'->msg.puttext;
+      msg[]->notyet; (* !!! *)
+   #)
+
+-- VirtualStaticItemObtainPattern:dopart --
+do
+   (thrd[],unwind##,dContext[],NONE)
+     ->AttributeDenotation.obtainPattern
+     ->l1pat[]
+
+-- VirtualStaticItemGetInitCplr:dopart --
+do
+   (* as a very special thing, we have to put code for the 
+    * default case (no final) into ivitCode; ivitCode.execute will 
+    * then search for a final binding and use that or, if no final
+    * binding is available, it will execute its own defaultProgram *)
+   &exeCompiler
+   (# generate::
+        (# ivitCode: ^installVirtualItemCode;
+           (* ignore_sptype: ^staticPatternType *)
+        do ('ibetaTwoDcl2body.bet/330',l2adcl[],this(l2VirtualStaticItem)[])
+             ->(&installVirtualItemCode[]).init
+             ->ivitCode[];
+           (* 'check' will ensure that the aden denotes a pattern(ref), 
+            * so we can simply use generateGetObject to produce the 
+            * right semantics: get_pattern + NEW_ptn->obj *)
+           (context[],world[],usageAst[],ivitCode.defaultProgram[]
+           ,cInfo[],false,false)
+             ->AttributeDenotation.generateGetObject
+             (* ->ignore_sptype[] *);
+           ivitCode[]->program.append
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- VirtualStaticItemGetQualCplr:dopart --
+do
+   (* we do not have repetitions of virtual static items *)
+   'unexpected GetQualCplr for virtual static item'
+     ->internalError
+
+-- VirtualStaticItemGetRepInitCplr:dopart --
+do
+   (* we do not have repetitions of virtual static items *)
+   'unexpected GetRepInitCplr for virtual static item'
+     ->internalError
+
+(************************************************************ 
+ *                                                          * 
+ *                     l2FinalStaticItem                    * 
+ *                                                          * 
+ ************************************************************)
+
+-- FinalStaticItemInit:dopart --
+do
+   ObjectSpecifications.init
+   
+-- FinalStaticItemPrint:dopart --
+do
+   ': @'->output;
+   (if ObjectSpecifications.size=1 then
+       (dest[],indentation,false)->(ObjectSpecifications.head).elm.print
+    else
+       (dest[],indentation,false,true)->ObjectSpecifications.print
+   if)
+
+-- FinalStaticItemScanImpl:dopart --
+do
+   (preCB[],postCB[])->ObjectSpecifications.scanImpl
+
+-- FinalStaticItemCheck:dopart --
+do
+   (# stocp: ^staticOCP; (* locally known context of this final stat.item *)
+      stype: ^staticType; (* my type *)
+      otherStype: ^staticType; (* type specified inside my intro decl *)
+      l2sdecl: ^l2SimpleDecl; (* scratch ref to father of ..StaticItems *)
+      fndcl,vndcl: ^l2NameDcl; (* of the Final rsp. Virtual object decl *)
+      l2ast: ^l2AstNode; (* scratch *)
+      l2vsit: ^l2VirtualStaticItem (* My very own Introduction decl. *)
+   do
+      (* find the static type of RHS, that will cause some tests *)
+      (if context##<=staticOCP## then
+          context[]->stocp[]
+       else
+          'FinalStaticItem seems to live in non-object'
+            ->internalError
+      if);
+      (stocp[],world[],usageAst[])->getStaticType->stype[];
+      (if not (stype##<=staticPatternType##) then
+          (# msg,solution: ^text
+          do 'Attempt to final bind a virtual object to '->msg[];
+             (stype.typename).withIndefArticle->msg.puttext;
+             'Change the the declaration to denote a '->solution[];
+             '(possibly variable) object or pattern'->solution.puttext;
+             (msg[],solution[],this(l2FinalStaticItem)[])
+               ->staticError
+          #)
+      if);
+
+      (* find the virtual object introduction, ":< @" -
+       * this will cause a static error if none is found *)
+      getVirtualDecl->l2vsit[];
+      
+      (* check disownment *)
+      (if l2vsit.Disown then
+          (# v_desc,f_desc: ^l2ObjectDescriptor; (* enclosing 'l2vsit', "me" *)
+             v_vdcl,f_vdcl: ^l2VDecl; (* virtual enclosing 'l2vsit', "me" *)
+             idvdcl: ^l2VirtualDecl; (* ID of the disowning virtual *)
+          do (l2vsit.scope.location).father[]->v_desc[];
+             (if (v_desc.getVDecl->v_vdcl[])<>NONE then
+                 v_vdcl.getVirtualDecl->idvdcl[];
+                 (scope.location).father[]->f_desc[];
+                 (if (f_desc.getVDecl->f_vdcl[])<>NONE then
+                     (* both 'l2vsit' and "I" inside a virtual *)
+                     (if f_vdcl.getVirtualDecl=idvdcl[] then
+                         (# msg,solution: ^text 
+                         do &text[]->msg[];
+                            (msg[],0,false,verboseOutput)
+                              ->v_vdcl.printWithContextBase
+                            (# title::(# do 'DISOWNER'->value[] #)#);
+                            'Attempt to final bind a virtual object '
+                              ->msg.puttext;
+                            'inside\na virtual which has disowned (`-\') it.'
+                              ->msg.puttext;
+                            'Final binding of a disowned virtual object is '
+                              ->solution[];
+                            'only\npossible outside the disowning virtual'
+                              ->solution.puttext;
+                            (msg[],solution[]
+                            ,this(l2FinalStaticItem)[])->staticError
+                         #)
+                     if)
+                 if)
+              else
+                 (* this staticError is checked both in 'l2vsit' and here, 
+                  * because we do not know for sure which one of the 
+                  * two will be checked first, and we have to get hold 
+                  * of 'idvdcl' to check that disownment is respected *)
+                 ('Found disown marker `-\' on virtual obj. inside non-virtual'
+                 ,'Disown markers can only be used inside a virtual'
+                 ,this(l2FinalStaticItem)[])->staticError
+             if)
+          #)
+      if);
+      
+      (* check that the static type of chosen object is actually 
+       * guaranteed to be <= than what the intro decl promises *)
+      stocp.resetFocus;
+      (stocp[],world[],this(l2FinalStaticItem)[])
+        ->l2vsit.AttributeDenotation.getStaticType
+        ->otherStype[];
+      (if not (stype[]->otherStype.lessEqual) then
+          (# msg,solution: ^text
+          do '\n  ":<@" : '->msg[];
+             (msg[],10,false)->otherStype.print;
+             '\n  "::@" : '->msg.puttext;
+             (msg[],10,false)->stype.print;
+             '\n\nAttempt to final bind a virtual object with an entity '
+               ->msg.puttext;
+             '\nnot qualified by the required pattern.'->msg.puttext;
+             'Ensure that the pattern of "::@" is less than or equal'
+               ->solution[];
+             '\nto the pattern of ":<@"'->solution.puttext;
+             (msg[],solution[],this(l2FinalStaticItem)[])->staticError
+          #)
+      if)
+   #)
+   
+-- FinalStaticItemGetType:dopart --
+do
+   (# fail:
+        (# msg,description: ^text;
+        enter description[]
+        do 'Attempt to final bind a virtual object using '->msg[];
+           description.withIndefArticle->msg.puttext;
+           (msg[],'Use an object (ref) or a pattern (ref)'
+           ,this(l2FinalStaticItem)[])->staticError
+        #);
+      aden_stype: ^staticType;
+      aden_sptype: ^staticPatternType
+   do (context[],world[],usageAst[])
+        ->ObjectSpecifications.getStaticType
+        ->aden_stype[];
+      (if aden_stype##<=staticPatternType## then
+          aden_stype[]->aden_sptype[];
+       else
+          aden_stype.typename->fail
+      if);
+      (if aden_sptype.kind
+       // objectTypeKind then
+          (* OK *)
+       // objectRefTypeKind then
+          (objectTypeKind,usageAst[])
+            ->aden_sptype.coerce
+            ->aden_sptype[];
+          (* TYPE_COERCION: from object ref to object - OK
+           * the reason why we do not worry about the RefNONE potential
+           * here is that a refNONE check is inserted when the attribute
+           * is initialized (!!! check this again!) *)
+       // patternTypeKind // patternRefTypeKind then
+          (objectTypeKind,usageAst[])
+            ->aden_sptype.coerce
+            ->aden_sptype[];
+          (* TYPE_COERCION: 'aden_sptype' was a pattern, but the
+           * virtual object will of course be an object, and it
+           * might be an instance of a more specific pattern
+           * than the one which is known as 'aden_sptype', so we
+           * must remove staticallyKnown *)
+          aden_sptype.makeNotKnownStatically
+       else 
+          (* we only accept objects and objectRefs here 
+           * !! are we absolutely sure that we want to remove
+           * transparency in this, single, special case? *)
+          aden_sptype.typename->fail
+      if);
+      (* deliver *)
+      aden_sptype[]->stype[];
+   #)
+
+-- FinalStaticItemInstantiate:dopart --
+do
+   (thrd[],unwind##,enclosing[],false,attr[])
+     ->ObjectSpecifications.obtainObject
+     ->l1ent[]
+
+-- FinalStaticItemInstantiateMany:dopart --
+do
+   (* Do we really want to support repetitions of virtual objects?  
+    * I do not think it is worth the trouble *)
+   (# msg: ^text
+   do 'ibetaTwoDcl2body.bet/256'->msg[];
+      '(rep.s of virt. objects will probably not be supported)'->msg.puttext;
+      msg[]->notyet; (* !!! *)
+   #)
+
+-- FinalStaticItemObtainPattern:dopart --
+do
+   (thrd[],unwind##,dContext[],NONE)
+     ->ObjectSpecifications.obtainPattern
+     ->l1pat[]
+
+-- FinalStaticItemGetInitCplr:dopart --
+do
+   &exeCompiler
+   (# generate::
+        (# (*ignore_stocp: ^staticOCP *)
+        do (context[],world[],usageAst[],program[],cInfo[],false,false)
+             ->ObjectSpecifications.generateGetObject
+             (*->ignore_stocp[]*);
+           ('ibetaTwoDcl2body.bet/584',l2adcl[])
+             ->(&installObjectCode[]).init
+             ->program.append
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- FinalStaticItemGetQualCplr:dopart --
+do
+   (* we do not have repetitions of final static items *)
+   'unexpected GetQualCplr for final static item'
+     ->internalError
+
+-- FinalStaticItemGetRepInitCplr:dopart --
+do
+   (* we do not have repetitions of final static items *)
+   'unexpected GetRepInitCplr for final static item'
+     ->internalError
+
+(************************************************************* 
+ *                                                           * 
+ *                    l2AssignableRefSpec                    * 
+ *                                                           * 
+ *************************************************************)
+   
+-- AssignableRefSpecGetQuaType:dopart --
+do
+   (* just a hook *)
+   INNER
+
+(************************************************************* 
+ *                                                           * 
+ *                       l2DynamicItem                       * 
+ *                                                           * 
+ *************************************************************)
+
+-- DynamicItemPrint:dopart --
+do
+   ' ^'->output;
+   (dest[],indentation,false)->AttributeDenotation.print
+
+-- DynamicItemScanImpl:dopart --
+do
+   (preCB[],postCB[])->AttributeDenotation.scanImpl
+
+-- DynamicItemGetType:dopart --
+do
+   (# sptype: ^staticPatternType;
+      ignore_exact: @boolean (* we just use the syntactic marker Exact *)
+   do 
+      (context[],world[],usageAst[])
+        ->getStaticQuaType
+        ->(sptype[],ignore_exact);
+      (* 'sptype' now describes the pattern which is the qualification 
+       * of this dynamic item; coerce it into an objectRef type kind *)
+      (objectRefTypeKind,usageAst[])
+        ->sptype.coerce
+        ->sptype[];
+      (* TYPE_COERCION: 'sptype' may be statically known, but that 
+       * property must be removed unless this is an exact ("^=")
+       * dynamic item *)
+      (if not Exact then
+          (* this is an ordinary inexact dynamic item, "^", so the 
+           * referred object only known by upper bound *)
+          sptype.makeNotKnownStatically
+      if);
+      (* deliver *)
+      sptype[]->stype[]
+   #)
+
+-- DynamicItemGetQuaType:dopart --
+do
+   (# aden_stype: ^staticType
+   do (context[],world[],usageAst[])
+        ->AttributeDenotation.getStaticType
+        ->aden_stype[];
+      (if aden_stype## <= staticPatternType## then
+          aden_stype[]->qual[]
+       else
+          (# t: ^text
+          do 'Attempt to declare an object reference qualified by '->t[];
+             (aden_stype.typename).withIndefArticle->t.puttext;
+             (t[],'Use a pattern, object, or reference as qualification'
+             ,this(l2DynamicItem)[])->staticError
+          #)
+      if);
+      (* 'qual' now describes the right hand side of this declaration;
+       * coerce this into an pattern, describing the actual qualification *)
+      (if qual.kind<>patternTypeKind then
+          (patternTypeKind,usageAst[])
+            ->qual.coerce
+            ->qual[];
+          (* TYPE_COERCION: The right hand side is a non-pattern,
+           * and the qualification will be obtained from that
+           * entity; consider the cases:
+           * 
+           * object: the pattern of the object is used as the
+           *   qualification, but that pattern is already described
+           *   by the object sptype, so we need not adjust anything
+           *   apart from the type kind
+           * 
+           * objectRef: same as object (!! + possibly NONE-check)
+           * 
+           * patternRef: same as objectRef
+           * 
+           * pattern: impossible (if..)
+           *)
+      if);
+      (* deliver the exactness of this attribute *)
+      Exact->qualExact;
+      (* 'sptype'+'exact' now describes the qualification, and that 
+       * is the goal *)
+   #)
+
+-- DynamicItemInstantiate:dopart --
+do
+   (# l1pat: ^l1PatternEntity
+   do (thrd[],unwind##,enclosing[],attr[])
+        ->AttributeDenotation.obtainPattern
+        ->l1pat[];
+      (l1pat[],NONE,Exact)
+        ->(&l1ObjectRefEntity[]).init
+        ->l1ent[];
+      (if attr[]<>NONE then l1ent[]->attr.to[] if)
+   #)
+
+-- DynamicItemInstantiateMany:dopart --
+do
+   (for i:count repeat
+        ((l1pat[],NONE,Exact)->(&l1ObjectRefEntity[]).init->l1ent[],i)->cb
+   for)
+
+-- DynamicItemObtainPattern:dopart --
+do
+   (thrd[],unwind##,dContext[],NONE)
+     ->AttributeDenotation.obtainPattern
+     ->l1pat[]
+
+-- DynamicItemGetInitCplr:dopart --
+do
+   (# stype: ^staticType
+   do AttributeDenotation.localStaticType->stype[];
+      (if staticInstallQuaFlag 
+          and stype.knownStatically
+          and (stype.kind=patternTypeKind) then
+          &exeCompiler
+          (# generate::
+               (# do ('ibetaTwoDcl2body.bet/745',l2adcl[],Exact,stype[])
+                    ->(&installQuaStaticObjectCode[]).init
+                    ->program.append
+               #)
+          #)[]->ec[];
+          usageAst[]->ec.usageAst[]
+       else
+          &exeCompiler
+          (# generate::
+               (# (*ignore_sptype: ^staticPatternType*)
+               do (context[],world[],usageAst[],program[],cInfo[],false)
+                    ->AttributeDenotation.generateGetPattern
+                  (*->ignore_sptype[]*);
+                  ('ibetaTwoDeclbody.bet/85',l2adcl[],Exact)
+                    ->(&installQuaObjectCode[]).init
+                    ->program.append
+               #)
+          #)[]->ec[];
+          usageAst[]->ec.usageAst[]
+      if)
+   #)
+
+-- DynamicItemGetQualCplr:dopart --
+do
+   &exeCompiler
+   (# generate::
+        (# (* ignore_sptype: ^staticPatternType *)
+        do (context[],world[],usageAst[],program[],cInfo[],false)
+             ->AttributeDenotation.generateGetPattern
+           (* ->ignore_sptype[] *)
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- DynamicItemGetRepInitCplr:dopart --
+do
+   &exeCompiler
+   (# generate::
+        (# do ('ibetaTwoDcl2body.bet/609',l2rdcl[],Exact)
+             ->(&installDynamicItemRepCode[]).init
+             ->program.append
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+(************************************************************* 
+ *                                                           * 
+ *                     l2StaticComponent                     * 
+ *                                                           * 
+ *************************************************************)
+
+-- StaticComponentInit:dopart --
+do
+   ObjectSpecifications.init
+
+-- StaticComponentPrint:dopart --
+do
+   ' @|'->output;
+   (if ObjectSpecifications.size=1 then
+       (dest[],indentation,false)->(ObjectSpecifications.head).elm.print
+    else
+       (dest[],indentation,false,true)->ObjectSpecifications.print
+   if)
+
+-- StaticComponentScanImpl:dopart --
+do
+   (preCB[],postCB[])->ObjectSpecifications.scanImpl
+
+-- StaticComponentCheck:dopart --
+do
+   (* just check that the RHS has a well-defined type *)
+   ObjectSpecifications.localStaticType
+
+-- StaticComponentGetType:dopart --
+do
+   (# ospec_sptype: ^staticPatternType;
+      sptype: ^staticPatternType
+   do (context[],world[],usageAst[])
+        ->ObjectSpecifications.getStaticType
+        ->ospec_sptype[];
+      (* we need a pattern (because "|" is merging); we copy in all 
+       * cases, because we need to change the type below *)
+      (if ospec_sptype.kind
+       // patternTypeKind // patternRefTypeKind then
+          ospec_sptype.copy->sptype[]
+       // objectTypeKind // objectRefTypeKind then
+          (patternTypeKind,usageAst[])
+            ->ospec_sptype.coerce
+            ->sptype[];
+          (* TYPE_COERCION: taking the pattern of an object(ref) - OK
+           * !! we might want to remember that the objectRef case 
+           * causes a potential RefNONE *)
+       else 
+          'Unexpected kind of obj.spec. in StaticComponentGetType'
+            ->internalError
+      if);
+      (* merge a "component" slice as the first one, if needed *)
+      sptype.prefixWithComponent;
+      (* this static component denotes an object, so make sptype do so, too *)
+      (objectTypeKind,usageAst[])
+        ->sptype.coerce
+        ->stype[];
+      (* TYPE_COERCION: we create an object (during attribute init) 
+       * corresponding to the pattern we described before, and that
+       * object will have exactly that pattern; so we only need to
+       * adjust the type kind *)
+   #)
+
+-- StaticComponentInstantiate:dopart --
+do
+   (* since the "|" is type merge, the ObjectSpecifications 
+    * occur in a pattern context, so we must always get the 
+    * pattern; in other words, this decl. is not an alias *)
+   (# l1pat: ^l1PatternEntity
+   do (thrd[],unwind##,enclosing[],NONE)
+        ->ObjectSpecifications.obtainPattern
+        ->l1pat[];
+      l1pat.ensureComponent;
+      (thrd[],unwind##,attr[])
+        ->l1pat.instantiate
+        ->l1ent[]
+   #)
+
+-- StaticComponentInstantiateMany:dopart --
+do
+   (for i:count repeat 
+        ((thrd[],unwind##,NONE)->l1pat.instantiate->l1ent[],i)->cb
+   for)
+
+-- StaticComponentObtainPattern:dopart --
+do
+   (thrd[],unwind##,dContext[],NONE)
+     ->ObjectSpecifications.obtainPattern
+     ->l1pat[];
+   l1pat.ensureComponent
+
+-- StaticComponentGetInitCplr:dopart --
+do   
+   (# stype: ^staticType;
+      sptype: ^staticPatternType
+   do ObjectSpecifications.localStaticType->stype[];
+      (if staticInstallObjectFlag
+          and stype.knownStatically
+          and (stype.kind=patternTypeKind) then
+          stype[]->sptype[];
+          (* make sure sptype is <= component *)
+          (if not sptype.isComponent then
+              sptype.copy->sptype[];
+              sptype.prefixWithComponent
+          if);
+          &exeCompiler
+          (# generate::
+               (# do ('ibetaTwoDcl2body.bet/898',l2adcl[],sptype[])
+                    ->(&installStaticObjectCode[]).init
+                    ->program.append
+               #)
+          #)[]->ec[];
+          usageAst[]->ec.usageAst[]
+       else
+          &exeCompiler
+          (# generate::
+               (# (*ignore_sptype: ^staticOCP *)
+               do (context[],world[],usageAst[],program[],cInfo[],false)
+                    ->ObjectSpecifications.generateGetPattern
+                  (*->ignore_sptype[]*);
+                  'ibetaTwoDcl2body.bet/910'
+                    ->(&ensureComponentCode[]).init
+                    ->program.append;           
+                  'ibetaTwoDcl2body.bet/913'
+                    ->(&createObjectCode[]).init
+                    ->program.append;
+                  ('ibetaTwoDcl2body.bet/916',l2adcl[])
+                    ->(&installObjectCode[]).init
+                    ->program.append
+               #)
+          #)[]->ec[];
+          usageAst[]->ec.usageAst[]
+      if)
+   #)
+
+-- StaticComponentGetQualCplr:dopart --
+do
+   &exeCompiler
+   (# generate::
+        (# sptype: ^staticPatternType
+        do (context[],world[],usageAst[],program[],cInfo[],false)
+             ->ObjectSpecifications.generateGetPattern
+             ->sptype[];
+           (if not 
+               (sptype[]
+                 ->predefinedSyntax.predefinedNames.private.componentSType
+                   .lessEqual) then
+               'ibetaTwoDcl2body.bet/718'
+                 ->(&ensureComponentCode[]).init
+                 ->program.append;
+           if)
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- StaticComponentGetRepInitCplr:dopart --
+do
+   &exeCompiler
+   (# generate::
+        (# do ('ibetaTwoDcl2body.bet/739',l2rdcl[])
+             ->(&installStaticComponentRepCode[]).init
+             ->program.append
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+(************************************************************ 
+ *                                                          * 
+ *                    l2DynamicComponent                    * 
+ *                                                          * 
+ ************************************************************)
+
+-- DynamicComponentPrint:dopart --
+do
+   ' ^|'->output;
+   (dest[],indentation,false)->AttributeDenotation.print
+
+-- DynamicComponentScanImpl:dopart --
+do
+   (preCB[],postCB[])->AttributeDenotation.scanImpl
+
+-- DynamicComponentGetType:dopart --
+do
+   (# sptype: ^staticPatternType;
+      ignore_exact: @boolean (* we just use the syntactic marker Exact *)
+   do 
+      (context[],world[],usageAst[])
+        ->getStaticQuaType
+        ->(sptype[],ignore_exact);
+      (* 'sptype' now describes the pattern which is the qualification 
+       * of this dynamic component; coerce it into an objectRef type kind *)
+      (objectRefTypeKind,usageAst[])
+        ->sptype.coerce
+        ->sptype[];
+      (* TYPE_COERCION: 'sptype' may be statically known, but that
+       * property must be removed unless this is an exact ("|^=")
+       * dynamic component *)
+      (if not this(l2DynamicComponent).Exact then
+          (* this is an ordinary inexact dynamic component, "|^", 
+           * so the referred object only known by upper bound *)
+          sptype.makeNotKnownStatically
+      if);
+      (* report the exactness of this attribute *)
+      this(l2DynamicComponent).Exact->exact;
+      (* deliver *)
+      sptype[]->stype[]
+   #)
+
+-- DynamicComponentGetQuaType:dopart --
+do
+   (# aden_stype: ^staticType
+   do (context[],world[],usageAst[])
+        ->AttributeDenotation.getStaticType
+        ->aden_stype[];
+      (if aden_stype## <= staticPatternType## then
+          aden_stype[]->qual[];
+       else
+          (# t: ^text
+          do 'Attempt to declare a component reference qualified by '->t[];
+             (aden_stype.typename).withIndefArticle->t.puttext;
+             (t[],'Use a pattern, object, or reference as qualification'
+             ,this(l2DynamicComponent)[])->staticError
+          #)
+      if);
+      (* 'qual' now describes the right hand side of this declaration;
+       * coerce this into a pattern, describing the actual qualification *)
+      (if qual.kind<>patternTypeKind then
+          (patternTypeKind,usageAst[])
+            ->qual.coerce
+            ->qual[];
+          (* TYPE_COERCION: The right hand side is a non-pattern,
+           * and the qualification will be obtained from that
+           * entity; consider the cases:
+           * 
+           * object: the pattern of the object is used as the
+           *   qualification, but that pattern is already described
+           *   by the object sptype, so we need not adjust anything
+           *   apart from the type kind
+           * 
+           * objectRef: same as object (!! + possibly a NONE-check)
+           * 
+           * patternRef: same as objectRef
+           * 
+           * pattern: impossible (if..)
+           *)
+          (* merge a "component" slice as the first one, if needed *)
+          (if not qual.isComponent then
+              (* this is probably going to be the case almost always,
+               * since it is redundant to use "|^" if the right hand
+               * side is already a component anyway; !! so we might get
+               * better performance by skipping the test and just do this;
+               * NB: no need to copy qual here since we just did 'coerce' *)
+              qual.prefixWithComponent
+          if)
+       else
+          (* merge a "component" slice as the first one, if needed *)
+          (if not qual.isComponent then
+              (* same consideration as above: !! perhaps remove test *)
+              qual.copy->qual[]; (* no coerce, so copy needed now *)
+              qual.prefixWithComponent
+          if)
+      if);
+      (* deliver the exactness of this attribute *)
+      Exact->qualExact;
+      (* 'sptype' now describes the qualification, and that 
+       * is the goal *)
+   #)
+
+-- DynamicComponentInstantiate:dopart --
+do
+   (# l1pat: ^l1PatternEntity
+   do (thrd[],unwind##,enclosing[],attr[])
+        ->AttributeDenotation.obtainPattern
+        ->l1pat[];
+      l1pat.ensureComponent;
+      (l1pat[],NONE,Exact)
+        ->(&l1ObjectRefEntity[]).init
+        ->l1ent[];
+      (if attr[]<>NONE then l1ent[]->attr.to[] if)
+   #)
+
+-- DynamicComponentInstantiateMany:dopart --
+do
+   (for i:count repeat
+        ((l1pat[],NONE,Exact)->(&l1ObjectRefEntity[]).init->l1ent[],i)->cb
+   for)
+
+-- DynamicComponentObtainPattern:dopart --
+do
+   (thrd[],unwind##,dContext[],NONE)
+     ->AttributeDenotation.obtainPattern
+     ->l1pat[];
+   l1pat.ensureComponent
+
+-- DynamicComponentGetInitCplr:dopart --
+do
+   (# stype: ^staticType;
+      sptype: ^staticPatternType
+   do AttributeDenotation.localStaticType->stype[];
+      (if staticInstallQuaFlag
+          and stype.knownStatically
+          and (stype.kind=patternTypeKind) then
+          stype[]->sptype[];
+          (* make sure sptype is <= component *)
+          (if not sptype.isComponent then
+              sptype.copy->sptype[];
+              sptype.prefixWithComponent
+          if);
+          &exeCompiler
+          (# generate::
+               (# do ('ibetaTwoDcl2body.bet/1103',l2adcl[],Exact,sptype[])
+                    ->(&installQuaStaticObjectCode[]).init
+                    ->program.append
+               #)
+          #)[]->ec[];
+          usageAst[]->ec.usageAst[]
+       else
+          &exeCompiler
+          (# generate::
+               (# sptype: ^staticPatternType
+               do (context[],world[],usageAst[],program[],cInfo[],false)
+                    ->AttributeDenotation.generateGetPattern
+                    ->sptype[];
+                  (if not 
+                      (sptype[]
+                        ->predefinedSyntax.predefinedNames.private
+                         .componentSType.lessEqual) then
+                      'ibetaTwoDcl2body.bet/1119'
+                        ->(&ensureComponentCode[]).init
+                        ->program.append;
+                  if);
+                  ('ibetaTwoDcl2body.bet/1123',l2adcl[],Exact)
+                    ->(&installQuaObjectCode[]).init
+                    ->program.append
+               #)
+          #)[]->ec[];
+          usageAst[]->ec.usageAst[]
+      if)
+   #)
+
+-- DynamicComponentGetQualCplr:dopart --
+do
+   &exeCompiler
+   (# generate::
+        (# sptype: ^staticPatternType
+        do (context[],world[],usageAst[],program[],cInfo[],false)
+             ->AttributeDenotation.generateGetPattern
+             ->sptype[];
+           (if not 
+               (sptype[]
+                 ->predefinedSyntax.predefinedNames.private.componentSType
+                   .lessEqual) then
+               'ibetaTwoDcl2body.bet/837'
+                 ->(&ensureComponentCode[]).init
+                 ->program.append;
+           if)
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- DynamicComponentGetRepInitCplr:dopart --
+do
+   &exeCompiler
+   (# generate::
+        (# do ('ibetaTwoDcl2body.bet/860',l2rdcl[],Exact)
+             ->(&installDynamicComponentRepCode[]).init
+             ->program.append
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+(************************************************************* 
+ *                                                           * 
+ *                     l2VariablePattern                     * 
+ *                                                           * 
+ *************************************************************)
+
+-- VariablePatternPrint:dopart --
+do
+   ' ##'->output;
+   (dest[],indentation,false)->AttributeDenotation.print
+
+-- VariablePatternScanImpl:dopart --
+do
+   (preCB[],postCB[])->AttributeDenotation.scanImpl
+
+-- VariablePatternGetType:dopart --
+do
+   (# sptype: ^staticPatternType;
+      ignore_exact: @boolean (* false, anyway *)
+   do (context[],world[],usageAst[])
+        ->getStaticQuaType
+        ->(sptype[],ignore_exact);
+      (* 'sptype' now describes the pattern which is the qualification
+       * of this variable pattern; coerce it into an patternRef type kind *)
+      (patternRefTypeKind,usageAst[])
+        ->sptype.coerce
+        ->sptype[];
+      (* TYPE_COERCION: 'sptype' may be statically known, but that
+       * property must be removed *)
+      sptype.makeNotKnownStatically;
+      (* deliver *)
+      sptype[]->stype[]
+   #)
+
+-- VariablePatternGetQuaType:dopart --
+do
+   (# aden_stype: ^staticType
+   do (context[],world[],usageAst[])
+        ->AttributeDenotation.getStaticType
+        ->aden_stype[];
+      (if aden_stype## <= staticPatternType## then
+          aden_stype[]->qual[];
+       else
+          (# t: ^text
+          do 'Attempt to declare a variable pattern qualified by '->t[];
+             (aden_stype.typename).withIndefArticle->t.puttext;
+             (t[],'Use a pattern, object, or reference as qualification'
+             ,this(l2VariablePattern)[])->staticError
+          #)
+      if);
+      (* 'qual' now describes the right hand side of this declaration;
+       * coerce this into a pattern-type, describing the actual
+       * qualification *)
+      (if qual.kind<>patternTypeKind then
+          (patternTypeKind,usageAst[])
+            ->qual.coerce
+            ->qual[];
+          (* TYPE_COERCION: The right hand side is a non-pattern,
+           * and the qualification will be obtained from that
+           * entity; consider the cases:
+           * 
+           * object: the pattern of the object is used as the
+           *   qualification, but that pattern is already described
+           *   by the non-pattern sptype, so we need not adjust
+           *   anything apart from the type kind
+           * 
+           * objectRef: same as object (+ possibly a NONE-warning)
+           * 
+           * patternRef: same as objectRef
+           * 
+           * pattern: impossible (if..)
+           *)
+      if);
+      (* a variable pattern is never exact (would be useless) *)
+      false->qualExact;
+      (* 'sptype' now describes the qualification, and that
+       * is the goal *)
+   #)
+
+-- VariablePatternInstantiate:dopart --
+do
+   (# l1pat: ^l1PatternEntity
+   do (thrd[],unwind##,enclosing[],attr[])
+        ->AttributeDenotation.obtainPattern
+        ->l1pat[];
+      (l1pat[],NONE)
+        ->(&l1PatternRefEntity[]).init
+        ->l1ent[];
+      (if attr[]<>NONE then l1ent[]->attr.to[] if)
+   #)
+
+-- VariablePatternInstantiateMany:dopart --
+do
+   (for i:count repeat
+        ((l1pat[],NONE)->(&l1PatternRefEntity[]).init->l1ent[],i)->cb
+   for)
+
+-- VariablePatternObtainPattern:dopart --
+do
+   (thrd[],unwind##,dContext[],NONE)
+     ->AttributeDenotation.obtainPattern
+     ->l1pat[]
+
+-- VariablePatternGetInitCplr:dopart --
+do
+   (# stype: ^staticType
+   do AttributeDenotation.localStaticType->stype[];
+      (if staticInstallQuaFlag
+          and stype.knownStatically
+          and (stype.kind=patternTypeKind) then
+          &exeCompiler
+          (# generate::
+               (# do ('ibetaTwoDcl2body.bet/1272',l2adcl[],stype[])
+                    ->(&installQuaStaticPatternCode[]).init
+                    ->program.append
+               #)
+          #)[]->ec[];
+          usageAst[]->ec.usageAst[]
+       else
+          &exeCompiler
+          (# generate::
+               (# (*ignore_sptype: ^staticPatternType*)
+               do (context[],world[],usageAst[],program[],cInfo[],false)
+                    ->AttributeDenotation.generateGetPattern
+                  (*->ignore_sptype[]*);
+                  ('ibetaTwoDcl2body.bet/1284',l2adcl[])
+                    ->(&installQuaPatternCode[]).init
+                    ->program.append
+               #)
+          #)[]->ec[];
+          usageAst[]->ec.usageAst[]
+      if)
+   #)
+
+-- VariablePatternGetQualCplr:dopart --
+do
+   &exeCompiler
+   (# generate::
+        (# sptype: ^staticPatternType
+        do (context[],world[],usageAst[],program[],cInfo[],false)
+             ->AttributeDenotation.generateGetPattern
+             ->sptype[]
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- VariablePatternGetRepInitCplr:dopart --
+do
+   &exeCompiler
+   (# generate::
+        (# do ('ibetaTwoDcl2body.bet/966',l2rdcl[])
+             ->(&installVariablePatternRepCode[]).init
+             ->program.append
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+(************************************************************ 
+ *                                                          * 
+ *                 l2ReferenceSpecification                 *
+ *                                                          * 
+ ************************************************************)
+
+-- ReferenceSpecificationGetType:dopart --
+do
+   (* NB: The following "optimization" was commented out because
+    * it is not correct: it will create too complicated paths,
+    * such as {"a",<-2,"string"} in 028.gb where {<-1} had been
+    * more appropriate.
+    * 
+    * L: (if stype_cache[]<>NONE then 
+    *           (if not stype_cache.knownStatically then 
+    *               {* use general algorithm *}
+    *               INNER
+    *            else
+    *               {* type is stat-known, take local type and adjust *}
+    *               (# path: @runtimePath
+    *               do (NONE,NONE,context.getInitialSyntax)->path.init;
+    *                  stype_cache.copy->stype[];
+    *                  (path[],scope.location)->context.assignPathToAst;
+    *                  path[]->stype.adjustPaths
+    *               #)
+    *           if)
+    *        else
+    *           {* no local type computed as yet, use general algorithm *}
+    *           INNER
+    *       if);
+    *)
+   
+   (* consistency check *)
+   (* (if context.getSyntax<>scope.location then
+    *     (if scope.location->context.setFocus then
+    *         {* !! OK, inconsistency repaired; consider printing a warning *}
+    *      else
+    *         {* Since this is a very important consistency 
+    *          * check we provide some information before
+    *          * stopping with an error message *}
+    *         (# line: (# do newline; (for 60 repeat '%'->put for)#);
+    *            msg: ^text
+    *         do line;
+    *            ('getStatictype of',0)->this(l2ReferenceSpecification).observe;
+    *            ('        Location',0)->(scope.location).observe;
+    *            ('         Context',0)->context.observe;
+    *            line;
+    *            'Inconsistency between "context" and analyzed syntax'
+    *              ->internalError;
+    *         #)
+    *     if)
+    * if);
+    *)
+   INNER;
+   (*test-obs ('getStaticType of','s')->observe; *)
+   (*test-obs ('','s')->stype.observe; *)
+
+-- ReferenceSpecificationGetInitCplr:dopart --
+do
+   (* just a hook for observation etc. *)
+   (*check context[]->checkContext; *)
+   INNER
+
+-- ReferenceSpecificationGetQualCplr:dopart --
+do
+   (* just a hook for observation etc. *)
+   (*check context[]->checkContext; *)
+   INNER
+   
+-- ReferenceSpecificationGetRepInitCplr:dopart --
+do
+   (* just a hook for observation etc. *)
+   (*check context[]->checkContext; *)
+   INNER
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

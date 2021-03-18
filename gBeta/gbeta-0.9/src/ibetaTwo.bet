@@ -1,0 +1,2474 @@
+(* FILE "./ibetaTwo.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaTwo.bet,v 1.112 2001/07/01 21:44:10 eernst Exp $
+ *)
+
+ORIGIN 'ibetaCommon';
+BODY 'private/ibetaTwobody'
+
+-- InterpreterBaseLib:attributes --
+
+(************************************************************
+ *                                                          *
+ *              Level Two - syntactic entities              *
+ *                                                          *
+ *  For nodes marked as "children" dynamic references are   *
+ *  never NONE unless their name ends in "Opt" (optional);  *
+ *  in that case, NONE means "not present".                 *
+ *                                                          *
+ ************************************************************)
+
+l2AttributesForm: l2AstNode
+  (# <<SLOT AttributesFormLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     Attributes: @l2AttributeDeclList;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'AttributesForm'->value[] #);
+     shortTypename::(# do 'AForm'->value[] #);
+     init::(# do Attributes.init; theScopeNode.init #);
+     print::(# <<SLOT AttributesFormPrint:dopart>> #);
+     scanImpl::(# <<SLOT AttributesFormScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     getScopeNode::(# do theScopeNode[]->sn[] #);
+
+     theScopeNode: @scopeNode
+       (# kind::(# do attributesFormScopeKind->value #);
+          getInitialContext::(# <<SLOT AttributesFormGetIC:dopart>> #);
+          findNameDcl::(# <<SLOT AttributesFormScopeFind:dopart>> #);
+          location::(# do this(l2AttributesForm)[]->l2ast[] #)
+       #)
+  #);
+
+l2Remote: l2AttributeDenotation
+  (# <<SLOT RemoteLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     AttributeDenotation: ^l2AttributeDenotation;
+     NameApl: ^l2NameApl;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'Remote'->value[] #);
+     shortTypename::(# do 'Rem'->value[] #);
+     print::(# <<SLOT RemotePrint:dopart>> #);
+     scanImpl::(# <<SLOT RemoteScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     bindNames::(# <<SLOT RemoteBindNames:dopart>> #);
+     getStaticType::(# <<SLOT RemoteGetType:dopart>> #);
+     getStaticQuaType::(# <<SLOT RemoteGetQuaType:dopart>> #);
+     localStaticType::localStaticTypeG(# <<SLOT RemoteLocalType:dopart>> #);
+     getStaticSubstance::(# <<SLOT RemoteGetSub:dopart>> #);
+     staticWalkToDecl::(# <<SLOT RemoteStaticWalkToDecl:dopart>> #);
+     staticVisitToDecl::(# <<SLOT RemoteStaticVisitToDecl:dopart>> #);
+     observeSemAtt::(# <<SLOT RemoteObserveSemAtt:dopart>> #);
+
+     (* ----- Compilation ----- *)
+
+     getCompiler::(# <<SLOT RemoteGetCplr:dopart>> #);
+     getEnterCompiler::(# <<SLOT RemoteGetEnterCplr:dopart>> #);
+     getExitCompiler::(# <<SLOT RemoteGetExitCplr:dopart>> #);
+     getEnterExitCompiler::(# <<SLOT RemoteGetEnterExitCplr:dopart>> #);
+     generateGetPattern::(# <<SLOT RemoteGenGetPattern:dopart>> #);
+     generateGetQualification::(# <<SLOT RemoteGenGetQua:dopart>> #);
+     generateGetObject::(# <<SLOT RemoteGenGetObject:dopart>> #);
+     generateGetTmpObject::(# <<SLOT RemoteGenGetTmp:dopart>> #);
+     generatePutPattern::(# <<SLOT RemoteGenPutPattern:dopart>> #);
+     generatePutObject::(# <<SLOT RemoteGenPutObject:dopart>> #);
+     isDirectlyAccessible::(# <<SLOT RemoteAccessible:dopart>> #);
+     existingAccessible::(# <<SLOT RemoteExistAccess:dopart>> #);
+
+     (* ----- Execution ----- *)
+
+     lookup::(# <<SLOT RemoteLookup:dopart>> #);
+     lookupAttr::(# <<SLOT RemoteLookupAttr:dopart>> #)
+  #);
+
+l2ComputedRemote: l2AttributeDenotation
+  (# <<SLOT ComputedRemoteLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     Evaluations: @l2EvaluationList;
+     NameApl: ^l2NameApl;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'ComputedRemote'->value[] #);
+     shortTypename::(# do 'CRem'->value[] #);
+     init::(# do Evaluations.init #);
+     print::(# <<SLOT ComputedRemotePrint:dopart>> #);
+     scanImpl::(# <<SLOT ComputedRemoteScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     bindNames::(# <<SLOT ComputedRemoteBindNames:dopart>> #);
+     getStaticType::(# <<SLOT ComputedRemoteGetType:dopart>> #);
+     getStaticQuaType::(# <<SLOT ComputedRemoteGetQuaType:dopart>> #);
+     localStaticType::
+       localStaticTypeG(# <<SLOT ComputedRemoteLocalType:dopart>> #);
+     getStaticSubstance::(# <<SLOT ComputedRemoteGetSub:dopart>> #);
+     staticWalkToDecl::(# <<SLOT ComputedRemoteStaticWalkToDecl:dopart>> #);
+     staticVisitToDecl::(# <<SLOT ComputedRemoteStaticVisitToDecl:dopart>> #);
+     observeSemAtt::(# <<SLOT ComputedRemoteObserveSemAtt:dopart>> #);
+
+     (* ----- Compilation ----- *)
+
+     getCompiler::(# <<SLOT ComputedRemoteGetCplr:dopart>> #);
+     getEnterCompiler::(# <<SLOT ComputedRemoteGetEnterCplr:dopart>> #);
+     getExitCompiler::(# <<SLOT ComputedRemoteGetExitCplr:dopart>> #);
+     getEnterExitCompiler::(#<<SLOT ComputedRemoteGetEnterExitCplr:dopart>>#);
+     generateGetPattern::(# <<SLOT ComputedRemoteGenGetPattern:dopart>> #);
+     generateGetQualification::(# <<SLOT ComputedRemoteGenGetQua:dopart>> #);
+     generateGetObject::(# <<SLOT ComputedRemoteGenGetObject:dopart>> #);
+     generateGetTmpObject::(# <<SLOT ComputedRemoteGenGetTmp:dopart>> #);
+     generatePutPattern::(# <<SLOT ComputedRemoteGenPutPattern:dopart>> #);
+     generatePutObject::(# <<SLOT ComputedRemoteGenPutObject:dopart>> #);
+     isDirectlyAccessible::(# <<SLOT ComputedRemoteAccessible:dopart>> #);
+     existingAccessible::(# <<SLOT ComputedRemoteExistAccess:dopart>> #);
+
+     (* ----- Execution ----- *)
+
+     lookup::(# <<SLOT ComputedRemoteLookup:dopart>> #);
+     lookupAttr::(# <<SLOT ComputedRemoteLookupAttr:dopart>> #)
+  #);
+
+l2Indexed: l2AttributeDenotation
+  (# <<SLOT IndexedLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     AttributeDenotation: ^l2AttributeDenotation;
+     Evaluation: ^l2Evaluation;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'Indexed'->value[] #);
+     shortTypename::(# do 'Ixd'->value[] #);
+     print::(# <<SLOT IndexedPrint:dopart>> #);
+     scanImpl::(# <<SLOT IndexedScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     check::(# <<SLOT IndexedCheck:dopart>> #);
+     bindNames::(# <<SLOT IndexedBindNames:dopart>> #);
+     getStaticType::(# <<SLOT IndexedGetType:dopart>> #);
+     getStaticQuaType::(# <<SLOT IndexedGetQuaType:dopart>> #);
+     localStaticType::localStaticTypeG;
+     getStaticSubstance::(# <<SLOT IndexedGetSub:dopart>> #);
+     staticWalkToDecl::(# <<SLOT IndexedStaticWalkToDecl:dopart>> #);
+     staticVisitToDecl::(# <<SLOT IndexedStaticVisitToDecl:dopart>> #);
+
+     stype: ^staticType;
+
+     (* ----- Compilation ----- *)
+
+     getCompiler::(# <<SLOT IndexedGetCplr:dopart>> #);
+     getEnterCompiler::(# <<SLOT IndexedGetEnterCplr:dopart>> #);
+     getExitCompiler::(# <<SLOT IndexedGetExitCplr:dopart>> #);
+     getEnterExitCompiler::(# <<SLOT IndexedGetEnterExitCplr:dopart>> #);
+     generateGetPattern::(# <<SLOT IndexedGenGetPattern:dopart>> #);
+     generateGetQualification::(# <<SLOT IndexedGenGetQua:dopart>> #);
+     generateGetObject::(# <<SLOT IndexedGenGetObject:dopart>> #);
+     generateGetTmpObject::(# <<SLOT IndexedGenGetTmp:dopart>> #);
+     generatePutPattern::(# <<SLOT IndexedGenPutPattern:dopart>> #);
+     generatePutObject::(# <<SLOT IndexedGenPutObject:dopart>> #);
+     isDirectlyAccessible::(# <<SLOT IndexedAccessible:dopart>> #);
+     existingAccessible::(# <<SLOT IndexedExistAccess:dopart>> #);
+
+     (* ----- Execution ----- *)
+
+     lookup::(# <<SLOT IndexedLookup:dopart>> #);
+     lookupAttr::(# <<SLOT IndexedLookupAttr:dopart>> #)
+  #);
+
+l2ThisObject: l2AttributeDenotation
+  (# <<SLOT ThisObjectLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     NameAplOpt: ^l2NameApl;
+     CountOpt: @integer;
+
+     (* There may be a name apl or an integer or no specification
+      * with an l2ThisObject.  It is determined like this:
+      *
+      *   NameAplOpt   UsesCount    |    Spec Used
+      *  ---------------------------|--------------
+      *      NONE        false      |      No spec
+      *      NONE        true       |     CountOpt
+      *    not-NONE      false      |   NameAplOpt
+      *
+      * Other combinations are not expected and would be a bug.
+      * So the right way to find the spec is as follows:
+      *
+      *    (if NameAplOpt[]<>NONE then
+      *        ...<spec is a name>...
+      *     else
+      *        (if UsesCount then
+      *            ...<spec is a number>...
+      *         else
+      *            ...<no spec available>...
+      *        if)
+      *    if)
+      *)
+     UsesCount: @boolean;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'ThisObject'->value[] #);
+     shortTypename::(# do 'Ths'->value[] #);
+     init::(# <<SLOT ThisObjectInit:dopart>> #);
+     print::(# <<SLOT ThisObjectPrint:dopart>> #);
+     scanImpl::(# <<SLOT ThisObjectScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     bindNames::(# <<SLOT ThisObjectBindNames:dopart>> #);
+     getStaticType::(# <<SLOT ThisObjectGetType:dopart>> #);
+     getStaticQuaType::(# <<SLOT ThisObjectGetQuaType:dopart>> #);
+     localStaticType::localStaticTypeG;
+     getStaticSubstance::(# <<SLOT ThisObjectGetSub:dopart>> #);
+     staticWalkToDecl::(# <<SLOT ThisObjectStaticWalkToDecl:dopart>> #);
+     staticVisitToDecl::(# <<SLOT ThisObjectStaticVisitToDecl:dopart>> #);
+     observeSemAtt::(# <<SLOT ThisObjectObserveSemAtt:dopart>> #);
+
+     rtp: @runtimePath;                 (* Where is "this" object? *)
+
+     (* ----- Compilation ----- *)
+
+     getCompiler::(# <<SLOT ThisObjectGetCplr:dopart>> #);
+     getEnterCompiler::(# <<SLOT ThisObjectGetEnterCplr:dopart>> #);
+     getExitCompiler::(# <<SLOT ThisObjectGetExitCplr:dopart>> #);
+     getEnterExitCompiler::(# <<SLOT ThisObjectGetEnterExitCplr:dopart>> #);
+     generateGetPattern::(# <<SLOT ThisObjectGenGetPattern:dopart>> #);
+     generateGetQualification::(# <<SLOT ThisObjectGenGetQua:dopart>> #);
+     generateGetObject::(# <<SLOT ThisObjectGenGetObject:dopart>> #);
+     generateGetTmpObject::(# <<SLOT ThisObjectGenGetTmp:dopart>> #);
+     generatePutPattern::(# <<SLOT ThisObjectGenPutPattern:dopart>> #);
+     generatePutObject::(# <<SLOT ThisObjectGenPutObject:dopart>> #);
+     isDirectlyAccessible::(# <<SLOT ThisObjectAccessible:dopart>> #);
+     existingAccessible::(# <<SLOT ThisObjectExistAccess:dopart>> #);
+
+     (* ----- Execution ----- *)
+
+     lookup::(# <<SLOT ThisObjectLookup:dopart>> #);
+     lookupAttr::(# <<SLOT ThisObjectLookupAttr:dopart>> #)
+  #);
+
+l2QualifiedAttrDen: l2AttributeDenotation
+  (# <<SLOT QualifiedAttrDenLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     AttributeDenotation: ^l2AttributeDenotation;
+     Merge: @l2ObjectSpecificationList;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'QualifiedAttrDen'->value[] #);
+     shortTypename::(# do 'Quad'->value[] #);
+     init::(# do Merge.init #);
+     print::(# <<SLOT QualifiedAttrDenPrint:dopart>> #);
+     scanImpl::(# <<SLOT QualifiedAttrDenScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     check::(# <<SLOT QualifiedAttrDenCheck:dopart>> #);
+     getStaticType::(# <<SLOT QualifiedAttrDenGetType:dopart>> #);
+     getStaticQuaType::(# <<SLOT QualifiedAttrDenGetQuaType:dopart>> #);
+     localStaticType::localStaticTypeG;
+     getStaticSubstance::(# <<SLOT QualifiedAttrDenGetSub:dopart>> #);
+     staticWalkToDecl::(# <<SLOT QualifiedAttrDenStaticWalkToDecl:dopart>> #);
+     staticVisitToDecl::(#<<SLOT QualifiedAttrDenStaticVisitToDecl:dopart>>#);
+
+     (* ----- Compilation ----- *)
+
+     getCompiler::
+       (# <<SLOT QualifiedAttrDenGetCplr:dopart>> #);
+     getEnterCompiler::
+       (# <<SLOT QualifiedAttrDenGetEnterCplr:dopart>> #);
+     getExitCompiler::
+       (# <<SLOT QualifiedAttrDenGetExitCplr:dopart>> #);
+     getEnterExitCompiler::
+       (# <<SLOT QualifiedAttrDenGetEnterExitCplr:dopart>> #);
+     generateGetPattern::
+       (# <<SLOT QualifiedAttrDenGenGetPattern:dopart>> #);
+     generateGetQualification::
+       (# <<SLOT QualifiedAttrDenGenGetQua:dopart>> #);
+     generateGetObject::
+       (# <<SLOT QualifiedAttrDenGenGetObject:dopart>> #);
+     generateGetTmpObject::
+       (# <<SLOT QualifiedAttrDenGenGetTmp:dopart>> #);
+     generatePutPattern::
+       (# <<SLOT QualifiedAttrDenGenPutPattern:dopart>> #);
+     generatePutObject::
+       (# <<SLOT QualifiedAttrDenGenPutObject:dopart>> #);
+     isDirectlyAccessible::
+       (# <<SLOT QualifiedAttrDenAccessible:dopart>> #);
+     existingAccessible::
+       (# <<SLOT QualifiedAttrDenExistAccess:dopart>> #);
+
+     (* ----- Execution ----- *)
+
+     lookup::(# <<SLOT QualifiedAttrDenLookup:dopart>> #);
+     lookupAttr::(# <<SLOT QualifiedAttrDenLookupAttr:dopart>> #)
+  #);
+
+l2PatternDecl: l2AttributeDecl
+  (# <<SLOT PatternDeclLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     ObjectSpecifications: @l2ObjectSpecificationList;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'PatternDecl'->value[] #);
+     shortTypename::(# do 'PDcl'->value[] #);
+     init::(# <<SLOT PatternDeclInit:dopart>> #);
+     print::(# <<SLOT PatternDeclPrint:dopart>> #);
+     scanImpl::(# <<SLOT PatternDeclScanImpl:dopart>> #);
+     instantiate::(# <<SLOT PatternDeclInst:dopart>> #);
+     getInitCompiler::(# <<SLOT PatternDeclGetInitCplr:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     check::(# <<SLOT PatternDeclCheck:dopart>> #);
+
+     theDeclNode: @declNode
+       (# kind::(# do patternDeclDeclKind->value #);
+          getStaticType::(# <<SLOT PatternDeclGetType:dopart>> #);
+          getStaticQuaType::(# <<SLOT PatternDeclGetQuaType:dopart>> #);
+          isIndirect::(# do false->value #);
+          isRepeated::(# do false->value #);
+          location::(# do this(l2PatternDecl)[]->l2ast[] #)
+       #)
+  #);
+
+l2SimpleDecl: l2AttributeDecl
+  (# <<SLOT SimpleDeclLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     ReferenceSpecification: ^l2ReferenceSpecification;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'SimpleDecl'->value[] #);
+     shortTypename::(# do 'SDcl'->value[] #);
+     print::(# <<SLOT SimpleDeclPrint:dopart>> #);
+     printCode::(# <<SLOT SimpleDeclPrintCode:dopart>> #);
+     scanImpl::(# <<SLOT SimpleDeclScanImpl:dopart>> #);
+     instantiate::(# <<SLOT SimpleDeclInst:dopart>> #);
+     getInitCompiler::(# <<SLOT SimpleDeclGetInitCplr:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     theDeclNode: @declNode
+       (# kind::(# do simpleDeclDeclKind->value #);
+          getStaticType::(# <<SLOT SimpleDeclGetType:dopart>> #);
+          getStaticQuaType::(# <<SLOT SimpleDeclGetQuaType:dopart>> #);
+          isIndirect::(# do ReferenceSpecification.isIndirect->value #);
+          isRepeated::(# do false->value #);
+          location::(# do this(l2SimpleDecl)[]->l2ast[] #)
+       #)
+  #);
+
+l2RepetitionDecl: l2AttributeDecl
+  (# <<SLOT RepetitionDeclLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     SimpleIndex: ^l2SimpleIndex;
+     ReferenceSpecification: ^l2ReferenceSpecification;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'RepetitionDecl'->value[] #);
+     shortTypename::(# do 'RDcl'->value[] #);
+     print::(# <<SLOT RepetitionDeclPrint:dopart>> #);
+     scanImpl::(# <<SLOT RepetitionDeclScanImpl:dopart>> #);
+     instantiate::(# <<SLOT RepetitionDeclInst:dopart>> #);
+     getInitCompiler::(# <<SLOT RepetitionDeclGetInitCplr:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     theDeclNode: @declNode
+       (# kind::(# do repetitionDeclDeclKind->value #);
+          getStaticType::(# <<SLOT RepetitionDeclGetType:dopart>> #);
+          getStaticQuaType::(# <<SLOT RepetitionDeclGetQuaType:dopart>> #);
+          isIndirect::(# do ReferenceSpecification.isIndirect->value #);
+          isRepeated::(# do true->value #);
+          location::(# do this(l2RepetitionDecl)[]->l2ast[] #)
+       #)
+  #);
+
+l2NamedRepetitionDecl: l2AttributeDecl
+  (# <<SLOT NamedRepetitionDeclLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     RepetitionScope: ^l2RepetitionScope;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'NamedRepetitionDecl'->value[] #);
+     shortTypename::(# do 'NRDcl'->value[] #);
+     print::(# <<SLOT NamedRepetitionDeclPrint:dopart>> #);
+     scanImpl::(# <<SLOT NamedRepetitionDeclScanImpl:dopart>> #);
+     instantiate::(# <<SLOT NamedRepetitionDeclInst:dopart>> #);
+     getInitCompiler::(# <<SLOT NamedRepetitionDeclGetInitCplr:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     theDeclNode: @declNode
+       (# kind::(# do repetitionDeclDeclKind->value #);
+          getStaticType::(# <<SLOT NamedRepetitionDeclGetType:dopart>> #);
+          getStaticQuaType::(# <<SLOT NamedRepetitionDeclGetQuaType:dopart>> #);
+          isIndirect::(# <<SLOT NamedRepetitionDeclIsIndirect:dopart>> #);
+          isRepeated::(# do true->value #);
+          location::(# do this(l2NamedRepetitionDecl)[]->l2ast[] #)
+       #)
+  #);
+
+l2RepetitionScope: l2AstNode
+  (# <<SLOT RepetitionScopeLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     NamedIndex: ^l2NamedIndex;
+     ReferenceSpecification: ^l2ReferenceSpecification;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'RepetitionScope'->value[] #);
+     shortTypename::(# do 'RSco'->value[] #);
+     init::(# do theScopeNode.init #);
+     print::(# <<SLOT RepetitionScopePrint:dopart>> #);
+     scanImpl::(# <<SLOT RepetitionScopeScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     getScopeNode::(# do theScopeNode[]->sn[] #);
+
+     theScopeNode: @indexScopeNode
+       (# kind::(# do repetitionScopeScopeKind->value #);
+          getInitialContext::(# <<SLOT RepetitionScopeScopeGIC:dopart>> #);
+          findNameDcl::(# <<SLOT RepetitionScopeScopeFind:dopart>> #);
+          location::(# do this(l2RepetitionScope)[]->l2ast[] #);
+          getStaticIndexType::(#<<SLOT RepetitionScopeScopeGetIType:dopart>>#)
+       #)
+  #);
+
+l2VDecl: l2AttributeDecl
+  (# <<SLOT VDeclLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     ObjectSpecifications: @l2ObjectSpecificationList;
+     Restrictions: @l2RestrictionList;
+     Disown: @boolean;
+     Swap: @boolean;
+
+     (* ----- Methods ----- *)
+
+     init::< (# <<SLOT VDeclInit:dopart>> #);
+     print::< (# <<SLOT VDeclPrint:dopart>> #);
+     printCode::< (# <<SLOT VDeclPrintCode:dopart>> #);
+     scanImpl::< (# <<SLOT VDeclScanImpl:dopart>> #);
+
+     contribute:
+       (* Obtain the contribution to this virtual from this
+        * declaration and push/merge it on the bvm pattern stack *)
+       (# thrd: ^thread;
+          unwind: ##stackUnwinder;
+          dContext: ^substanceSlice
+       enter (thrd[],unwind##,dContext[])
+       <<SLOT VDeclContribute:dopart>>
+       #);
+
+     (* ----- Compilation ----- *)
+
+     mergeCompile: (# <<SLOT VDeclMergeCompile:dopart>> #);
+     mergeProgram: @betaByteCodeList;
+     mergeCompiled: @boolean;
+     getMergeCompiler:< syntaxCreateCplr
+       (* Create and return a compiler which will generate
+        * code for the merging of this virtual contribution *)
+       (# <<SLOT VDeclGetMergeCplr:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     check::< (# <<SLOT VDeclCheck:dopart>>#);
+
+     getVirtualDecl:<
+       (# l2vdcl: ^l2VirtualDecl
+       <<SLOT VDeclGetVirtualDecl:dopart>>
+       exit l2vdcl[]
+       #);
+
+     theDeclNode: @declNode
+       (# kind::(# do vdeclDeclKind->value #);
+          getStaticType::(# <<SLOT VDeclGetType:dopart>> #);
+          getStaticQuaType::(# <<SLOT VDeclGetQuaType:dopart>> #);
+          isIndirect::(# do false->value #);
+          isRepeated::(# do false->value #);
+          location::(# do this(l2VDecl)[]->l2ast[] #)
+       #)
+  #);
+
+l2Restriction: l2AstNode
+  (* This is really just an attribute denotation extended
+   * with a program; the program is used to get hold of the
+   * patterns involved in lower bounds (restrictions) on
+   * virtual pattern attributes *)
+  (# <<SLOT RestrictionLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     AttributeDenotation: ^l2AttributeDenotation;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'Restriction'->value[] #);
+     shortTypename::(# do 'Rstr'->value[] #);
+     init::(# <<SLOT RestrictionInit:dopart>> #);
+     print::(# <<SLOT RestrictionPrint:dopart>> #);
+     scanImpl::(# <<SLOT RestrictionScanImpl:dopart>> #);
+
+     getPattern:
+       (* Using program, find the pattern denoted by the attribute
+        * denotation and push it on the bvm 'patterns' stack *)
+       (# thrd: ^thread;
+          unwind: ##stackUnwinder;
+          dContext: ^substanceSlice
+       enter (thrd[],unwind##,dContext[])
+       <<SLOT RestrictionGetPattern:dopart>>
+       #);
+
+     (* private *)
+     compile: (# <<SLOT RestrictionCompile:dopart>> #);
+     compiled: @boolean;
+     program: @betaByteCodeList
+  #);
+
+l2RestrictionList: l2list
+  (# <<SLOT RestrictionListLib:attributes>>;
+     element::l2Restriction;
+     print::(# <<SLOT RestrictionListPrint:dopart>> #);
+  #);
+
+l2VirtualDecl: l2VDecl
+  (# <<SLOT VirtualDeclLib:attributes>>;
+     typename::(# do 'VirtualDecl'->value[] #);
+     shortTypename::(# do 'VDcl'->value[] #);
+     print::(# <<SLOT VirtualDeclPrint:dopart>> #);
+     instantiate::(# <<SLOT VirtualDeclInst:dopart>> #);
+     getInitCompiler::(# <<SLOT VirtualDeclGetInitCplr:dopart>> #);
+     getMergeCompiler::(# <<SLOT VirtualDeclGetMergeCplr:dopart>> #);
+     getVirtualDecl::(# <<SLOT VirtualDeclGetVirtualDecl:dopart>> #)
+  #);
+
+l2SpecializedVDecl: l2VDecl
+  (# <<SLOT SpecializedVDeclLib:attributes>>;
+     printCode::(# <<SLOT SpecializedVDeclPrintCode:dopart>> #);
+     instantiate::(# <<SLOT SpecializedVDeclInst:dopart>> #);
+     getInitCompiler::(# <<SLOT SpecializedVDeclGetInitCplr:dopart>> #);
+     getMergeCompiler::(# <<SLOT SpecializedVDeclGetMergeCplr:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     getVirtualDecl::(# <<SLOT SpecializedVDeclGetVirtualDecl:dopart>> #);
+     theVirtualDecl: ^l2VirtualDecl
+  #);
+
+l2BindingDecl: l2SpecializedVDecl
+  (# <<SLOT BindingDeclLib:attributes>>;
+     typename::(# do 'BindingDecl'->value[] #);
+     shortTypename::(# do 'BDcl'->value[] #);
+     print::(# <<SLOT BindingDeclPrint:dopart>> #)
+  #);
+
+l2FinalDecl: l2SpecializedVDecl
+  (# <<SLOT FinalDeclLib:attributes>>;
+     typename::(# do 'FinalDecl'->value[] #);
+     shortTypename::(# do 'FDcl'->value[] #);
+     (* !! 'getStaticType' could sometimes set 'staticallyKnownBottom' here *)
+     print::(# <<SLOT FinalDeclPrint:dopart>> #);
+     check::(# <<SLOT FinalDeclCheck:dopart>> #);
+
+     (* ----- Enforcing final bindings ----- *)
+
+     (* A final binding of a virtual must somehow "stop the growth" of
+      * this virtual; this is done in one of two ways: (1) If the
+      * virtual as seen locally from this declaration has only stat-known
+      * contributions, we count the slices and ensure that this count
+      * is never exceeded from any point of view; in this case
+      * 'staticallyKnown' is true.  Otherwise (2), some contributions
+      * to this virtual are non-stat-known, according to the local
+      * analysis, and then we count the number of contributions ("length
+      * of vchain") and ensure that this is not exceeded from any
+      * point of view *)
+     staticallyKnown: @boolean;         (* This virt. now a compile-time cst? *)
+     staticSliceCount: @integer;        (* Number of slices *)
+     staticVChainLength: @integer       (* Length of virtual chain *)
+  #);
+
+l2SimpleIndex: l2AstNode
+  (# <<SLOT SimpleIndexLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     Evaluation: ^l2Evaluation;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'SimpleIndex'->value[] #);
+     shortTypename::(# do 'SInx'->value[] #);
+     print::(# <<SLOT SimpleIndexPrint:dopart>> #);
+     scanImpl::(# <<SLOT SimpleIndexScanImpl:dopart>> #)
+  #);
+
+l2NamedIndex: l2AstNode
+  (# <<SLOT NamedIndexLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     NameDcl: ^l2NameDcl;
+     Evaluation: ^l2Evaluation;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'NamedIndex'->value[] #);
+     shortTypename::(# do 'NInx'->value[] #);
+     print::(# <<SLOT NamedIndexPrint:dopart>> #);
+     scanImpl::(# <<SLOT NamedIndexScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     theDeclNode: @declNode
+       (# kind::(# do indexDeclKind->value #);
+          getStaticType::(# <<SLOT NamedIndexGetType:dopart>> #);
+          getStaticQuaType::(# <<SLOT NamedIndexGetQuaType:dopart>> #);
+          isIndirect::(# do false->value #);
+          isRepeated::(# do false->value #);
+          location::(# do this(l2NamedIndex)[]->l2ast[] #)
+       #)
+  #);
+
+indexScopeNode: scopeNode
+  (* Used for scopes whose namespace is an index variable *)
+  (# getStaticIndexType:<
+       (# context: ^staticContext; (* Never NONE *)
+          world: ^staticContextDB; (* Never NONE *)
+          usageAst: ^l2AstNode;    (* Used for diagnostics *)
+          stype: ^staticType       (* Never NONE *)
+       enter (context[],world[],usageAst[])
+       do INNER
+       exit stype[]
+       #)
+  #);
+
+l2EvaluationList: l2list
+  (# <<SLOT EvaluationListLib:attributes>>;
+     element::l2Evaluation;
+     Identity: @l2AstNode (* Represents this eval.list when an ast is req`d *)
+       (# print::(# do (dest[],indentation,nl,false)->this(l2list).print #)#);
+     print::(# <<SLOT EvaluationListPrint:dopart>> #)
+  #);
+
+l2Expression: l2Evaluation
+  (# <<SLOT ExpressionLib:attributes>>;
+     print::< (# <<SLOT ExpressionPrint:dopart>> #)
+  #);
+
+l2AssignmentEvaluation: l2Evaluation
+  (# <<SLOT AssignmentEvaluationLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     Evaluation: ^l2Evaluation;
+     Transaction: ^l2Transaction;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'AssignmentEvaluation'->value[] #);
+     shortTypename::(# do 'AEva'->value[] #);
+     print::(# <<SLOT AssignmentEvaluationPrint:dopart>> #);
+     scanImpl::(# <<SLOT AssignmentEvaluationScanImpl:dopart>> #);
+
+     (* ----- Sementic Attributes ----- *)
+
+     check::
+       (# <<SLOT AssignmentEvaluationCheck:dopart>> #);
+     getStaticTransientOut::
+       (# <<SLOT AssignmentEvaluationGetTranOut:dopart>> #);
+     getStaticTransientIn::
+       (# <<SLOT AssignmentEvaluationGetTranIn:dopart>> #);
+     getCompiler::
+       (# <<SLOT AssignmentEvaluationGetCplr:dopart>> #);
+     getEnterCompiler::
+       (# <<SLOT AssignmentEvaluationGetEnterCplr:dopart>> #);
+     getExitCompiler::
+       (# <<SLOT AssignmentEvaluationGetExitCplr:dopart>> #);
+     getEnterExitCompiler::
+       (# <<SLOT AssignmentEvaluationGetEnterExitCplr:dopart>> #);
+
+     (* ----- Execution ----- *)
+
+     closureExecute::
+       (# <<SLOT AssignmentEvaluationClosureExecute:dopart>> #);
+     getEnterIter::
+       (# <<SLOT AssignmentEvaluationGetEnterIter:dopart>> #);
+     getExitIter::
+       (# <<SLOT AssignmentEvaluationGetExitIter:dopart>> #);
+     getEnterExitIter::
+       (# <<SLOT AssignmentEvaluationGetEnterExitIter:dopart>> #)
+  #);
+
+l2Transaction: l2Expression
+  (# <<SLOT TransactionLib:attributes>>;
+     print::< (# <<SLOT TransactionPrint:dopart>> #)
+  #);
+
+l2LabelledImp: l2Imp
+  (# <<SLOT LabelledImpLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     NameDcl: ^l2NameDcl;
+     Imp: ^l2Imp;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'LabelledImp'->value[] #);
+     shortTypename::(# do 'LImp'->value[] #);
+     init::(# <<SLOT LabelledImpInit:dopart>> #);
+     print::(# <<SLOT LabelledImpPrint:dopart>> #);
+     printCode::(# <<SLOT LabelledImpPrintCode:dopart>> #);
+     scanImpl::(# <<SLOT LabelledImpScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     getScopeNode::(# do theScopeNode[]->sn[] #);
+
+     theScopeNode: @scopeNode
+       (# kind::(# do labelledImpScopeKind->value #);
+          getInitialContext::(# <<SLOT LabelledImpScopeGetIC:dopart>> #);
+          findNameDcl::(# <<SLOT LabelledImpScopeFind:dopart>> #);
+          location::(# do this(l2LabelledImp)[]->l2ast[] #)
+       #);
+
+     theDeclNode: @declNode
+       (# kind::(# do labelledImpDeclKind->value #);
+          getStaticType::(# <<SLOT LabelledImpGetType:dopart>> #);
+          getStaticQuaType::(# <<SLOT LabelledImpGetQuaType:dopart>> #);
+          isIndirect::(# do false->value #);
+          isRepeated::(# do false->value #);
+          location::(# do this(l2LabelledImp)[]->l2ast[] #)
+       #);
+
+     (* ----- Execution ----- *)
+
+     execute::(# <<SLOT LabelledImpExecute:dopart>> #)
+  #);
+
+l2SimpleForImp: l2Transaction
+  (# <<SLOT SimpleForImpLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     SimpleIndex: ^l2SimpleIndex;
+     Imperatives: @l2ImperativeList;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'SimpleForImp'->value[] #);
+     shortTypename::(# do 'SFor'->value[] #);
+     init::(# do Imperatives.init #);
+     print::(# <<SLOT SimpleForImpPrint:dopart>> #);
+     scanImpl::(# <<SLOT SimpleForImpScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     getStaticTransientOut::(# <<SLOT SimpleForImpGetTranOut:dopart>> #);
+     getStaticTransientIn::(# <<SLOT SimpleForImpGetTranIn:dopart>> #);
+     getCompiler::(# <<SLOT SimpleForImpGetCplr:dopart>> #);
+     getEnterCompiler::(# <<SLOT SimpleForImpGetEnterCplr:dopart>> #);
+     getExitCompiler::(# <<SLOT SimpleForImpGetExitCplr:dopart>> #);
+     getEnterExitCompiler::(# <<SLOT SimpleForImpGetEnterExitCplr:dopart>> #);
+
+     (* ----- Execution ----- *)
+
+     closureExecute::(# <<SLOT SimpleForImpClosureExecute:dopart>> #);
+     getEnterIter::(# <<SLOT SimpleForImpGetEnterIter:dopart>> #);
+     getExitIter::(# <<SLOT SimpleForImpGetExitIter:dopart>> #);
+     getEnterExitIter::(# <<SLOT SimpleForImpGetEnterExitIter:dopart>> #)
+  #);
+
+l2NamedForImp: l2Transaction
+  (# <<SLOT NamedForImpLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     NamedIndex: ^l2NamedIndex;
+     Imperatives: @l2ImperativeList;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'NamedForImp'->value[] #);
+     shortTypename::(# do 'NFor'->value[] #);
+     init::(# do Imperatives.init; theScopeNode.init #);
+     print::(# <<SLOT NamedForImpPrint:dopart>> #);
+     scanImpl::(# <<SLOT NamedForImpScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     getScopeNode::(# do theScopeNode[]->sn[] #);
+
+     theScopeNode: @indexScopeNode
+       (# kind::(# do forImpScopeKind->value #);
+          getInitialContext::(# <<SLOT NamedForImpScopeGetIC:dopart>> #);
+          findNameDcl::(# <<SLOT NamedForImpScopeFind:dopart>> #);
+          location::(# do this(l2NamedForImp)[]->l2ast[] #);
+          getStaticIndexType::(# <<SLOT NamedForImpScopeGetIType:dopart>> #)
+       #);
+
+     getStaticTransientOut::(# <<SLOT NamedForImpGetTranOut:dopart>> #);
+     getStaticTransientIn::(# <<SLOT NamedForImpGetTranIn:dopart>> #);
+     getCompiler::(# <<SLOT NamedForImpGetCplr:dopart>> #);
+     getEnterCompiler::(# <<SLOT NamedForImpGetEnterCplr:dopart>> #);
+     getExitCompiler::(# <<SLOT NamedForImpGetExitCplr:dopart>> #);
+     getEnterExitCompiler::(# <<SLOT NamedForImpGetEnterExitCplr:dopart>> #);
+
+     (* ----- Execution ----- *)
+
+     closureExecute::(# <<SLOT NamedForImpClosureExecute:dopart>> #);
+     getEnterIter::(# <<SLOT NamedForImpGetEnterIter:dopart>> #);
+     getExitIter::(# <<SLOT NamedForImpGetExitIter:dopart>> #);
+     getEnterExitIter::(# <<SLOT NamedForImpGetEnterExitIter:dopart>> #)
+  #);
+
+l2WhileImp: l2Transaction
+  (# <<SLOT WhileImpLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     Evaluation: ^l2Evaluation;
+     Imperatives: @l2ImperativeList;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'WhileImp'->value[] #);
+     shortTypename::(# do 'Whi'->value[] #);
+     init::(# do Imperatives.init #);
+     print::(# <<SLOT WhileImpPrint:dopart>> #);
+     scanImpl::(# <<SLOT WhileImpScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     getStaticTransientOut::(# <<SLOT WhileImpGetTranOut:dopart>> #);
+     getStaticTransientIn::(# <<SLOT WhileImpGetTranIn:dopart>> #);
+     getCompiler::(# <<SLOT WhileImpGetCplr:dopart>> #);
+     getEnterCompiler::(# <<SLOT WhileImpGetEnterCplr:dopart>> #);
+     getExitCompiler::(# <<SLOT WhileImpGetExitCplr:dopart>> #);
+     getEnterExitCompiler::(# <<SLOT WhileImpGetEnterExitCplr:dopart>> #);
+
+     (* ----- Execution ----- *)
+
+     closureExecute::(# <<SLOT WhileImpClosureExecute:dopart>> #);
+     getEnterIter::(# <<SLOT WhileImpGetEnterIter:dopart>> #);
+     getExitIter::(# <<SLOT WhileImpGetExitIter:dopart>> #);
+     getEnterExitIter::(# <<SLOT WhileImpGetEnterExitIter:dopart>> #)
+  #);
+
+l2SimpleIfImp: l2Transaction
+  (# <<SLOT SimpleIfImpLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     Evaluation: ^l2Evaluation;
+     Imperatives: @l2ImperativeList;
+     ElsePartOpt: @l2ImperativeList;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'SimpleIfImp'->value[] #);
+     shortTypename::(# do 'SIf'->value[] #);
+     init::(# do Imperatives.init; ElsePartOpt.init #);
+     print::(# <<SLOT SimpleIfImpPrint:dopart>> #);
+     scanImpl::(# <<SLOT SimpleIfImpScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     getStaticTransientOut::(# <<SLOT SimpleIfImpGetTranOut:dopart>> #);
+     getStaticTransientIn::(# <<SLOT SimpleIfImpGetTranIn:dopart>> #);
+     getCompiler::(# <<SLOT SimpleIfImpGetCplr:dopart>> #);
+     getEnterCompiler::(# <<SLOT SimpleIfImpGetEnterCplr:dopart>> #);
+     getExitCompiler::(# <<SLOT SimpleIfImpGetExitCplr:dopart>> #);
+     getEnterExitCompiler::(# <<SLOT SimpleIfImpGetEnterExitCplr:dopart>> #);
+
+     (* ----- Execution ----- *)
+
+     closureExecute::(# <<SLOT SimpleIfImpClosureExecute:dopart>> #);
+     getEnterIter::(# <<SLOT SimpleIfImpGetEnterIter:dopart>> #);
+     getExitIter::(# <<SLOT SimpleIfImpGetExitIter:dopart>> #);
+     getEnterExitIter::(# <<SLOT SimpleIfImpGetEnterExitIter:dopart>> #)
+  #);
+
+l2GeneralIfImp: l2Transaction
+  (# <<SLOT GeneralIfImpLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     Evaluation: ^l2Evaluation;
+     Alternatives: @l2AlternativeList;
+     ElsePartOpt: @l2ImperativeList;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'GeneralIfImp'->value[] #);
+     shortTypename::(# do 'GIf'->value[] #);
+     init::(# do Alternatives.init; ElsePartOpt.init #);
+     print::(# <<SLOT GeneralIfImpPrint:dopart>> #);
+     scanImpl::(# <<SLOT GeneralIfImpScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     check::(# <<SLOT GeneralIfImpCheck:dopart>> #);
+     getStaticTransientOut::(# <<SLOT GeneralIfImpGetTranOut:dopart>> #);
+     getStaticTransientIn::(# <<SLOT GeneralIfImpGetTranIn:dopart>> #);
+     getCompiler::(# <<SLOT GeneralIfImpGetCplr:dopart>> #);
+     getEnterCompiler::(# <<SLOT GeneralIfImpGetEnterCplr:dopart>> #);
+     getExitCompiler::(# <<SLOT GeneralIfImpGetExitCplr:dopart>> #);
+     getEnterExitCompiler::(# <<SLOT GeneralIfImpGetEnterExitCplr:dopart>> #);
+
+     (* ----- Execution ----- *)
+
+     closureExecute::(# <<SLOT GeneralIfImpClosureExecute:dopart>> #);
+     getEnterIter::(# <<SLOT GeneralIfImpGetEnterIter:dopart>> #);
+     getExitIter::(# <<SLOT GeneralIfImpGetExitIter:dopart>> #);
+     getEnterExitIter::(# <<SLOT GeneralIfImpGetEnterExitIter:dopart>> #)
+  #);
+
+l2WhenImp: l2Transaction
+  (# <<SLOT WhenImpLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     NameDcl: ^l2NameDcl;
+     AttributeDenotation: ^l2AttributeDenotation;
+     WhenAlternatives: @l2WhenAlternativeList;
+     ElsePartOpt: @l2ImperativeList;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'WhenImp'->value[] #);
+     shortTypename::(# do 'WImp'->value[] #);
+     init::(# <<SLOT WhenImpInit:dopart>> #);
+     print::(# <<SLOT WhenImpPrint:dopart>> #);
+     scanImpl::(# <<SLOT WhenImpScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     getScopeNode::(# do theScopeNode[]->sn[] #);
+
+     theScopeNode: @scopeNode
+       (# kind::(# do whenImpScopeKind->value #);
+          getInitialContext::(# <<SLOT WhenImpScopeGetIC:dopart>> #);
+          findNameDcl::(# <<SLOT WhenImpScopeFind:dopart>> #);
+          location::(# do this(l2WhenImp)[]->l2ast[] #)
+       #);
+
+     theDeclNode: @declNode
+       (# kind::(# do patternDeclDeclKind->value #);
+          getStaticType::(# <<SLOT WhenImpGetType:dopart>> #);
+          getStaticQuaType::(# <<SLOT WhenImpGetQuaType:dopart>> #);
+          isIndirect::(# do false->value #);
+          isRepeated::(# do false->value #);
+          location::(# do this(l2WhenImp)[]->l2ast[] #)
+       #);
+
+     check::(# <<SLOT WhenImpCheck:dopart>> #);
+     getStaticTransientOut::(# <<SLOT WhenImpGetTranOut:dopart>> #);
+     getStaticTransientIn::(# <<SLOT WhenImpGetTranIn:dopart>> #);
+     getCompiler::(# <<SLOT WhenImpGetCplr:dopart>> #);
+     getEnterCompiler::(# <<SLOT WhenImpGetEnterCplr:dopart>> #);
+     getExitCompiler::(# <<SLOT WhenImpGetExitCplr:dopart>> #);
+     getEnterExitCompiler::(# <<SLOT WhenImpGetEnterExitCplr:dopart>> #);
+     doCompile::(# <<SLOT WhenImpDoCompile:dopart>> #);
+     
+     (* ----- Execution ----- *)
+
+     closureExecute::(# <<SLOT WhenImpClosureExecute:dopart>> #);
+     getEnterIter::(# <<SLOT WhenImpGetEnterIter:dopart>> #);
+     getExitIter::(# <<SLOT WhenImpGetExitIter:dopart>> #);
+     getEnterExitIter::(# <<SLOT WhenImpGetEnterExitIter:dopart>> #);
+
+     (* private *)
+     compiled: @boolean;
+     compile: (# <<SLOT WhenImpCompile:dopart>> #);
+     program: @betaByteCodeList (* get hold of target *)
+  #);
+
+l2ScopeSpecImp: l2Imp
+  (# <<SLOT ScopeSpecImpLib:attributes>>;
+
+     init::(# <<SLOT ScopeSpecImpInit:dopart>> #);
+     print::< (# <<SLOT ScopeSpecImpPrint:dopart>> #);
+
+     (* ----- Children ----- *)
+
+     NameAplOpt: ^l2NameApl;
+     CountOpt: @integer;
+
+     (* There may be a name apl or an integer or no specification
+      * with an l2ScopeSpecImp.  It is determined like this:
+      *
+      *   NameAplOpt  CountOpt  UsesCount    |    Spec Used
+      *  ------------------------------------|--------------
+      *      NONE                 false      |      No spec
+      *      NONE                 true       |     CountOpt
+      *    not-NONE               false      |   NameAplOpt
+      *
+      * Other combinations are not expected and would be a bug.
+      * So the right way to find the spec is as follows:
+      *
+      *    (if NameAplOpt[]<>NONE then
+      *        ...<spec is a name>...
+      *     else
+      *        (if UsesCount then
+      *            ...<spec is a number>...
+      *         else
+      *            ...<no spec available>...
+      *        if)
+      *    if)
+      *)
+     UsesCount: @boolean;
+
+     (* ----- Semantic Attributes ----- *)
+
+     check::< (# <<SLOT ScopeSpecImpCheck:dopart>> #);
+     nameMustBeObject:< booleanValue;
+
+     rtp: @runtimePath;
+     count: @integer;                   (* origin-distance to jump target *)
+     targetAst: ^l2AstNode;             (* syntax of jump target *)
+     checked: @boolean                  (* true iff has been checked *)
+  #);
+
+l2LeaveImp: l2ScopeSpecImp
+  (# <<SLOT LeaveImpLib:attributes>>;
+     (* NB: the NameAplOpt is not optional in the BETA grammar *)
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'LeaveImp'->value[] #);
+     shortTypename::(# do 'Leav'->value[] #);
+     print::(# <<SLOT LeaveImpPrint:dopart>> #);
+     printCode::(# <<SLOT LeaveImpPrintCode:dopart>> #);
+     scanImpl::(# <<SLOT LeaveImpScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     check::(# <<SLOT LeaveImpCheck:dopart>> #);
+     nameMustBeObject::falseObject;
+
+     (* ----- Execution ----- *)
+
+     execute::(# <<SLOT LeaveImpExecute:dopart>> #)
+  #);
+
+l2RestartImp: l2ScopeSpecImp
+  (# <<SLOT RestartImpLib:attributes>>;
+     (* NB: the NameAplOpt is not optional in the BETA grammar *)
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'RestartImp'->value[] #);
+     shortTypename::(# do 'Rsta'->value[] #);
+     print::(# <<SLOT RestartImpPrint:dopart>> #);
+     printCode::(# <<SLOT RestartImpPrintCode:dopart>> #);
+     scanImpl::(# <<SLOT RestartImpScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     check::(# <<SLOT RestartImpCheck:dopart>> #);
+     nameMustBeObject::falseObject;
+
+     (* ----- Execution ----- *)
+
+     execute::(# <<SLOT RestartImpExecute:dopart>> #)
+  #);
+
+l2InnerImp: l2ScopeSpecImp
+  (# <<SLOT InnerImpLib:attributes>>;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'InnerImp'->value[] #);
+     shortTypename::(# do 'INN'->value[] #);
+     print::(# <<SLOT InnerImpPrint:dopart>> #);
+     printCode::(# <<SLOT InnerImpPrintCode:dopart>> #);
+     scanImpl::(# <<SLOT InnerImpScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     nameMustBeObject::trueObject;
+
+     (* ----- Execution ----- *)
+
+     execute::(# <<SLOT InnerImpExecute:dopart>> #)
+  #);
+
+l2SuspendImp: l2Imp
+  (# <<SLOT SuspendImpLib:attributes>>;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'SuspendImp'->value[] #);
+     shortTypename::(# do 'SUS'->value[] #);
+     print::(# <<SLOT SuspendImpPrint:dopart>> #);
+     printCode::(# <<SLOT SuspendImpPrintCode:dopart>> #);
+
+     (* ----- Execution ----- *)
+
+     execute::(# <<SLOT SuspendImpExecute:dopart>> #)
+  #);
+
+l2ReferenceSpecification: l2AstNode
+  (# <<SLOT ReferenceSpecificationLib:attributes>>;
+
+     (* ----- Semantic Attributes ----- *)
+
+     getStaticType:<
+       (* Given an 'context' that specifies the statically
+        * known structure of the enclosing object, and
+        * a 'world' database of object structure obtained
+        * during the analysis, compute the static type
+        * associated with this reference specification;
+        * NOTE: this is the origin of most ".*Typekind"
+        * information--it is here we can see that it must
+        * be(come) an object, a pattern, or whatever *)
+       (# context: ^staticContext;      (* Never NONE *)
+          world: ^staticContextDB;      (* Never NONE *)
+          usageAst: ^l2AstNode;         (* Used for diagnostics *)
+          stype: ^staticType            (* Never NONE *)
+       enter (context[],world[],usageAst[])
+       <<SLOT ReferenceSpecificationGetType:dopart>>
+       exit stype[]
+       #);
+
+     isIndirect:<
+       (* Returns 'true' if the declared entity is a
+        * reference to a pattern or an object, and 'false' if
+        * it is a (possibly virtual) pattern or an object *)
+       booleanValue;
+
+     stype_cache: ^staticType;          (* Cache for local static type *)
+
+     (* ----- Execution ----- *)
+
+     instantiate:<
+       (* Create and deliver an instance of the run-time
+        * substance declared by this reference specification;
+        * if 'attr' is not NONE, announce the attribute as
+        * soon as possible by assigning it to 'attr.to[]' *)
+       (# thrd: ^thread;
+          unwind: ##stackUnwinder;
+          enclosing: ^substanceSlice;
+          l1ent: ^l1Entity;
+          attr: ^l1MapElement
+       enter (thrd[],unwind##,enclosing[],attr[])
+       do INNER
+       exit l1ent[]
+       #);
+
+     instantiateMany:<
+       (* Create and deliver 'count' instances of the run-time
+        * substance declared by this reference specification;
+        * for each instance, execute 'cb' with 'l1ent' referring
+        * to a new instance and 'inx' running from 1 to 'count' *)
+       (# thrd: ^thread;
+          unwind: ##stackUnwinder;
+          enclosing: ^substanceSlice;
+          l1ent: ^l1Entity;
+          count: @integer;
+          l1pat: ^l1PatternEntity;
+          cb: ^instantiateManyCallback
+       enter (thrd[],unwind##,enclosing[],count,l1pat[],cb[])
+       do INNER
+       #);
+
+     obtainPattern:<
+       (* Obtain the pattern denoted by this object specification
+        * or the pattern of the object denoted by this ospec
+        * or reached via an object reference denoted by this
+        * ospec; arguments are used like in 'obtainObject' above;
+        * a NONE object ref gives a run-time error, and so does
+        * a NONE pattern reference *)
+       (# thrd: ^thread;                (* Current thread of execution *)
+          unwind: ##stackUnwinder;      (* Never NONE *)
+          dContext: ^substanceSlice;    (* Never NONE *)
+          l1pat: ^l1PatternEntity       (* Never NONE *)
+       enter (thrd[],unwind##,dContext[])
+       do INNER
+       exit l1pat[]
+       #);
+
+     (* ---------- Compilation ---------- *)
+
+     getInitCompiler:< syntaxCreateCplr
+       (* Create and return a compiler which will generate
+        * code for the initialization of this ref. spec. *)
+       (# l2adcl: ^l2AttributeDecl
+       enter l2adcl[]
+       <<SLOT ReferenceSpecificationGetInitCplr:dopart>>
+       #);
+
+     getQualCompiler:< syntaxCreateCplr
+       (* Create and return a compiler which will generate
+        * code to put the qualification of this ref.spec.
+        * on the 'patterns' bvm stack *)
+       (# <<SLOT ReferenceSpecificationGetQualCplr:dopart>> #);
+
+     getRepInitCompiler:< syntaxCreateCplr
+       (* Create and return a compiler which will generate
+        * code to initialize the entries of a rep. decl.
+        * containing this ref.spec. *)
+       (# l2rdcl: ^l2RepetitionDecl
+       enter l2rdcl[]
+       <<SLOT ReferenceSpecificationGetRepInitCplr:dopart>>
+       #)
+  #);
+
+instantiateManyCallback:
+  (* Helper pattern, used once for each instance created
+   * in 'l2ReferenceSpecification.instantiateMany' *)
+  (# l1ent: ^l1entity; inx: @integer
+  enter (l1ent[],inx)
+  do INNER
+  #);
+
+l2StaticItem: l2ReferenceSpecification
+  (# <<SLOT StaticItemLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     ObjectSpecifications: @l2ObjectSpecificationList;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'StaticItem'->value[] #);
+     shortTypename::(# do 'SItm'->value[] #);
+     init::(# <<SLOT StaticItemInit:dopart>> #);
+     print::(# <<SLOT StaticItemPrint:dopart>> #);
+     scanImpl::(# <<SLOT StaticItemScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     check::(# <<SLOT StaticItemCheck:dopart>> #);
+     getStaticType::(# <<SLOT StaticItemGetType:dopart>> #);
+     isIndirect::(# do false->value #);
+
+     (* ----- Execution ----- *)
+
+     instantiate::(# <<SLOT StaticItemInstantiate:dopart>> #);
+     instantiateMany::(# <<SLOT StaticItemInstantiateMany:dopart>> #);
+     obtainPattern::(# <<SLOT StaticItemObtainPattern:dopart>> #);
+
+     (* ----- Compilation ----- *)
+
+     getInitCompiler::(# <<SLOT StaticItemGetInitCplr:dopart>> #);
+     getQualCompiler::(# <<SLOT StaticItemGetQualCplr:dopart>> #);
+     getRepInitCompiler::(# <<SLOT StaticItemGetRepInitCplr:dopart>> #)
+  #);
+
+l2VirtualStaticItem: l2ReferenceSpecification
+  (# <<SLOT VirtualStaticItemLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     AttributeDenotation: ^l2AttributeDenotation;
+     Disown: @boolean;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'VirtualStaticItem'->value[] #);
+     shortTypename::(# do 'VSIt'->value[] #);
+     init::(# <<SLOT VirtualStaticItemInit:dopart>> #);
+     print::(# <<SLOT VirtualStaticItemPrint:dopart>> #);
+     scanImpl::(# <<SLOT VirtualStaticItemScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     check::(# <<SLOT VirtualStaticItemCheck:dopart>> #);
+     getStaticType::(# <<SLOT VirtualStaticItemGetType:dopart>> #);
+     isIndirect::(# do false->value #);
+
+     (* ----- Execution ----- *)
+
+     instantiate::(# <<SLOT VirtualStaticItemInstantiate:dopart>> #);
+     instantiateMany::(# <<SLOT VirtualStaticItemInstantiateMany:dopart>> #);
+     obtainPattern::(# <<SLOT VirtualStaticItemObtainPattern:dopart>> #);
+
+     (* ----- Compilation ----- *)
+
+     getInitCompiler::(# <<SLOT VirtualStaticItemGetInitCplr:dopart>> #);
+     getQualCompiler::(# <<SLOT VirtualStaticItemGetQualCplr:dopart>> #);
+     getRepInitCompiler::(# <<SLOT VirtualStaticItemGetRepInitCplr:dopart>> #)
+  #);
+
+l2FinalStaticItem: l2ReferenceSpecification
+  (# <<SLOT FinalStaticItemLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     ObjectSpecifications: @l2ObjectSpecificationList;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'FinalStaticItem'->value[] #);
+     shortTypename::(# do 'FSIt'->value[] #);
+     init::(# <<SLOT FinalStaticItemInit:dopart>> #);
+     print::(# <<SLOT FinalStaticItemPrint:dopart>> #);
+     scanImpl::(# <<SLOT FinalStaticItemScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     check::(# <<SLOT FinalStaticItemCheck:dopart>> #);
+     getStaticType::(# <<SLOT FinalStaticItemGetType:dopart>> #);
+     isIndirect::(# do false->value #);
+
+     (* ----- Execution ----- *)
+
+     instantiate::(# <<SLOT FinalStaticItemInstantiate:dopart>> #);
+     instantiateMany::(# <<SLOT FinalStaticItemInstantiateMany:dopart>> #);
+     obtainPattern::(# <<SLOT FinalStaticItemObtainPattern:dopart>> #);
+
+     (* ----- Compilation ----- *)
+
+     getInitCompiler::(# <<SLOT FinalStaticItemGetInitCplr:dopart>> #);
+     getQualCompiler::(# <<SLOT FinalStaticItemGetQualCplr:dopart>> #);
+     getRepInitCompiler::(# <<SLOT FinalStaticItemGetRepInitCplr:dopart>> #);
+
+     (* private *)
+     theIntro: ^l2VirtualStaticItem (* the ":< @" of this "::@" *)
+  #);
+
+l2AssignableRefSpec: l2ReferenceSpecification
+  (# <<SLOT AssignableRefSpecLib:attributes>>;
+
+     (* ----- Methods ----- *)
+
+     getStaticQuaType:<
+       (* Given an 'context' that specifies the statically
+        * known structure of the enclosing object, and
+        * a 'world' database of object structure obtained
+        * during the analysis, compute the static type
+        * associated with the qualification of this
+        * assignable ref spec *)
+       (# context: ^staticContext;      (* Never NONE *)
+          world: ^staticContextDB;      (* Never NONE *)
+          usageAst: ^l2AstNode;         (* Used for diagnostics *)
+          qual: ^staticPatternType;     (* Never NONE *)
+          qualExact: @boolean
+       enter (context[],world[],usageAst[])
+       <<SLOT AssignableRefSpecGetQuaType:dopart>>
+       exit (qual[],qualExact)
+       #)
+  #);
+
+l2DynamicItem: l2AssignableRefSpec
+  (# <<SLOT DynamicItemLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     Exact: @boolean;
+     AttributeDenotation: ^l2AttributeDenotation;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'DynamicItem'->value[] #);
+     shortTypename::(# do 'DItm'->value[] #);
+     print::(# <<SLOT DynamicItemPrint:dopart>> #);
+     scanImpl::(# <<SLOT DynamicItemScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     getStaticType::(# <<SLOT DynamicItemGetType:dopart>> #);
+     getStaticQuaType::(# <<SLOT DynamicItemGetQuaType:dopart>> #);
+     isIndirect::(# do true->value #);
+
+     (* ----- Execution ----- *)
+
+     instantiate::(# <<SLOT DynamicItemInstantiate:dopart>> #);
+     instantiateMany::(# <<SLOT DynamicItemInstantiateMany:dopart>> #);
+     obtainPattern::(# <<SLOT DynamicItemObtainPattern:dopart>> #);
+
+     (* ----- Compilation ----- *)
+
+     getInitCompiler::(# <<SLOT DynamicItemGetInitCplr:dopart>> #);
+     getQualCompiler::(# <<SLOT DynamicItemGetQualCplr:dopart>> #);
+     getRepInitCompiler::(# <<SLOT DynamicItemGetRepInitCplr:dopart>> #)
+  #);
+
+l2StaticComponent: l2ReferenceSpecification
+  (# <<SLOT StaticComponentLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     ObjectSpecifications: @l2ObjectSpecificationList;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'StaticComponent'->value[] #);
+     shortTypename::(# do 'SCmp'->value[] #);
+     init::(# <<SLOT StaticComponentInit:dopart>> #);
+     print::(# <<SLOT StaticComponentPrint:dopart>> #);
+     scanImpl::(# <<SLOT StaticComponentScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     check::(# <<SLOT StaticComponentCheck:dopart>> #);
+     getStaticType::(# <<SLOT StaticComponentGetType:dopart>> #);
+     isIndirect::(# do false->value #);
+
+     (* ----- Execution ----- *)
+
+     instantiate::(# <<SLOT StaticComponentInstantiate:dopart>> #);
+     instantiateMany::(# <<SLOT StaticComponentInstantiateMany:dopart>> #);
+     obtainPattern::(# <<SLOT StaticComponentObtainPattern:dopart>> #);
+
+     (* ----- Compilation ----- *)
+
+     getInitCompiler::(# <<SLOT StaticComponentGetInitCplr:dopart>> #);
+     getQualCompiler::(# <<SLOT StaticComponentGetQualCplr:dopart>> #);
+     getRepInitCompiler::(# <<SLOT StaticComponentGetRepInitCplr:dopart>> #)
+  #);
+
+l2DynamicComponent: l2AssignableRefSpec
+  (# <<SLOT DynamicComponentLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     Exact: @boolean;
+     AttributeDenotation: ^l2AttributeDenotation;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'DynamicComponent'->value[] #);
+     shortTypename::(# do 'DCmp'->value[] #);
+     print::(# <<SLOT DynamicComponentPrint:dopart>> #);
+     scanImpl::(# <<SLOT DynamicComponentScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     getStaticType::(# <<SLOT DynamicComponentGetType:dopart>> #);
+     getStaticQuaType::(# <<SLOT DynamicComponentGetQuaType:dopart>> #);
+     isIndirect::(# do true->value #);
+
+     (* ----- Execution ----- *)
+
+     instantiate::(# <<SLOT DynamicComponentInstantiate:dopart>> #);
+     instantiateMany::(# <<SLOT DynamicComponentInstantiateMany:dopart>> #);
+     obtainPattern::(# <<SLOT DynamicComponentObtainPattern:dopart>> #);
+
+     (* ----- Compilation ----- *)
+
+     getInitCompiler::(# <<SLOT DynamicComponentGetInitCplr:dopart>> #);
+     getQualCompiler::(# <<SLOT DynamicComponentGetQualCplr:dopart>> #);
+     getRepInitCompiler::(# <<SLOT DynamicComponentGetRepInitCplr:dopart>> #)
+  #);
+
+l2VariablePattern: l2AssignableRefSpec
+  (# <<SLOT VariablePatternLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     AttributeDenotation: ^l2AttributeDenotation;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'VariablePattern'->value[] #);
+     shortTypename::(# do 'VPtn'->value[] #);
+     print::(# <<SLOT VariablePatternPrint:dopart>> #);
+     scanImpl::(# <<SLOT VariablePatternScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     getStaticType::(# <<SLOT VariablePatternGetType:dopart>> #);
+     getStaticQuaType::(# <<SLOT VariablePatternGetQuaType:dopart>> #);
+     isIndirect::(# do true->value #);
+
+     (* ----- Execution ----- *)
+
+     instantiate::(# <<SLOT VariablePatternInstantiate:dopart>> #);
+     instantiateMany::(# <<SLOT VariablePatternInstantiateMany:dopart>> #);
+     obtainPattern::(# <<SLOT VariablePatternObtainPattern:dopart>> #);
+
+     (* ----- Compilation ----- *)
+
+     getInitCompiler::(# <<SLOT VariablePatternGetInitCplr:dopart>> #);
+     getQualCompiler::(# <<SLOT VariablePatternGetQualCplr:dopart>> #);
+     getRepInitCompiler::(# <<SLOT VariablePatternGetRepInitCplr:dopart>> #)
+  #);
+
+l2UnaryExp: l2Expression
+  (# <<SLOT UnaryExpLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     operand: ^l2Expression;
+
+     (* ----- Methods ----- *)
+
+     shortTypename::(# do 'UExp'->value[] #);
+     print::< (# <<SLOT UnaryExpPrint:dopart>> #);
+     scanImpl::< (# <<SLOT UnaryExpScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     getStaticTransientOut::<
+       (# operandTransient: ^staticTransient;
+       <<SLOT UnaryExpGetTranOut:dopart>>
+       #);
+     getStaticTransientIn::(# <<SLOT UnaryExpGetTranIn:dopart>> #);
+     getCompiler::<
+       (# operandCplr: ^exitCompiler
+       <<SLOT UnaryExpGetCplr:dopart>>
+       #);
+     getEnterCompiler::(# <<SLOT UnaryExpGetEnterCplr:dopart>> #);
+     getExitCompiler::<
+       (# operandCplr: ^exitCompiler
+       <<SLOT UnaryExpGetExitCplr:dopart>>
+       #);
+     getEnterExitCompiler::(# <<SLOT UnaryExpGetEnterExitCplr:dopart>> #);
+
+     (* ----- Execution ----- *)
+
+     closureExecute::(# <<SLOT UnaryExpClosureExecute:dopart>> #);
+     getEnterIter::(# <<SLOT UnaryExpGetEnterIter:dopart>> #);
+     getExitIter::< (# <<SLOT UnaryExpGetExitLib:attributes>> do INNER #);
+     getEnterExitIter::getEnterExitIterIndependent
+  #);
+
+l2BinExp: l2Expression
+  (# <<SLOT BinExpLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     operand1: ^l2Expression;
+     operand2: ^l2Expression;
+
+     (* ----- Methods ----- *)
+
+     shortTypename::(# do 'BExp'->value[] #);
+     print::< (# <<SLOT BinExpPrint:dopart>> #);
+     scanImpl::< (# <<SLOT BinExpScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     getStaticTransientOut::<
+       (# operand1Transient,operand2Transient: ^staticTransient;
+       <<SLOT BinExpGetTranOut:dopart>>
+       #);
+     getStaticTransientIn::(# <<SLOT BinExpGetTranIn:dopart>> #);
+     getCompiler::(# <<SLOT BinExpGetCplr:dopart>> #);
+     getEnterCompiler::(# <<SLOT BinExpGetEnterCplr:dopart>> #);
+     getExitCompiler::<
+       (# <<SLOT BinExpGetExitCompilerLib:attributes>>;
+          cplr1,cplr2: ^exitCompiler
+       <<SLOT BinExpGetExitCplr:dopart>>
+       #);
+     getEnterExitCompiler::(# <<SLOT BinExpGetEnterExitCplr:dopart>> #);
+
+     (* ----- Execution ----- *)
+
+     closureExecute::(# <<SLOT BinExpClosureExecute:dopart>> #);
+     getEnterIter::(# <<SLOT BinExpGetEnterIter:dopart>> #);
+     getExitIter::< (# <<SLOT BinExpGetExitLib:attributes>> do INNER #);
+     getEnterExitIter::getEnterExitIterIndependent
+  #);
+
+l2EqExp: l2BinExp
+  (# <<SLOT EqExpLib:attributes>>;
+     typename::(# do 'EqExp'->value[] #);
+     print::(# <<SLOT EqExpPrint:dopart>> #);
+     getStaticTransientOut::(# <<SLOT EqExpGetTranOut:dopart>> #);
+     getExitCompiler::(# <<SLOT EqExpGetExitCplr:dopart>> #);
+     getExitIter::(# <<SLOT EqExpGetExitIter:dopart>> #)
+  #);
+
+l2LtExp: l2BinExp
+  (# <<SLOT LtExpLib:attributes>>;
+     typename::(# do 'LtExp'->value[] #);
+     print::(# <<SLOT LtExpPrint:dopart>> #);
+     getStaticTransientOut::(# <<SLOT LtExpGetTranOut:dopart>> #);
+     getExitCompiler::(# <<SLOT LtExpGetExitCplr:dopart>> #);
+     getExitIter::(# <<SLOT LtExpGetExitIter:dopart>> #)
+  #);
+
+l2LeExp: l2BinExp
+  (# <<SLOT LeExpLib:attributes>>;
+     typename::(# do 'LeExp'->value[] #);
+     print::(# <<SLOT LeExpPrint:dopart>> #);
+     getStaticTransientOut::(# <<SLOT LeExpGetTranOut:dopart>> #);
+     getExitCompiler::(# <<SLOT LeExpGetExitCplr:dopart>> #);
+     getExitIter::(# <<SLOT LeExpGetExitIter:dopart>> #)
+  #);
+
+l2GtExp: l2BinExp
+  (# <<SLOT GtExpLib:attributes>>;
+     typename::(# do 'GtExp'->value[] #);
+     print::(# <<SLOT GtExpPrint:dopart>> #);
+     getStaticTransientOut::(# <<SLOT GtExpGetTranOut:dopart>> #);
+     getExitCompiler::(# <<SLOT GtExpGetExitCplr:dopart>> #);
+     getExitIter::(# <<SLOT GtExpGetExitIter:dopart>> #)
+  #);
+
+l2GeExp: l2BinExp
+  (# <<SLOT GeExpLib:attributes>>;
+     typename::(# do 'GeExp'->value[] #);
+     print::(# <<SLOT GeExpPrint:dopart>> #);
+     getStaticTransientOut::(# <<SLOT GeExpGetTranOut:dopart>> #);
+     getExitCompiler::(# <<SLOT GeExpGetExitCplr:dopart>> #);
+     getExitIter::(# <<SLOT GeExpGetExitIter:dopart>> #)
+  #);
+
+l2NeExp: l2BinExp
+  (# <<SLOT NeExpLib:attributes>>;
+     typename::(# do 'NeExp'->value[] #);
+     print::(# <<SLOT NeExpPrint:dopart>> #);
+     getStaticTransientOut::(# <<SLOT NeExpGetTranOut:dopart>> #);
+     getExitCompiler::(# <<SLOT NeExpGetExitCplr:dopart>> #);
+     getExitIter::(# <<SLOT NeExpGetExitIter:dopart>> #)
+  #);
+
+l2PlusExp: l2BinExp
+  (# <<SLOT PlusExpLib:attributes>>;
+     typename::(# do 'PlusExp'->value[] #);
+     print::(# <<SLOT PlusExpPrint:dopart>> #);
+     getStaticTransientOut::(# <<SLOT PlusExpGetTranOut:dopart>> #);
+     getExitCompiler::(# <<SLOT PlusExpGetExitCplr:dopart>> #);
+     getExitIter::(# <<SLOT PlusExpGetExitIter:dopart>> #)
+  #);
+
+l2MinusExp: l2BinExp
+  (# <<SLOT MinusExpLib:attributes>>;
+     typename::(# do 'MinusExp'->value[] #);
+     print::(# <<SLOT MinusExpPrint:dopart>> #);
+     getStaticTransientOut::(# <<SLOT MinusExpGetTranOut:dopart>> #);
+     getExitCompiler::(# <<SLOT MinusExpGetExitCplr:dopart>> #);
+     getExitIter::(# <<SLOT MinusExpGetExitIter:dopart>> #)
+  #);
+
+l2OrExp: l2BinExp
+  (# <<SLOT OrExpLib:attributes>>;
+     typename::(# do 'OrExp'->value[] #);
+     print::(# <<SLOT OrExpPrint:dopart>> #);
+     getStaticTransientOut::(# <<SLOT OrExpGetTranOut:dopart>> #);
+     getExitCompiler::(# <<SLOT OrExpGetExitCplr:dopart>> #);
+     getExitIter::(# <<SLOT OrExpGetExitIter:dopart>> #)
+  #);
+
+l2XorExp: l2BinExp
+  (# <<SLOT XorExpLib:attributes>>;
+     typename::(# do 'XorExp'->value[] #);
+     print::(# <<SLOT XorExpPrint:dopart>> #);
+     getStaticTransientOut::(# <<SLOT XorExpGetTranOut:dopart>> #);
+     getExitCompiler::(# <<SLOT XorExpGetExitCplr:dopart>> #);
+     getExitIter::(# <<SLOT XorExpGetExitIter:dopart>> #)
+  #);
+
+l2UnaryPlusExp: l2UnaryExp
+  (# <<SLOT UnaryPlusExpLib:attributes>>;
+     typename::(# do 'UnaryPlusExp'->value[] #);
+     print::(# <<SLOT UnaryPlusExpPrint:dopart>> #);
+     getStaticTransientOut::(# <<SLOT UnaryPlusExpGetTranOut:dopart>> #);
+     getCompiler::(# <<SLOT UnaryPlusExpGetCplr:dopart>> #);
+     getExitCompiler::(# <<SLOT UnaryPlusExpGetExitCplr:dopart>> #);
+     getExitIter::(# <<SLOT UnaryPlusExpGetExitIter:dopart>> #)
+  #);
+
+l2UnaryMinusExp: l2UnaryExp
+  (# <<SLOT UnaryMinusExpLib:attributes>>;
+     typename::(# do 'UnaryMinusExp'->value[] #);
+     print::(# <<SLOT UnaryMinusExpPrint:dopart>> #);
+     getStaticTransientOut::(# <<SLOT UnaryMinusExpGetTranOut:dopart>> #);
+     getCompiler::(# <<SLOT UnaryMinusExpGetCplr:dopart>> #);
+     getExitCompiler::(# <<SLOT UnaryMinusExpGetExitCplr:dopart>> #);
+     getExitIter::(# <<SLOT UnaryMinusExpGetExitIter:dopart>> #)
+  #);
+
+l2TimesExp: l2BinExp
+  (# <<SLOT TimesExpLib:attributes>>;
+     typename::(# do 'TimesExp'->value[] #);
+     print::(# <<SLOT TimesExpPrint:dopart>> #);
+     getStaticTransientOut::(# <<SLOT TimesExpGetTranOut:dopart>> #);
+     getExitCompiler::(# <<SLOT TimesExpGetExitCplr:dopart>> #);
+     getExitIter::(# <<SLOT TimesExpGetExitIter:dopart>> #)
+  #);
+
+l2RealDivExp: l2BinExp
+  (# <<SLOT RealDivExpLib:attributes>>;
+     typename::(# do 'RealDivExp'->value[] #);
+     print::(# <<SLOT RealDivExpPrint:dopart>> #);
+     getStaticTransientOut::(# <<SLOT RealDivExpGetTranOut:dopart>> #);
+     getExitCompiler::(# <<SLOT RealDivExpGetExitCplr:dopart>> #);
+     getExitIter::(# <<SLOT RealDivExpGetExitIter:dopart>> #)
+  #);
+
+l2IntDivExp: l2BinExp
+  (# <<SLOT IntDivExpLib:attributes>>;
+     typename::(# do 'IntDivExp'->value[] #);
+     print::(# <<SLOT IntDivExpPrint:dopart>> #);
+     getStaticTransientOut::(# <<SLOT IntDivExpGetTranOut:dopart>> #);
+     getExitCompiler::(# <<SLOT IntDivExpGetExitCplr:dopart>> #);
+     getExitIter::(# <<SLOT IntDivExpGetExitIter:dopart>> #)
+  #);
+
+l2ModExp: l2BinExp
+  (# <<SLOT ModExpLib:attributes>>;
+     typename::(# do 'ModExp'->value[] #);
+     print::(# <<SLOT ModExpPrint:dopart>> #);
+     getStaticTransientOut::(# <<SLOT ModExpGetTranOut:dopart>> #);
+     getExitCompiler::(# <<SLOT ModExpGetExitCplr:dopart>> #);
+     getExitIter::(# <<SLOT ModExpGetExitIter:dopart>> #)
+  #);
+
+l2AndExp: l2BinExp
+  (# <<SLOT AndExpLib:attributes>>;
+     typename::(# do 'AndExp'->value[] #);
+     print::(# <<SLOT AndExpPrint:dopart>> #);
+     getStaticTransientOut::(# <<SLOT AndExpGetTranOut:dopart>> #);
+     getExitCompiler::(# <<SLOT AndExpGetExitCplr:dopart>> #);
+     getExitIter::(# <<SLOT AndExpGetExitIter:dopart>> #)
+  #);
+
+l2TextConst: l2Expression
+  (# <<SLOT TextConstLib:attributes>>;
+     typename::(# do 'TextConst'->value[] #);
+     shortTypename::(# do 'TCst'->value[] #);
+     print::(# <<SLOT TextConstPrint:dopart>> #);
+     getStaticTransientOut::(# <<SLOT TextConstGetTranOut:dopart>> #);
+     getStaticTransientIn::(# <<SLOT TextConstGetTranIn:dopart>> #);
+     getCompiler::(# <<SLOT TextConstGetCplr:dopart>> #);
+     getEnterCompiler::(# <<SLOT TextConstGetEnterCplr:dopart>> #);
+     getExitCompiler::(# <<SLOT TextConstGetExitCplr:dopart>> #);
+     getEnterExitCompiler::(# <<SLOT TextConstGetEnterExitCplr:dopart>> #);
+     closureExecute::(# <<SLOT TextConstClosureExecute:dopart>> #);
+     getEnterIter::(# <<SLOT TextConstGetEnterIter:dopart>> #);
+     getExitIter::(# <<SLOT TextConstGetExitIter:dopart>> #);
+     getEnterExitIter::getEnterExitIterIndependent;
+     value: @text
+  exit value[]
+  #);
+
+l2IntegerConst: l2Expression
+  (# <<SLOT IntegerConstLib:attributes>>;
+     typename::(# do 'IntegerConst'->value[] #);
+     shortTypename::(# do 'ICst'->value[] #);
+     print::(# <<SLOT IntegerConstPrint:dopart>> #);
+     getStaticTransientOut::(# <<SLOT IntegerConstGetTranOut:dopart>> #);
+     getStaticTransientIn::(# <<SLOT IntegerConstGetTranIn:dopart>> #);
+     getCompiler::(# <<SLOT IntegerConstGetCplr:dopart>> #);
+     getEnterCompiler::(# <<SLOT IntegerConstGetEnterCplr:dopart>> #);
+     getExitCompiler::(# <<SLOT IntegerConstGetExitCplr:dopart>> #);
+     getEnterExitCompiler::(# <<SLOT IntegerConstGetEnterExitCplr:dopart>> #);
+     closureExecute::(# <<SLOT IntegerConstClosureExecute:dopart>> #);
+     getEnterIter::(# <<SLOT IntegerConstGetEnterIter:dopart>> #);
+     getExitIter::(# <<SLOT IntegerConstGetExitIter:dopart>> #);
+     getEnterExitIter::getEnterExitIterIndependent;
+     value: @integer
+  exit value
+  #);
+
+l2RealConst: l2Expression
+  (# <<SLOT RealConstLib:attributes>>;
+     typename::(# do 'RealConst'->value[] #);
+     shortTypename::(# do 'RCst'->value[] #);
+     print::(# <<SLOT RealConstPrint:dopart>> #);
+     getStaticTransientOut::(# <<SLOT RealConstGetTranOut:dopart>> #);
+     getStaticTransientIn::(# <<SLOT RealConstGetTranIn:dopart>> #);
+     getCompiler::(# <<SLOT RealConstGetCplr:dopart>> #);
+     getEnterCompiler::(# <<SLOT RealConstGetEnterCplr:dopart>> #);
+     getExitCompiler::(# <<SLOT RealConstGetExitCplr:dopart>> #);
+     getEnterExitCompiler::(# <<SLOT RealConstGetEnterExitCplr:dopart>> #);
+     closureExecute::(# <<SLOT RealConstClosureExecute:dopart>> #);
+     getEnterIter::(# <<SLOT RealConstGetEnterIter:dopart>> #);
+     getExitIter::(# <<SLOT RealConstGetExitIter:dopart>> #);
+     getEnterExitIter::getEnterExitIterIndependent;
+     value: @Real
+  exit value
+  #);
+
+l2NotExp: l2UnaryExp
+  (# <<SLOT NotExpLib:attributes>>;
+     typename::(# do 'NotExp'->value[] #);
+     print::(# <<SLOT NotExpPrint:dopart>> #);
+     getStaticTransientOut::(# <<SLOT NotExpGetTranOut:dopart>> #);
+     getExitCompiler::(# <<SLOT NotExpGetExitCplr:dopart>> #);
+     getExitIter::(# <<SLOT NotExpGetExitIter:dopart>> #)
+  #);
+
+l2NoneExp: l2Expression
+  (# <<SLOT NoneExpLib:attributes>>;
+     typename::(# do 'NoneExp'->value[] #);
+     shortTypename::(# do 'None'->value[] #);
+     print::(# <<SLOT NoneExpPrint:dopart>> #);
+     getStaticTransientOut::(# <<SLOT NoneExtGetTranOut:dopart>> #);
+     getStaticTransientIn::(# <<SLOT NoneExpGetTranIn:dopart>> #);
+     getCompiler::(# <<SLOT NoneExpGetCplr:dopart>> #);
+     getEnterCompiler::(# <<SLOT NoneExpGetEnterCplr:dopart>> #);
+     getExitCompiler::(# <<SLOT NoneExpGetExitCplr:dopart>> #);
+     getEnterExitCompiler::(# <<SLOT NoneExpGetEnterExitCplr:dopart>> #);
+     closureExecute::(# <<SLOT NoneExpClosureExecute:dopart>> #);
+     getEnterIter::(# <<SLOT NoneExpGetEnterIter:dopart>> #);
+     getExitIter::(# <<SLOT NoneExpGetExitIter:dopart>> #);
+     getEnterExitIter::getEnterExitIterIndependent
+  #);
+
+l2RepetitionSlice: l2Reference
+  (# <<SLOT RepetitionSliceLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     AttributeDenotation: ^l2AttributeDenotation;
+     Low: ^l2Evaluation;
+     High: ^l2Evaluation;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'RepetitionSlice'->value[] #);
+     shortTypename::(# do 'RSli'->value[] #);
+     print::(# <<SLOT RepetitionSlicePrint:dopart>> #);
+     scanImpl::(# <<SLOT RepetitionSliceScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     check::(# <<SLOT RepetitionSliceCheck:dopart>> #);
+     getStaticQuaType::(# <<SLOT RepetitionSliceGetQuaType:dopart>> #);
+     getStaticTransientOut::(# <<SLOT RepetitionSliceGetTranOut:dopart>> #);
+     getStaticTransientIn::(# <<SLOT RepetitionSliceGetTranIn:dopart>> #);
+     getStaticSubstance::(# <<SLOT RepetitionSliceGetSub:dopart>> #);
+     getCompiler::(# <<SLOT RepetitionSliceGetCplr:dopart>> #);
+     getEnterCompiler::(# <<SLOT RepetitionSliceGetEnterCplr:dopart>> #);
+     getExitCompiler::(# <<SLOT RepetitionSliceGetExitCplr:dopart>> #);
+     getEnterExitCompiler::(#<<SLOT RepetitionSliceGetEnterExitCplr:dopart>>#);
+
+     (* ----- Execution ----- *)
+
+     obtainObjectRef::(# <<SLOT RepetitionSliceObtainObjectRef:dopart>> #);
+     generateGetObject::(# <<SLOT RepetitionSliceGenGetObject:dopart>> #);
+     generatePutObject::(# <<SLOT RepetitionSliceGenPutObject:dopart>> #);
+     generatePutPattern::(# <<SLOT RepetitionSliceGenPutPattern:dopart>> #);
+     closureExecute::(# <<SLOT RepetitionSliceClosureExecute:dopart>> #);
+     getEnterIter::(# <<SLOT RepetitionSliceGetEnterIter:dopart>> #);
+     getExitIter::(# <<SLOT RepetitionSliceGetExitIter:dopart>> #);
+     getEnterExitIter::(# <<SLOT RepetitionSliceGetEnterExitIter:dopart>> #)
+  #);
+
+l2ComputedObjectEvaluation: l2Reference
+  (# <<SLOT ComputedObjectEvaluationLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     Reference: ^l2Reference;;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'ComputedObjectEvaluation'->value[] #);
+     shortTypename::(# do 'COEv'->value[] #);
+     print::(# <<SLOT ComputedObjectEvaluationPrint:dopart>> #);
+     scanImpl::(# <<SLOT ComputedObjectEvaluationScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     check::(# <<SLOT ComputedObjectEvaluationCheck:dopart>> #);
+     getStaticQuaType::
+       (# <<SLOT ComputedObjectEvaluationGetQuaType:dopart>> #);
+     getStaticTransientOut::
+       (# <<SLOT ComputedObjectEvaluationGetTranOut:dopart>> #);
+     getStaticTransientIn::
+       (# <<SLOT ComputedObjectEvaluationGetTranIn:dopart>> #);
+     getStaticSubstance::
+       (# <<SLOT ComputedObjectEvaluationGetSub:dopart>> #);
+     getCompiler::
+       (# <<SLOT ComputedObjectEvaluationGetCplr:dopart>> #);
+     getEnterCompiler::
+       (# <<SLOT ComputedObjectEvaluationGetEnterCplr:dopart>> #);
+     getExitCompiler::
+       (# <<SLOT ComputedObjectEvaluationGetExitCplr:dopart>> #);
+     getEnterExitCompiler::
+       (# <<SLOT ComputedObjectEvaluationGetEnterExitCplr:dopart>> #);
+
+     (* ----- Execution ----- *)
+
+     obtainObjectRef::
+       (# <<SLOT ComputedObjectEvaluationObtainObjectRef:dopart>> #);
+     generateGetObject::
+       (# <<SLOT ComputedObjectEvaluationGenGetObject:dopart>> #);
+     generatePutObject::
+       (# <<SLOT ComputedObjectEvaluationGenPutObject:dopart>> #);
+     generatePutPattern::
+       (# <<SLOT ComputedObjectEvaluationGenPutPattern:dopart>> #);
+     closureExecute::
+       (# <<SLOT ComputedObjectEvaluationClosureExecute:dopart>> #);
+     getEnterIter::
+       (# <<SLOT ComputedObjectEvaluationGetEnterIter:dopart>> #);
+     getExitIter::
+       (# <<SLOT ComputedObjectEvaluationGetExitIter:dopart>> #);
+     getEnterExitIter::
+       (# <<SLOT ComputedObjectEvaluationGetEnterExitIter:dopart>> #)
+  #);
+
+l2ObjectReference: l2Transaction
+  (# <<SLOT ObjectReferenceLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     Reference: ^l2Reference;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'ObjectReference'->value[] #);
+     shortTypename::(# do 'ORef'->value[] #);
+     print::(# <<SLOT ObjectReferencePrint:dopart>> #);
+     scanImpl::(# <<SLOT ObjectReferenceScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     getStaticTransientOut::(# <<SLOT ObjectReferenceGetTranOut:dopart>> #);
+     getStaticTransientIn::(# <<SLOT ObjectReferenceGetTranIn:dopart>> #);
+     getCompiler::(# <<SLOT ObjectReferenceGetCplr:dopart>> #);
+     getEnterCompiler::(# <<SLOT ObjectReferenceGetEnterCplr:dopart>> #);
+     getExitCompiler::(# <<SLOT ObjectReferenceGetExitCplr:dopart>> #);
+     getEnterExitCompiler::(#<<SLOT ObjectReferenceGetEnterExitCplr:dopart>>#);
+
+     (* ----- Execution ----- *)
+
+     closureExecute::(# <<SLOT ObjectReferenceClosureExecute:dopart>> #);
+     getEnterIter::(# <<SLOT ObjectReferenceGetEnterIter:dopart>> #);
+     getExitIter::(# <<SLOT ObjectReferenceGetExitIter:dopart>> #);
+     getEnterExitIter::getEnterExitIterIndependent
+  #);
+
+l2EvalList: l2Transaction
+  (# <<SLOT EvalListLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     Evaluations: @l2EvaluationList;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'EvalList'->value[] #);
+     shortTypename::(# do 'ELst'->value[] #);
+     init::(# do Evaluations.init #);
+     print::(# <<SLOT EvalListPrint:dopart>> #);
+     scanImpl::(# <<SLOT EvalListScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     getStaticTransientOut::(# <<SLOT EvalListGetTranOut:dopart>> #);
+     getStaticTransientIn::(# <<SLOT EvalListGetTranIn:dopart>> #);
+     getCompiler::(# <<SLOT EvalListGetCplr:dopart>> #);
+     getEnterCompiler::(# <<SLOT EvalListGetEnterCplr:dopart>> #);
+     getExitCompiler::(# <<SLOT EvalListGetExitCplr:dopart>> #);
+     getEnterExitCompiler::(# <<SLOT EvalListGetEnterExitCplr:dopart>> #);
+
+     (* ----- Execution ----- *)
+
+     closureExecute::(# <<SLOT EvalListClosureExecute:dopart>> #);
+     getEnterIter::(# <<SLOT EvalListGetEnterIter:dopart>> #);
+     getExitIter::(# <<SLOT EvalListGetExitIter:dopart>> #);
+     getEnterExitIter::(# <<SLOT EvalListGetEnterExitIter:dopart>> #)
+  #);
+
+l2StructureReference: l2Transaction
+  (# <<SLOT StructureReferenceLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     ObjectSpecifications: @l2ObjectSpecificationList;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'StructureReference'->value[] #);
+     shortTypename::(# do 'SRef'->value[] #);
+     init::(# <<SLOT StructureReferenceInit:dopart>> #);
+     print::(# <<SLOT StructureReferencePrint:dopart>> #);
+     scanImpl::(# <<SLOT StructureReferenceScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     getStaticTransientOut::
+       (# <<SLOT StructureReferenceGetTranOut:dopart>> #);
+     getStaticTransientIn::
+       (# <<SLOT StructureReferenceGetTranIn:dopart>> #);
+     getCompiler::
+       (# <<SLOT StructureReferenceGetCplr:dopart>> #);
+     getEnterCompiler::
+       (# <<SLOT StructureReferenceGetEnterCplr:dopart>> #);
+     getExitCompiler::
+       (# <<SLOT StructureReferenceGetExitCplr:dopart>> #);
+     getEnterExitCompiler::
+       (# <<SLOT StructureReferenceGetEnterExitCplr:dopart>> #);
+
+     (* ----- Execution ----- *)
+
+     closureExecute::(# <<SLOT StructureReferenceClosureExecute:dopart>> #);
+     getEnterIter::(# <<SLOT StructureReferenceGetEnterIter:dopart>> #);
+     getExitIter::(# <<SLOT StructureReferenceGetExitIter:dopart>> #);
+     getEnterExitIter::getEnterExitIterIndependent
+  #);
+
+l2ObjectDenotation: l2Reference
+  (# <<SLOT ObjectDenotationLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     ObjectSpecifications: @l2ObjectSpecificationList;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'ObjectDenotation'->value[] #);
+     shortTypename::(# do 'ODen'->value[] #);
+     init::(# <<SLOT ObjectDenotationInit:dopart>> #);
+     print::(# <<SLOT ObjectDenotationPrint:dopart>> #);
+     scanImpl::(# <<SLOT ObjectDenotationScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     check::(# <<SLOT ObjectDenotationCheck:dopart>> #);
+     getStaticQuaType::(# <<SLOT ObjectDenotationGetQuaType:dopart>> #);
+     getStaticTransientOut::(# <<SLOT ObjectDenotationGetTranOut:dopart>> #);
+     getStaticTransientIn::(# <<SLOT ObjectDenotationGetTranIn:dopart>> #);
+     getStaticSubstance::(# <<SLOT ObjectDenotationGetSub:dopart>> #);
+     getCompiler::(# <<SLOT ObjectDenotationGetCplr:dopart>> #);
+     getEnterCompiler::(# <<SLOT ObjectDenotationGetEnterCplr:dopart>> #);
+     getExitCompiler::(# <<SLOT ObjectDenotationGetExitCplr:dopart>> #);
+     getEnterExitCompiler::(#<<SLOT ObjectDenotationGetEnterExitCplr:dopart>>#);
+
+     (* ----- Execution ----- *)
+
+     closureExecute::(# <<SLOT ObjectDenotationClosureExecute:dopart>> #);
+     generateGetObject::(# <<SLOT ObjectDenotationGenGetObject:dopart>> #);
+     generatePutObject::(# <<SLOT ObjectDenotationGenPutObject:dopart>> #);
+     generatePutPattern::(# <<SLOT ObjectDenotationGenPutPattern:dopart>> #);
+     getEnterIter::(# <<SLOT ObjectDenotationGetEnterIter:dopart>> #);
+     getExitIter::(# <<SLOT ObjectDenotationGetExitIter:dopart>> #);
+     getEnterExitIter::(# <<SLOT ObjectDenotationGetEnterExitIter:dopart>> #);
+     obtainObjectRef::(# <<SLOT ObjectDenotationObtainObjectRef:dopart>> #)
+  #);
+
+l2Reference: l2Transaction
+  (# <<SLOT ReferenceLib:attributes>>;
+
+     (* ----- Semantic Attributes ----- *)
+
+     getStaticSubstance:<
+       (* Deliver the static substance of the contained attribute
+        * denotation or object descriptor in the given 'context'
+        * and 'world' *)
+       (# context: ^staticContext;      (* Never NONE *)
+          world: ^staticContextDB;      (* Never NONE *)
+          usageAst: ^l2AstNode;         (* Used for diagnostics *)
+          stsub: ^staticSubstance       (* Never NONE *)
+       enter (context[],world[],usageAst[])
+       <<SLOT ReferenceGetSub:dopart>>
+       exit stsub[]
+       #);
+
+     getStaticQuaType:<
+       (* Given an 'context' that specifies the statically
+        * known structure of the enclosing object, and
+        * a 'world' database of object structure obtained
+        * during the analysis, compute the static type
+        * associated with the qualification of this
+        * reference; note that only some kinds of l2Reference
+        * will have a qualification - for all others this
+        * will cause a static error (e.g., x[]->&integer[]) *)
+       (# context: ^staticContext;      (* Never NONE *)
+          world: ^staticContextDB;      (* Never NONE *)
+          usageAst: ^l2AstNode;         (* Used for diagnostics *)
+          qual: ^staticPatternType;     (* Never NONE *)
+          qualExact: @boolean
+       enter (context[],world[],usageAst[])
+       <<SLOT ReferenceGetQuaType:dopart>>
+       exit (qual[],qualExact)
+       #);
+
+     (* ----- Execution ----- *)
+
+     obtainObjectRef:<
+       (* Obtain the object denoted by this reference, or NONE
+        * if it is a NONE-valued object reference; this is for
+        * "reading the address" of an object *)
+       (# thrd: ^thread;                (* Current thread of execution *)
+          unwind: ##stackUnwinder;      (* Never NONE *)
+          dContext: ^substanceSlice;    (* Never NONE *)
+          renew: @boolean;              (* For obj-ref: create & assign *)
+          l1obj: ^l1ObjectEntity        (* NONE means "NONE" *)
+       enter (thrd[],unwind##,dContext[],renew)
+       do INNER
+       exit l1obj[]
+       #);
+
+     generateGetObject:<
+       (* generate code to push the object assoicated with
+        * this reference, possibly creating it first, and
+        * ensuring that it is not NONE unless 'noneAllowed' *)
+       (# context: ^staticContext;           (* Never NONE *)
+          world: ^staticContextDB;           (* Never NONE *)
+          usageAst: ^l2AstNode;              (* Used for diagnostics *)
+          program: ^betaByteCodeList;        (* Never NONE *)
+          cInfo: ^compileInfo;               (* Never NONE *)
+          noneAllowed: @boolean;
+          renew: @boolean;
+          gensptype: ^staticPatternType
+       enter (context[],world[],usageAst[],program[],cInfo[],noneAllowed,renew)
+       do INNER
+       exit gensptype[]
+       #);
+
+     generatePutObject:<
+       (* generate code to pop an object from 'objRefs' to
+        * the attribute assoicated with this reference *)
+       (# context: ^staticContext;      (* Never NONE *)
+          world: ^staticContextDB;      (* Never NONE *)
+          usageAst: ^l2AstNode;         (* Used for diagnostics *)
+          program: ^betaByteCodeList;   (* Never NONE *)
+          cInfo: ^compileInfo;          (* Never NONE *)
+          gensptype: ^staticPatternType;(* Describe the result *)
+          qualExact: @boolean
+       enter (context[],world[],usageAst[],program[],cInfo[])
+       do INNER
+       exit (gensptype[],qualExact)
+       #);
+
+     generatePutPattern:<
+       (* generate code to pop a pattern from 'patterns' to
+        * the attribute assoicated with this reference *)
+       (# context: ^staticContext;           (* Never NONE *)
+          world: ^staticContextDB;           (* Never NONE *)
+          usageAst: ^l2AstNode;              (* Used for diagnostics *)
+          program: ^betaByteCodeList;        (* Never NONE *)
+          cInfo: ^compileInfo;               (* Never NONE *)
+          gensptype: ^staticPatternType
+       enter (context[],world[],usageAst[],program[],cInfo[])
+       do INNER
+       exit gensptype[]
+       #);
+
+     name: ^text (* Used when caching objects for inserted items *)
+  #);
+
+l2DynamicItemGeneration: l2Reference
+  (# <<SLOT DynamicItemGenerationLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     ObjectSpecifications: @l2ObjectSpecificationList;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'DynamicItemGeneration'->value[] #);
+     shortTypename::(# do 'DIGen'->value[] #);
+     init::(# <<SLOT DynamicItemGenerationInit:dopart>> #);
+     print::(# <<SLOT DynamicItemGenerationPrint:dopart>> #);
+     scanImpl::(# <<SLOT DynamicItemGenerationScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     check::(# <<SLOT DynamicItemGenerationCheck:dopart>> #);
+     getStaticQuaType::
+       (# <<SLOT DynamicItemGenerationGetQuaType:dopart>> #);
+     getStaticTransientOut::
+       (# <<SLOT DynamicItemGenerationGetTranOut:dopart>> #);
+     getStaticTransientIn::
+       (# <<SLOT DynamicItemGenerationGetTranIn:dopart>> #);
+     getStaticSubstance::
+       (# <<SLOT DynamicItemGenerationGetSub:dopart>> #);
+     getCompiler::
+       (# <<SLOT DynamicItemGenerationGetCplr:dopart>> #);
+     getEnterCompiler::
+       (# <<SLOT DynamicItemGenerationGetEnterCplr:dopart>> #);
+     getExitCompiler::
+       (# <<SLOT DynamicItemGenerationGetExitCplr:dopart>> #);
+     getEnterExitCompiler::
+       (# <<SLOT DynamicItemGenerationGetEnterExitCplr:dopart>> #);
+
+     (* ----- Execution ----- *)
+
+     generateGetObject::
+       (# <<SLOT DynamicItemGenerationGenGetObject:dopart>> #);
+     generatePutObject::
+       (# <<SLOT DynamicItemGenerationGenPutObject:dopart>> #);
+     generatePutPattern::
+       (# <<SLOT DynamicItemGenerationGenPutPattern:dopart>> #);
+     closureExecute::
+       (# <<SLOT DynamicItemGenerationClosureExecute:dopart>> #);
+     getEnterIter::
+       (# <<SLOT DynamicItemGenerationGetEnterIter:dopart>> #);
+     getExitIter::
+       (# <<SLOT DynamicItemGenerationGetExitIter:dopart>> #);
+     getEnterExitIter::
+       (# <<SLOT DynamicItemGenerationGetEnterExitIter:dopart>> #);
+     obtainObjectRef::
+       (# <<SLOT DynamicItemGenerationObtainObjectRef:dopart>> #)
+  #);
+
+l2DynamicComponentGeneration: l2Reference
+  (# <<SLOT DynamicComponentGenerationLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     ObjectSpecifications: @l2ObjectSpecificationList;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'DynamicComponentGeneration'->value[] #);
+     shortTypename::(# do 'DCGen'->value[] #);
+     init::(# <<SLOT DynamicComponentGenerationInit:dopart>> #);
+     print::(# <<SLOT DynamicComponentGenerationPrint:dopart>> #);
+     scanImpl::(# <<SLOT DynamicComponentGenerationScanImpl:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     check::
+       (# <<SLOT DynamicComponentGenerationCheck:dopart>> #);
+     getStaticQuaType::
+       (# <<SLOT DynamicComponentGenerationGetQuaType:dopart>> #);
+     getStaticTransientOut::
+       (# <<SLOT DynamicComponentGenerationGetTranOut:dopart>> #);
+     getStaticTransientIn::
+       (# <<SLOT DynamicComponentGenerationGetTranIn:dopart>> #);
+     getStaticSubstance::
+       (# <<SLOT DynamicComponentGenerationGetSub:dopart>> #);
+     getCompiler::
+       (# <<SLOT DynamicComponentGenerationGetCplr:dopart>> #);
+     getEnterCompiler::
+       (# <<SLOT DynamicComponentGenerationGetEnterCplr:dopart>> #);
+     getExitCompiler::
+       (# <<SLOT DynamicComponentGenerationGetExitCplr:dopart>> #);
+     getEnterExitCompiler::
+       (# <<SLOT DynamicComponentGenerationGetEnterExitCplr:dopart>> #);
+
+     (* ----- Execution ----- *)
+
+     generateGetObject::
+       (# <<SLOT DynamicComponentGenerationGenGetObject:dopart>> #);
+     generatePutObject::
+       (# <<SLOT DynamicComponentGenerationGenPutObject:dopart>> #);
+     generatePutPattern::
+       (# <<SLOT DynamicComponentGenerationGenPutPattern:dopart>> #);
+     closureExecute::
+       (# <<SLOT DynamicComponentGenerationClosureExecute:dopart>> #);
+     getEnterIter::
+       (#<<SLOT DynamicComponentGenerationGetEnterIter:dopart>>#);
+     getExitIter::
+       (# <<SLOT DynamicComponentGenerationGetExitIter:dopart>> #);
+     getEnterExitIter::
+       (# <<SLOT DynamicComponentGenerationGetEnterExitIter:dopart>> #);
+     obtainObjectRef::
+       (# <<SLOT DynamicComponentGenerationObtainObjectRef:dopart>> #)
+  #);
+
+l2AlternativeList: l2list
+  (# <<SLOT AlternativeListLib:attributes>>;
+     element::l2Alternative;
+     print::(# <<SLOT AlternativeListPrint:dopart>> #)
+  #);
+
+l2Alternative: l2AstNode
+  (# <<SLOT AlternativeLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     Selections: @l2EvaluationList;
+     Imperatives: @l2ImperativeList;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'Alternative'->value[] #);
+     shortTypename::(# do 'Alt'->value[] #);
+     init::(# do Selections.init; Imperatives.init #);
+     print::(# <<SLOT AlternativePrint:dopart>> #);
+     scanImpl::(# <<SLOT AlternativeScanImpl:dopart>> #)
+  #);
+
+l2WhenAlternativeList: l2list
+  (# <<SLOT WhenAlternativeListLib:attributes>>;
+     element::l2WhenAlternative;
+     print::(# <<SLOT WhenAlternativeListPrint:dopart>> #)
+  #);
+
+l2WhenAlternative: l2AstNode
+  (# <<SLOT WhenAlternativeLib:attributes>>;
+
+     (* ----- Children ----- *)
+
+     Exact: @boolean;
+     AttributeDenotation: ^l2AttributeDenotation;
+     Imperatives: @l2ImperativeList;
+
+     (* Mirror of WhenImp NameDcl; NB: does _not_ reflect
+      * existing syntax in this l2WhenAlternative; used to
+      * enable a type split: one entity with >1 types *)
+     ghostNameDcl: @l2NameDcl;
+
+     (* ----- Methods ----- *)
+
+     typename::(# do 'WhenAlternative'->value[] #);
+     shortTypename::(# do 'WAlt'->value[] #);
+     init::(# <<SLOT WhenAlternativeInit:dopart>> #);
+     print::(# <<SLOT WhenAlternativePrint:dopart>> #);
+     scanImpl::(# <<SLOT WhenAlternativeScanImpl:dopart>> #);
+     getWhenImp:
+       (# l2wimp: ^l2WhenImp
+       <<SLOT WhenAlternativeGetWhenImp:dopart>>
+       exit l2wimp[]
+       #);
+     getNameDcl: (# exit (getWhenImp).NameDcl[] #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     getScopeNode::(# do theScopeNode[]->sn[] #);
+
+     theScopeNode: @scopeNode
+       (# kind::(# do whenImpScopeKind->value #);
+          getInitialContext::(# <<SLOT WhenAlternativeScopeGetIC:dopart>> #);
+          findNameDcl::(# <<SLOT WhenAlternativeScopeFind:dopart>> #);
+          location::(# do this(l2WhenAlternative)[]->l2ast[] #)
+       #);
+
+     theDeclNode: @declNode
+       (# kind::(# do whenDeclKind->value #);
+          getStaticType::(# <<SLOT WhenAlternativeGetType:dopart>> #);
+          getStaticQuaType::(# <<SLOT WhenAlternativeGetQuaType:dopart>> #);
+          isIndirect::(# do false->value #);
+          isRepeated::(# do false->value #);
+          location::(# do this(l2WhenAlternative)[]->l2ast[] #)
+       #);
+
+     (* ----- Execution ----- *)
+
+     execute:
+       (* Execute this when alternative using 'callback' as
+        * an observation hook, 'unwind' for stack unwinding (leave
+        * and restart), in the given 'context' *)
+       (# thrd: ^thread;                (* Current thread of execution *)
+          unwind: ##stackUnwinder;      (* Never NONE *)
+          dContext: ^substanceSlice;    (* Never NONE *)
+       enter (thrd[],unwind##,dContext[])
+       <<SLOT WhenAlternativeExecute:dopart>>
+       #);
+
+     (* private *)
+     (* compiled: @boolean; .. no, not this time - controlled by l2WhenImp *)
+     compile: (# <<SLOT WhenAlternativeCompile:dopart>> #);
+     program: @betaByteCodeList (* get hold of pattern to compare with *)
+  #);
+
+(************************************************************
+ *                                                          *
+ *     Unsupported (type is OK, but semantics NO-OPish)     *
+ *                                                          *
+ ************************************************************)
+
+l2Primitive: l2Transaction
+  (# <<SLOT PrimitiveLib:attributes>>;
+
+     typename::(# do 'Primitive'->value[] #);
+     shortTypename::(# do 'Prim'->value[] #);
+     print::(# <<SLOT PrimitivePrint:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     getStaticTransientOut::(# <<SLOT PrimitiveGetTranOut:dopart>> #);
+     getStaticTransientIn::(# <<SLOT PrimitiveGetTranIn:dopart>> #);
+     getCompiler::(# <<SLOT PrimitiveGetCplr:dopart>> #);
+     getEnterCompiler::(# <<SLOT PrimitiveGetEnterCplr:dopart>> #);
+     getExitCompiler::(# <<SLOT PrimitiveGetExitCplr:dopart>> #);
+     getEnterExitCompiler::(# <<SLOT PrimitiveGetEnterExitCplr:dopart>> #);
+
+     (* ----- Execution ----- *)
+
+     closureExecute::(# <<SLOT PrimitiveClosureExecute:dopart>> #);
+     getEnterIter::(# <<SLOT PrimitiveGetEnterIter:dopart>> #);
+     getExitIter::(# <<SLOT PrimitiveGetExitIter:dopart>> #);
+     getEnterExitIter::getEnterExitIterIndependent
+  #);
+
+l2Address: l2Transaction
+  (# <<SLOT AddressLib:attributes>>;
+
+     typename::(# do 'Address'->value[] #);
+     shortTypename::(# do 'Prim'->value[] #);
+     print::(# <<SLOT AddressPrint:dopart>> #);
+
+     (* ----- Semantic Attributes ----- *)
+
+     getStaticTransientOut::(# <<SLOT AddressGetTranOut:dopart>> #);
+     getStaticTransientIn::(# <<SLOT AddressGetTranIn:dopart>> #);
+     getCompiler::(# <<SLOT AddressGetCplr:dopart>> #);
+     getEnterCompiler::(# <<SLOT AddressGetEnterCplr:dopart>> #);
+     getExitCompiler::(# <<SLOT AddressGetExitCplr:dopart>> #);
+     getEnterExitCompiler::(# <<SLOT AddressGetEnterExitCplr:dopart>> #);
+
+     (* ----- Execution ----- *)
+
+     closureExecute::(# <<SLOT AddressClosureExecute:dopart>> #);
+     getEnterIter::(# <<SLOT AddressGetEnterIter:dopart>> #);
+     getExitIter::(# <<SLOT AddressGetExitIter:dopart>> #);
+     getEnterExitIter::getEnterExitIterIndependent
+  #)
+
+(*
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

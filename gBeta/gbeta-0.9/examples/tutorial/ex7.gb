@@ -1,0 +1,18 @@
+(* FILE ex7.gb *)
+-- betaenv:descriptor --
+(# 
+   factory:
+     (# settype: (# enter type## #);
+        counter: @integer;
+        type: ##object
+     do counter+1->counter
+     exit &type[]
+     #);
+   f: @factory;
+   agent: (# do (for 25 repeat '.'->stdio for); '\n'->stdio #)
+do 
+   agent##->f.settype;
+   (for 5 repeat f! for);
+   integer##->f.settype;
+   (for 5 repeat f! for)
+#) 

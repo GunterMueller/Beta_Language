@@ -1,0 +1,7 @@
+ORIGIN 'tjs1'
+--- tjs1A: ObjectDescriptor ---
+(#
+  do 'ahoj'->putline   
+#)
+--- tjs1att: Attributes ---
+b: (# do 'B'-> putline #);

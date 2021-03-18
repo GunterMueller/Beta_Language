@@ -1,0 +1,164 @@
+
+
+
+
+
+
+
+<HTML>
+<HEAD><TITLE>gbeta Getting Started:: GNU Emacs Integration (cont'd) </TITLE></HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF"
+  LINK="#0000FF" VLINK="#800080" ALINK="#FF00FF">
+<TABLE WIDTH="100%">
+<TR><TD ALIGN="right">
+<TABLE><TR ALIGN="center">
+  <TD><A HREF="start_index5.html" TARGET="display"><IMG SRC="left.gif"></A></TD>
+  <TD><A HREF="start_index7.html" TARGET="display"><IMG SRC="right.gif"></A></TD>
+</TR></TABLE></TD></TR>
+<TR><TD ALIGN="left"><H1>Getting Started: GNU Emacs Integration (cont'd) </H1></TD></TR>
+</TABLE>
+<P><HR></P>
+<TABLE><TR><TD WIDTH="25%">&nbsp;</TD><TD WIDTH="50%">
+
+<H3>The two windows</H3>
+<P>
+After having invoked <B>gbeta</B> on the <CODE>beer.gb</CODE> source
+code file, you get the familiar prompt in one window:
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE>executing~1> _</PRE></TD></TR>
+  </TABLE>
+</P>
+
+and the first statement of the program (which happens to reside in the
+file <CODE>betaenv.gb</CODE>) emphasized in the middle of the other
+window:
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE> <SMALL>...
+   min: (# i,j: @integer enter (i,j) exit (if i&lt;j then i else j if)#);
+   theProgram: @&lt;&lt;SLOT program:merge>>;
+do
+=> <FONT COLOR="#0000FF"><B>theProgram</B></FONT>
+#)</SMALL> </PRE></TD></TR>
+  </TABLE>
+</P>
+
+The current imperative is emphasized in two ways.  At the leftmost
+column of the window, an <CODE>"=>"</CODE> arrow enables a quick scan
+to find the line containing the current imperative, and somewhere in
+the middle of that line, a block is highlighted using the same
+attributes as the "secondary selection."  This might e.g. give the
+selected region a light blue background color.  Here it is shown as
+a blue foreground color.
+</P>
+
+<H3>Some unchanged features, and a better display</H3>
+<P>
+Printing the state of objects or the structure of patterns, or static
+information about program elements works the same as in the command
+line environment.  Showing a position in the source code works a lot
+better, because the <CODE>display</CODE> command can exploit Emacs to
+show the given source code position in the source code window.  Try:
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>print theProgram</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+This produces a rather large response, specifying the state of the
+object <CODE>theProgram</CODE>:
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE> <SMALL>
+object, composite object slice~72~71 = 
+   (#`beer.gb:1112
+      "line" : pattern =
+	 integer pattern slice
+	 composite pattern slice = beer.gb:532 in CsOSli~72~71
+      ...
+   #)</SMALL> </PRE></TD></TR>
+  </TABLE>
+</P>
+
+Then go up and find the annotation at the top of the "state block": it
+will be a backquote followed by a filename, a colon, and an integer
+which gives the identity of a node in the abstract syntax tree,
+in this case <CODE>`beer.gb:1112</CODE>.  Now give that (without
+the backquote) as an argument to the <CODE>display</CODE> command:  
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>display beer.gb:1112</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+Actually, double-clicking with the mouse on the text
+<CODE>`beer.gb:1112</CODE> (or closely after it) has the same
+effect. 
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>[ click-click! ]</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+You can use this to inspect the source code (declarations)
+associated with the program state which 
+<CODE>"print <I>something</I>"</CODE> delivers.  Try to double-click on
+<CODE>beer.gb:532</CODE> or similar!
+</P>
+
+<P>
+Remember that if you get lost because you have looked at lots of
+places in the source code browsing the state of the program, you can
+always display the imperative which will be executed next by:
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>display</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+without any arguments.
+</P>
+
+<P>
+In the <A HREF="start_index7.html" TARGET="display">next</A> section we will start executing the program,
+and begin to use breakpoints.
+</P>
+
+</TD><TD WIDTH="20%">&nbsp;</TD></TR></TABLE>
+<P><HR></P>
+<SMALL>
+  <I>
+    <CENTER>
+      <STRONG>Signed by: </STRONG>
+      <A HREF="mailto:eernst@cs.auc.dk">eernst@cs.auc.dk</A>.
+      Last Modified:  3-Jul-01
+<BR>
+    </CENTER>
+  </I>
+</SMALL>
+</BODY>
+</HTML>
+

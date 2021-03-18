@@ -1,0 +1,75 @@
+ORIGIN '~beta/basiclib/current/betaenv.bet';
+INCLUDE '~beta/basiclib/current/file.bet';
+BODY 'systemjobbody';
+--- lib: attributes ---
+(* Start another program as a seperate system job.
+ * Usage examples:
+ * a) To run the standard borne shell:
+ *    &systemjob (# do '/bin/sh'->executable #)
+ * b) To run the system's C compiler on a specified file:
+ *    &systemjob
+ *      (# file: ^text; searchPATH:: trueObject
+ *      enter file[]
+ *      do 'cc'->executable; '-c'->arg; file[]->arg;
+ *      #)
+ *)
+systemjob:
+  (#
+     <<SLOT SystemJobLib: Attributes>>;
+     private: @<<SLOT SystemJobPrivate: ObjectDescriptor>>;
+
+
+     (*****************************************************************
+      *                         result codes                          *
+      *****************************************************************)
+     (* The value of `status' will be set, when the process finishes:
+      * -1: On some error conditions, like "no more processes".
+      *  0: On success
+      *  n: the exit code of the called program
+      *)
+     status: @integer;
+     pid: @integer;		(* The process ID of the started process: *)
+
+
+     (*****************************************************************
+      *                           job setup                           *
+      *****************************************************************)
+     (* call this first! *)
+     init:< (# <<SLOT SystemJobInit: DoPart>> #);
+
+     (* REQUIRED: provide the name (or full path) of the executable *)
+     executable: (# t: ^text enter t[] <<SLOT SystemJobExecutable: DoPart>> #);
+
+     (* Set an argument *)
+     arg: (# t: ^text enter t[] <<SLOT SystemJobArg: DoPart>> #);
+
+     (* Set one or more arguments: *)
+     args:
+       (# p,q: @integer; t: [1] ^text enter t <<SLOT SystemJobArgs: DoPart>> #);
+
+     (* Change to this directory before running the job: *)
+     cd: (# t: ^text enter t[] <<SLOT SystemJobCD: DoPart>> #);
+
+     (* Set input/output/error stream of the executable: *)
+     in:
+       (# fd:< IntegerValue; isOutput:< BooleanValue; s: ^file
+       enter s[]
+       <<SLOT SystemJobStream: DoPart>>
+       #);
+     out: in (# fd::< (# do 1->value; INNER #); isOutput:: TrueObject #);
+     err: out (# fd:: (# do 2->value #) #);
+
+
+     (*****************************************************************
+      *                  virtuals for further configuation            *
+      *****************************************************************)
+     searchPATH:< BooleanValue;
+
+
+     (*****************************************************************
+      *                     job execution and control                 *
+      *****************************************************************)
+     run: (# p,q: @integer <<SLOT SystemJobRun: DoPart>> exit status #);
+  do init; INNER; run
+  exit status
+  #);

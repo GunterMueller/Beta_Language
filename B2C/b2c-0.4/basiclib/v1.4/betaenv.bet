@@ -1,0 +1,205 @@
+ORIGIN 'betaenv';
+BODY 'private/streambody';
+BODY 'private/textbody';
+BODY 'private/betaenvbody';
+BODY 'private/gcbody';
+--- betaenv: ObjectDescriptor ---
+(#
+   <<SLOT lib: Attributes>>;
+
+   (* basic data types *)
+   Real: (# #);
+   Integer: (# #);
+   ShortInt: (# #);
+   Char: (# #);
+   Boolean: (# #);
+   False: (# exit 0=1 #);
+   True: (# exit 0=0 #);
+
+   IntegerValue: (# value: @Integer do INNER exit value #);
+   ShortIntValue: (# value: @ShortInt do INNER exit value #);
+   CharValue: (# value: @Char do INNER exit value #);
+   BooleanValue: (# value: @Boolean do INNER exit value #);
+   RealValue: (# value: @Real do INNER exit value #);
+
+   IntegerObject: IntegerValue (# enter value do INNER #);
+   ShortIntObject: ShortIntValue (# enter value do INNER #);
+   CharObject: CharValue (# enter value do INNER #);
+   BooleanObject: BooleanValue (# enter value do INNER #);
+   RealObject: RealValue (# enter value do INNER #);
+
+   (* the main superpattern of everything *)
+   Object: (# do INNER #);
+
+   (* some standard functions *)
+   min: (# x,y: @integer enter (x,y) do (if y<x then y->x if) exit x #);
+   max: (# x,y: @integer enter (x,y) do (if y>x then y->x if) exit x #);
+   abs: (# x: @integer enter x do (if x<0 then -x->x if) exit x #);
+
+   (* loop control, etc. *)
+   Cycle: (# do INNER; restart cycle #);
+   ForTo:
+     (# min,max,inx: @integer
+     enter (min->inx,max)
+     do (if inx<=max then INNER; inx+1->inx; restart ForTo if);
+     #);
+   Loop:
+     (#
+        while:< BooleanValue (# do true->value; INNER #);
+	until:< BooleanValue;
+	TheWhile: @while;	(* private *)
+	TheUntil: @until;	(* private *)
+     do
+        (if TheWhile then INNER; (if not TheUntil then restart Loop if) if)
+     #);
+
+   (* external interface *)
+   External:
+     (#
+        name: ^text;
+	type: @Integer;
+	callC: (# enter name do 0->type #);
+	cExternalEntry: (# enter name do 1->type #);
+     do INNER
+     #);
+
+   putchar: external (# c: @char enter c do callc #);
+
+   put: @screen.put;
+   puttext: @screen.puttext;
+   putline: @screen.putline;
+   newline: @screen.newline;
+   putint: @screen.putint;
+
+   (* General Stream pattern *)
+   stream:
+     (#
+	<<SLOT StreamLib: Attributes>>;
+        put:< (# c: @char enter c do INNER #);
+	puttext:<
+	  (#
+	     t: ^text;
+	     p: @put;
+	     inx: @integer;
+	  enter t[]
+	  <<SLOT StreamPuttextDoPart: DoPart>>
+	  #);
+	putint:
+	  (#
+	     n: @integer;
+	     p: @put;
+	     rec: <<SLOT StreamPutintRec: ObjectDescriptor>>
+	  enter n
+	  <<SLOT StreamPutintDoPart: DoPart>>
+	  #);
+	putline: (# t: ^text enter t[] do t[]->puttext; newline #);
+	newline: (# do 10->put #);
+        get:< (# c: @char enter c do INNER #);
+	reset:< Object;
+	length:< IntegerValue;
+     #);
+
+   (* The Text pattern: used for storing strings. *)
+   text: stream
+     (#
+	<<SLOT TextLib: Attributes>>;
+	(* internal attributes -- do not use these directly! *)
+	rep: [10] @char;
+	l,pos: @integer;
+	import: (# enter rep do rep.range->l->pos #);
+
+	(* general stream methods *)
+	put:: (# <<SLOT TextPut: DoPart>> #);
+	reset:: (# do 0->pos #);
+	length:: (# do l->value #);
+
+	(* special methods for text objects *)
+	clear: (# do 0->l->pos #);
+	empty: (# exit (0=l) #);
+	(* Creates a copy of this(text)[].  The copy will always of type
+	 * text[], in contrast to the Mjolner libraries *)
+        copy: 
+          (# t1: ^text
+	  <<SLOT TextCopy: DoPart>>
+          exit t1[]
+          #);
+	append:
+	  (# t: ^text
+	  enter t[]
+	  <<SLOT TextAppend: DoPart>>
+	  exit this(text)[]
+	  #);
+	prepend:
+	  (# t: ^text
+	  enter t[]
+	  <<SLOT TextPrepend: DoPart>>
+	  exit this(text)[]
+	  #);
+	equal: BooleanValue
+	  (# t: ^text; privInt: @integer
+	  enter t[]
+	  <<SLOT TextEqual: DoPart>>
+	  #);
+	inxGet: CharValue
+	  (# inx: @integer
+	  enter inx
+	  <<SLOT TextInxGet: DoPart>>
+	  #);
+     enter import
+     exit rep[1:l]
+     #);
+
+   screen: @stream
+     (#
+        put:: (# do c->putchar #);
+     #);
+
+
+   (* Exception handling, program termination, etc. *)
+   stop:
+     (#
+	why: @integer;
+	msg: ^text;
+	doexit: external (# i: @integer enter i do 'exit'->callc #);
+     enter (why,msg[])
+     <<SLOT BetaenvStop: DoPart>>
+     #);
+   normal: (# exit 0 #);	(* normal program termination - no errors *)
+   failure: (# exit 1 #);	(* program termination with failure *)
+   failureTrace: (# exit 2 #);	(* as before, but also generate a stack dump *)
+
+   exception:
+     (# continue: @Boolean; termCode: @integer; msg: @text;
+     <<SLOT BetaenvException: DoPart>>
+     #);
+   notification: exception (# do true->continue; INNER #);
+
+
+   (* The repetition descriptor is internal to the BETA compiler.  You may
+    * not directly use it in a BETA program. *)
+   repetition:
+     (#
+	size: @integer;
+	elsize: @integer;
+	alsize: @integer; (* JS allocated size (count of element) *)
+	range: (# exit size #);
+	new: (# enter size do INNER #);
+	extend: (# amount: @integer enter amount do INNER #);
+     do INNER
+     #);
+
+   (* JO Added possibility of explicit starting of collection and also prepared
+         environment for occasional communication of mutator with collector,
+         whose may not be used yet, because of this version of b2c hasn't
+         implemented needed things for call backs yet *)
+   doGC: <<SLOT doGC: ObjectDescriptor>>;
+   (* JO *)
+
+
+   (* program is the descriptor, that contains the actual BETA application to
+    * execute *)
+   program: <<SLOT program: ObjectDescriptor>>;
+   theProgram: @program
+do
+   theProgram
+#)

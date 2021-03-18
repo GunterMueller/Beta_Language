@@ -1,0 +1,360 @@
+
+
+
+
+
+
+
+<HTML>
+<HEAD><TITLE>gbeta Tutorial:: Overview of Declarations</TITLE></HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF"
+  LINK="#0000FF" VLINK="#800080" ALINK="#FF00FF">
+<TABLE WIDTH="100%">
+<TR><TD ALIGN="right">
+<TABLE><TR ALIGN="center">
+  <TD><A HREF="tutorial_index2.html" TARGET="display"><IMG SRC="left.gif"></A></TD>
+  <TD><A HREF="tutorial_index4.html" TARGET="display"><IMG SRC="right.gif"></A></TD>
+</TR></TABLE></TD></TR>
+<TR><TD ALIGN="left"><H1>Tutorial: Overview of Declarations</H1></TD></TR>
+</TABLE>
+<P><HR></P>
+<TABLE><TR><TD WIDTH="25%">&nbsp;</TD><TD WIDTH="50%">
+
+The declaration syntax in <B>gbeta</B> is very simple and consistent.  It is
+also based on "funny" characters, and this makes it hard for the
+casual reader to understand what is going on in a <B>gbeta</B> program,
+since the reader's basic assumptions about the meaning of syntax do
+not reveal enough.  The trick is to focus on the few "funny"
+characters right after the colon, they tell what kind of attribute is
+being declared here.
+</P>
+
+<P>
+The syntax specifications below mention the <CODE>&lt;Merge&gt;</CODE>
+and the <CODE>&lt;AttributeDenotation&gt;</CODE> syntax categories.
+For now, think of a <CODE>&lt;Merge&gt;</CODE> as a main part or an
+identifier, and think of an <CODE>&lt;AttributeDenotation&gt;</CODE>
+as an identifier.  The examples go slightly beyond what has been
+presented sofar, so don't despair if some of the examples can not be
+fully explained by now.
+</P>
+
+<H3>Declarations of patterns</H3>
+<P>
+A pattern is declared by the simplest form of declarations:
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>&lt;Name&gt; ":" &lt;Merge&gt;</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+A pattern is the language concept in <B>gbeta</B> which takes care of every
+aspect of structure description.  Whenever a piece of substance is
+created, its structure is created according to some pattern, and that
+again consists of predefined and/or main part specified building
+blocks.  To be precise, a pattern also specifies a run-time context,
+i.e. one or more enclosing objects (<CODE>origins</CODE>).  Since a
+pattern includes the specification of some enclosing objects, it does
+not exist before run-time, and patterns associated with the same
+syntax (main parts) are still different if their enclosing objects are
+different.  The static analysis works with patterns relative to a
+given run-time environment:  take the analysis version of a pattern
+and provide it with a concrete run-time context, and there is your
+pattern!  The fact that the run-time context is included into patterns
+makes it possible to create substance directly from patterns.  Here's
+an example of some pattern declarations: 
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE>
+p: (# q: (# #); 
+      r: (# s: (# #);
+            t: (# #)
+         #);
+      u: boolean
+   #);
+v: (# #)</PRE></TD></TR>
+  </TABLE>
+</P>
+</P>
+
+<H3>Declarations of objects</H3>
+<P>
+Objects (part objects) are declared using the <CODE>"@"</CODE>
+substance flag: 
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>&lt;Names&gt; ":" "@" &lt;Merge&gt;</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+A variant declaration specifies that the object should have its own
+execution stack:
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>&lt;Names&gt; ":" "@" "|" &lt;Merge&gt;</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+This is used when creating concurrent threads or co-routines.
+A few examples:
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE>
+i,j: @integer;
+f: @real;
+y: @|(# g: @real do INNER #);
+x: @(# k,l.m: @boolean #) & somePattern</PRE></TD></TR>
+  </TABLE>
+</P>
+</P>
+
+<H3>Declarations of object references</H3>
+<P>
+To allow a name to refer to varying objects during the execution of a
+program, it is necessary to introduce the notion of <EM>object
+identity</EM>.  When using the <CODE>"@"</CODE> substance flag, a name
+is declared to denote an object, and that's it, but when using the
+<CODE>"^"</CODE> object identity flag, the name is declared to denote
+the identity of an object, and by changing the state of this
+attribute, it lets the name refer to different objects at different
+times, or possibly to "no object," <CODE>NONE</CODE>.
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>&lt;Names&gt; ":" "^" &lt;AttributeDenotation&gt;</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+Again, there is a concurrency biased version:
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>&lt;Names&gt; ":" "^" "|" &lt;AttributeDenotation&gt;</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+The headline of this section mentions "references" since object
+identity attributes are often implemented by pointers to memory cells
+and often denoted "pointers" or "references."  Hence, we will use the
+terms <EM>object reference attribute</EM> or just <EM>object
+reference</EM>. 
+</P>
+
+<P>
+The <CODE>&lt;AttributeDenotation&gt;</CODE> on the right hand side of
+the declaration specifies the <EM>qualification</EM> of the object
+reference attribute.  The qualification is a type constraint on the
+objects which can be referred to by the attribute.  The constraint is
+that the pattern of the referred object should be a specialization of
+the pattern of the qualification.  In other words, the qualification
+promises a certain richness of the interface, and the actual object
+will at all times support an interface which is at least that rich.
+</P>
+
+<P>
+A few examples are:
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE>
+ir1,ir2: ^integer;
+pr: ^p;
+conc_pr: ^|p;</PRE></TD></TR>
+  </TABLE>
+</P>
+</P>
+
+<H3>Declarations of virtual patterns</H3>
+<P>
+A virtual pattern is a pattern.  But a virtual declaration does not
+declare the precise pattern value, it declares an upper bound on the
+type (or a lower bound on the structure) denoted by the declared
+name.  We'll return to this in more detail
+<A HREF="tutorial_index8.html" TARGET="display">later</A>.  there are three variants; the virtual declaration:
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>&lt;Name&gt; ":" "<" &lt;Merge&gt;</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+.. the virtual further-binding:
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>&lt;Name&gt; ":" ":" "<" &lt;Merge&gt;</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+.. and the virtual final-binding: 
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>&lt;Name&gt; ":" ":" &lt;Merge&gt;</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+They look like this: 
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE>
+p: (# v:< (# #)#); 
+q: p(# v::< (# #)#);
+r: q(# v:: (# #)#)</PRE></TD></TR>
+  </TABLE>
+</P>
+</P>
+
+<H3>Declarations of pattern references</H3>
+<P>
+Just like we can have a name which denotes an object and another name
+which may denote different objects at different times, we can also
+have the dynamically varying version of a pattern declaration:
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>&lt;Names&gt; ":" "##" &lt;AttributeDenotation&gt;</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+This declares the names to be attributes whose values are patterns.
+The patterns must be specializations of the pattern denoted by the
+right hand side of the colon.  This is also covered in more detail
+<A HREF="tutorial_index9.html" TARGET="display">later</A>.  An example is:
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE>pr1,pr2: ##p</PRE></TD></TR>
+  </TABLE>
+</P>
+</P>
+
+<H3>Declarations of repetitions</H3>
+<P>
+A 
+<A HREF="tutorial_index13.html" TARGET="display">repetition</A> in <B>gbeta</B> corresponds to what is often
+designated an array in other languages.  Most attributes can be
+declared in repeated versions: 
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>&lt;Name&gt; ":" "[" &lt;Index&gt; "]" "@" &lt;Merge&gt;</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>&lt;Name&gt; ":" "[" &lt;Index&gt; "]" "@" "|" &lt;Merge&gt;</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>&lt;Name&gt; ":" "[" &lt;Index&gt; "]" "^"
+           &lt;AttributeDenotation&gt;</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>&lt;Name&gt; ":" "[" &lt;Index&gt; "]" "^" "|"
+           &lt;AttributeDenotation&gt;</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>&lt;Name&gt; ":" "[" &lt;Index&gt; "]" "##"
+           &lt;AttributeDenotation&gt;</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+The <CODE>&lt;Index&gt;</CODE> is an expression whose
+(<A HREF="tutorial_index16.html" TARGET="display"><CODE>integer</CODE></A>) value is obtained when the
+enclosing object is instantiated, and that becomes the initial number
+of elements in the repetition.  In practice, it looks like this:
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE>
+txt: [100] @char;
+conc_xrs: [a+b] ^|x;
+prs: [0] ##p</PRE></TD></TR>
+  </TABLE>
+</P>
+</P>
+
+<P>
+The <A HREF="tutorial_index4.html" TARGET="display">next</A> section introduces the notion of <EM>coercion</EM>
+which denotes the transformation processes that are used to obtain a
+certain category of entity (e.g. a pattern) from a given entity
+(e.g. an object).  In other words, coercion compensates for the fact
+that sometimes a declaration has another "funny character" flag than
+what is needed in the usage context.
+</P>
+
+</TD><TD WIDTH="20%">&nbsp;</TD></TR></TABLE>
+<P><HR></P>
+<SMALL>
+  <I>
+    <CENTER>
+      <STRONG>Signed by: </STRONG>
+      <A HREF="mailto:eernst@cs.auc.dk">eernst@cs.auc.dk</A>.
+      Last Modified:  3-Jul-01
+<BR>
+    </CENTER>
+  </I>
+</SMALL>
+</BODY>
+</HTML>
+

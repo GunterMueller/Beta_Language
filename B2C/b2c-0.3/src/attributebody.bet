@@ -1,0 +1,344 @@
+ORIGIN 'attributelib';
+INCLUDE 'attributebitch';
+INCLUDE 'ctype';
+INCLUDE 'cintf';
+INCLUDE 'namebitch';
+INCLUDE 'objectdesc';
+INCLUDE 'objectdesclib';
+INCLUDE 'repetition';
+INCLUDE 'specialdesc';
+INCLUDE 'ad/backlevel';
+INCLUDE 'ad/bitch';
+INCLUDE 'ad/special';
+--- AttributeDoPart: DoPart ---
+do
+   0->checked;
+   this(Attribute)[]->names.encl;
+   NONE->od[];
+   (if os[]<>NONE then
+      this(Attribute)[]->os.encl[];
+      (if os##<=ObjectDescriptor## then
+	 os[]->od[]; names.ptr.str[]->od.private.nme[];
+      if)
+   if);
+   INNER
+
+
+--- AttributePrint: DoPart ---
+do
+   s[]->names.print;
+   INNER;
+   (if not(printos) then
+      (if (os[]<>NONE) and (os[]<>od[]) then s[]->os.print if);
+      (if od[]<>NONE then
+	 (if od.encl[]=this(Attribute)[] then s[]->od.print if)
+      if);
+   if);
+
+
+--- AttributeCheckName: DoPart ---
+(* note: slots of type ATTRIBUTES have os[]=NONE! *)
+do
+   INNER;
+   names.checkName;
+
+
+--- AttributeResolve: DoPart ---
+do
+   (if os[]<>NONE then
+      (if os##<=AttributeDenotation## then
+	 os[]->ad[];
+	 ad.resolve;
+	 ad.getod->od[];
+      if);
+      INNER;
+   if);
+
+
+--- AttributeCheckFollow: DoPart ---
+do 
+   (if checked
+     (* !!! be in future more descriptive, about what went wrong! *)
+     // -1 then
+	'Circularity in declarations detected on this attribute!'->error;
+	true->value;
+     // 0 then
+	-1->checked; INNER; 1->checked;
+   if);
+
+
+--- AttributeCheckComplete: DoPart ---
+do 
+   INNER;
+   (if os[]<>NONE then os.checkComplete if);
+
+
+--- AttributeGetcdecl: DoPart ---
+do INNER
+
+(* JO *)
+--- AttributeGetmdef: DoPart ---
+do INNER
+
+--- AttributeGetisrefel: DoPart ---
+do INNER
+(* JO *)
+
+(* pattern or virtual pattern declaration *)
+--- PatternOrVirtualDeclCheckName: DoPart ---
+do
+   (if names.ptr.next[]<>NONE then
+      'Only 1 name allowed here!'->names.ptr.next.error
+   if);
+   INNER;
+
+
+(* pattern declaration *)
+--- PatternDeclCheckFollow: DoPart ---
+do
+   (* this is actually forbidden by the grammar, but you never know *)
+   (if (od[]<>os[]) and not (od.encl## <= Fragment##) then
+      'Here is a pattern missing!'->os.error
+   else
+      (if encl[]=NONE then
+	 'encl is NONE in PatternDeclaration '->puttext;
+	 names.ptr.str[]->puttext;
+	 '!'->putline;
+      if);
+      (if encl.private.outer[]=NONE then
+	 (if true
+	   (* special types *)
+	   // 'real'->names.ptr.str.equalNCS then
+	      ('double',false,false)->&SpecialDescriptor->od.private.sd[];
+	      od[]->RealPattern[];
+	   // 'integer'->names.ptr.str.equalNCS then
+	      ('int',false,false)->&SpecialDescriptor->od.private.sd[];
+	      od[]->IntegerPattern[];
+	   // 'shortint'->names.ptr.str.equalNCS then
+	      ('short',false,false)->&SpecialDescriptor->od.private.sd[];
+	   // 'char'->names.ptr.str.equalNCS then
+	      ('char',false,false)->&SpecialDescriptor->od.private.sd[];
+	      od[]->CharPattern[];
+	   // 'boolean'->names.ptr.str.equalNCS then
+	      ('char',true,false)->&SpecialDescriptor->od.private.sd[];
+	      od[]->BooleanPattern[];
+
+	   (* other special descriptors *)
+	   // 'text'->names.ptr.str.equalNCS then
+	      od[]->TextPattern[];
+	      'text'->od.private.mapname;
+	   // 'external'->names.ptr.str.equalNCS then
+	      ('external',false,true)->&SpecialDescriptor->od.private.sd[];
+	      NONE->od.private.outer[]
+	   // 'repetition'->names.ptr.str.equalNCS then
+	      ('repetition',false,false)->&SpecialDescriptor->od.private.sd[];
+	      true->od.private.sd.isrepetition;
+	      (* disable access to the private fields of a repetition
+	       * pattern as well as to the repetition pattern itself *)
+	      od.private.att.iterate
+	        (#
+		do
+		   (if true
+		     // 'new'->el.names.ptr.str.equalNCS then
+			el[]->Repetition.new[];
+		     // 'extend'->el.names.ptr.str.equalNCS then
+			el[]->Repetition.extend[];
+		     // 'size'->el.names.ptr.str.equalNCS then
+			el[]->Repetition.size[];
+                        (* '@size'->el.names.ptr.str *)
+                    // 'alsize'->el.names.ptr.str.equalNCS then
+                       el[]->Repetition.alsize[];
+                       (* '@alsize'->el.names.ptr.str *)
+                    // 'elsize'->el.names.ptr.str.equalNCS then
+			el[]->Repetition.elsize[];
+			(* '@elsize'->el.names.ptr.str *)
+		   if);
+		#);
+	      '@repetition'->names.ptr.str;
+	 if);
+      if);
+      od.checkFollow;
+   if);
+
+
+(* special treatment of the 'object' pattern.  We need it at the very
+ * beginning, because it is the superpattern of everything else! *)
+--- PatternDeclCheckName: DoPart ---
+do
+   (if encl.private.outer[]=NONE then
+      (if 'object'->names.ptr.str.equalNCS then
+         od[]->ObjectPattern[]
+      if);
+      (if 'repetition'->names.ptr.str.equalNCS then
+         od[]->Repetition.pattern[]; od.checkName
+      if);
+   if)
+
+
+--- PatternDeclGetcexpr: DoPart ---
+do 'P'->t.append; od.private.mapname[]->t.append; ctype_pattern->ctype
+
+
+(* fragments for SimpleDecl *)
+--- SimpleDeclPrint: DoPart ---
+do
+   ': '->s.append;
+   INNER;
+   (if type
+     // 0 then '@'->s.append
+     // 1 then '^'->s.append
+   if);
+
+
+--- SimpleDeclGetcdecl: DoPart ---
+do
+   '    '->t;
+   (if os.isvirtual then
+      os[]->ad[];
+      (super[],0)->&DirectBacklevel->ad.copy->ad[];
+      ad.getpatt->super[];
+      data_inline->super.getcdecl->t.append;
+   else
+      data_inline->od.getcdecl->t.append;
+   if);
+   ' '->t.put;
+   names.recurse
+     (#
+	middle:: (# do ','->t.put #);
+	rc::
+	  (#
+	  do
+	     (if not(data_inline) then '*'->t.put if);
+	     INNER getcdecl;
+	     el.mapname[]->t.append
+	  #)
+     #);
+   ';\n'->t.append;
+
+(* JO *)
+--- SimpleDeclGetmdef: DoPart ---
+do
+   (if os.isvirtual then
+      os[]->ad[];
+      (super[],0)->&DirectBacklevel->ad.copy->ad[];
+      ad.getpatt->super[];
+      super[]->attod[];
+   else
+      od[]->attod[];
+   if);
+   (if (attod.private.sd[]=NONE)
+      or (super.isrep and ('b_ptr'->names.ptr.mapname.equalNCS)) then
+      '    '->t;
+      names.recurse
+       (#
+          middle::
+            (#
+            do
+               '    '->t.append;
+            #);
+	  rc::
+	    (#
+	    do
+            (if super.isrep and ('b_ptr'->el.mapname.equalNCS) then
+               'mrsetlive(m->b_ptr);\n'->t.append;
+               (* Nyni je potreba jeste oznacit prvky repetice,
+                  pokud nejsou bazicke
+               *)
+               (if not attod.isbasic then
+                  '    if (m->b_ptr) '->t.append;
+                  'for(mrep=0;mrep<m->b_size;mrep++)\n'->t.append;
+                  '      {\n#ifndef NODEBUG\n'->t.append;
+                  '      lprintf();\n'->t.append;
+                  '      fprintf(infofile,"znacen prvek repetice'->t.append;
+                  ' cislo %d\\n",mrep+1);\n'->t.append;
+                  '#endif\n'->t.append;
+                  '      if (!markit(*(struct object** )(('->t.append;
+                  cintf.void->t.append;
+                  '* )m->b_ptr+mrep * m->b_elsize))) return 0;\n'->t.append;
+                  '      }\n'->t.append;
+               if);
+            else
+               'if (!markit((struct object* )'->t.append;
+	       (if data_inline then '&'->t.put if);
+	       'm->'->t.append;
+	       el.mapname[]->t.append;
+               ')) return 0;\n'->t.append;
+            if);
+	    #)
+       #);
+   if);
+
+--- SimpleDeclGetisrefel: DoPart ---
+do
+   (if os.isvirtual then
+      os[]->ad[];
+      (super[],0)->&DirectBacklevel->ad.copy->ad[];
+      ad.getpatt->super[];
+      super[]->attod[];
+   else
+      od[]->attod[];
+   if);
+   (if (attod.private.sd[]=NONE)
+      or (super.isrep and ('b_ptr'->names.ptr.mapname.equalNCS)) then
+      names.recurse
+       (#
+	  rc::
+	    (#
+	    do
+            (if super.isrep and ('b_ptr'->el.mapname.equalNCS) then
+               (if not attod.isbasic then
+                  true->elisref;
+               if);
+            if);
+	    #)
+       #);
+   if);
+
+(* JO *)
+
+--- SimpleDeclGetcexpr: DoPart ---
+do
+   INNER;
+   mapname[]->t.append;
+   (if data_inline then ctype_object->ctype else ctype_objectptr->ctype if)
+
+
+--- SimpleDeclResolve: DoPart ---
+do
+   (if type=1 then
+      (if (od[]<>NONE) then
+         (if (od.encl[]=this(SimpleDecl)[]) then
+            'A pattern is not allowed here!'->od.error
+	 if);
+	 CheckIsnotbasic##->c_file.todoReduce;
+      if);
+   if);
+   INNER;
+
+
+--- SimpleDeclCheckFollow: DoPart ---
+do
+   (if type=0 then
+      true->data_inline;
+      (if os.checkFollow then
+	 true->value
+      else
+	 (if od[]<>NONE then
+	    (if od.isslot then false->data_inline if);
+	    (if od.private.sd[]<>NONE then
+	       (if od.private.sd.isexternal then
+		  'Static references to externals are not possible!'->error;
+	       if)
+	    if);
+	    INNER;
+	 if);
+	 (if os.isvirtual then false->data_inline if)
+      if);
+   if);
+
+
+--- SimpleDeclCheckIsnotbasic: DoPart ---
+do
+   (if od.isbasic then
+      'Dynamic references to simple types are not allowed!'->os.error
+   if)

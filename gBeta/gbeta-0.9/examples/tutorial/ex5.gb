@@ -1,0 +1,24 @@
+(* FILE ex5.gb *)
+-- betaenv:descriptor --
+(# 
+   putline: (# enter stdio do '\n'->stdio #);
+   person: 
+     (# init:< (# enter name #);
+        name: @string;
+        print:< (# do 'Name: '+name->putline; INNER #)
+     #);
+   student: person
+     (# init::< (# enter id #);
+        id: @string;
+        print::< (# do 'ID: '+id->putline; INNER #)
+     #);
+   freshman: student
+     (# init::< (# enter nickname #);
+        nickname: @string;
+        print::< (# do 'Also-known-as: '+nickname->putline; INNER #)
+     #);
+   Smith: @freshman
+do 
+   ('Smith','533987/26B','Bunny')->Smith.init;
+   Smith.print
+#)

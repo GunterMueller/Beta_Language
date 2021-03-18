@@ -1,0 +1,5 @@
+-- betaenv:descriptor --
+(#
+do (for 5 repeat '/bin/ls'->ossystem for)
+#)
+

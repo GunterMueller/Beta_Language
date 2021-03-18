@@ -1,0 +1,76 @@
+ORIGIN '../imperative';
+INCLUDE '../attributebitch';
+INCLUDE '../attributelib';
+INCLUDE '../eelib';
+INCLUDE '../evaluationlib';
+INCLUDE '../namebitch';
+INCLUDE '../objectdesc';
+INCLUDE '../ad/nameapl';
+INCLUDE '../ad/special';
+--- CompilerLib: Attributes ---
+ForImp: Imperative
+  (#
+     nme: @text;
+     ev: ^Evaluation;
+     imp: ^Imperative;
+     pdod: @ObjectDescriptor;
+     pd: @PatternDecl;
+     forod: @ObjectDescriptor;
+     oe: @ObjectEvaluation;
+     ae: @AssignmentEvaluation (# errorObject:: (# do ls[]->ev[] #) #);
+     print::
+       (#
+       do
+	  (0,'')->s.newlevel;
+	  '(for '->s.append;
+
+	  nme[]->s.append;
+	  ':'->s.append;
+	  (0,'')->s.newlevel;
+	  s[]->ev.print;
+	  s.newline;
+	  ' repeat '->s.append;
+	  s.backlevel;
+	  s.newline;
+
+	  (s[],'')->forod.private.doprt.print;
+	  ' for)'->s.append;
+	  s.backlevel;
+       #);
+     checkFollow:: (# do ae.checkFollow #);
+     checkComplete:: (# do ae.checkComplete #);
+     reduce::
+       (# myred: ^ReduceFunction;
+       do
+	  &ae.reduce[]->myred[];
+	  myred;
+	  (myred.before[],myred.main[])->EvaluationJoin->ee.add
+       #);
+  enter (nme,ev[],imp[])
+  do
+     (* create a pattern:
+	   (# exit $index #)
+      *)
+     (NONE, NONE, NONE, NONE, ('$index'->&NameApl,0)->&ObjectEvaluation)->pdod;
+
+     (* Define the index variable:
+	   nme: (# exit $index #)
+      *)
+     (nme->&Name,pdod[])->pd;
+
+     (* Define the complete pattern for the for loop:
+	   forLoop
+	     (# nme: (# exit $index #)
+	     do imp
+	     #)
+      *)
+     (&ForLoopDenotation, pd[], NONE, imp[], NONE)->forod;
+
+     (* Create an object evaluation, that executes the anonymous for loop: *)
+     (forod[],0)->oe;
+
+     (* Enter the loop count as argument to that object evaluation: *)
+     (ev[],oe[])->ae;
+
+     this(ForImp)[]->ae.encl[];
+  #);

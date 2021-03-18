@@ -1,0 +1,18 @@
+(* FILE aex10.gb *)
+-- betaenv:descriptor --
+(#
+   p: (# x,y,z: @integer 
+      do (2,3)->(x,y); 
+         <<SLOT xplusy:expression>> -> z;
+         (if z=5 then 'Hello'->stdio if)
+      #);
+   q: (# x:< string; y: (# exit 'world!\n' #)
+      do p; <<SLOT xplusy:expression>> -> stdio
+      #);
+   r: q(# x::(# do ', '->value #)#)
+do
+   r
+#)
+
+-- xplusy:expression --
+x+y

@@ -1,0 +1,13 @@
+ORIGIN '~beta/basiclib/current/betaenv.bet'
+--- lib: Attributes ---
+(* the various intermediate expression types *)
+ctype_none: (# exit 0 #);
+ctype_objectptr: (# exit 1 #);
+ctype_object: (# exit 2 #);
+ctype_patternptr: (# exit 3 #);
+ctype_immediate: (# exit 4 #);
+ctype_genfunction: (# exit 5 #);
+ctype_repetitionptr: (# exit 6 #);
+ctype_pvariable: (# exit 7 #);
+ctype_pattern: (# exit 8 #);
+ctype_anyptr: (# exit 9 #);

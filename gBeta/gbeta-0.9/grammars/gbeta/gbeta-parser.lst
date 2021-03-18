@@ -1,0 +1,1241 @@
+******** BOBS SYSTEM  - LALR(1) Parser Generator - Version 1.4 ********
+******** DER ER BQF I BOBS!
+Default options:28 56 57 
+************ A LIST OF INPUT WITH POSSIBLE ERRORMESSAGES  ************
+
+      OPTIONS(32,34,59)
+     METASYMBOLS  M1== M2=| M3=< M4=; M5="
+     "<<" "--" "_EMPTY_" "_NAME_" "_KONST_" "_STRING_" "_ERROR_" 
+     ">=" "else" "restart" "->" "none" 
+     "not" "%" "and" "suspend" "then" ".%" 
+     "code" "repeat" "&" "{" "|" "'" 
+     "mod" "do" "[" "(" "}" "@@" 
+     "tos" "//" ":" ")" "*" "inner" 
+     "]" ";" "+" "leave" "^" "<" 
+     "=" "," "(#" "when" "exit" "##" 
+     ">" "-" "." "/" "if" "while" 
+     "@" "this" "enter" "xor" "<=" "div" 
+     "<>" "!" "or" "[]" "for" "#)" 
+     "(*" ;
+     STRINGCH = ';
+     COMMENT = "(*" ; "*)";
+     GOALSYMBOL = betaform;
+     <betaform< = _ERROR_.-1= "_ERROR_";
+     <nameappl< = ^.-3= "_NAME_";
+     <namedecl< = :.-4= "_NAME_";
+     <const< = %.-5= "_KONST_";
+     <string< = '.-6= "_STRING_";
+     <betaform< = ?.1= <descriptorform< 
+                   | ?.1= <attributesform< ;
+     <descriptorform< = DescriptorForm.2= <objectdescriptor<  ;
+     <attributesform< = AttributesForm.3= <attributes<  ;
+     <objectdescriptor< = ObjectDescriptor.4= <prefixopt<  <mainpart<  ;
+     <mainpart< = ?.5= <longmainpart< 
+                   | ?.5= <shortmainpart< ;
+     <longmainpart< = LongMainPart.6= "(#" <attributes<  <actionpart<  "#)" ;
+     <shortmainpart< = ShortMainPart.7= "{" <attributes<  <actionpart<  "}" ;
+     <attributes< = Attributes.8= <attributedeclopt< 
+                   | +.8= <attributes< ";"<attributedeclopt< ;
+     <prefixopt< = _EMPTY_.9= "_EMPTY_"
+                   | ?.-2= <prefix< ;
+     <prefix< = ?.10= <simpleprefix< 
+                   | ?.10= <compositeprefix< ;
+     <simpleprefix< = SimplePrefix.11= <attributedenotation<  ;
+     <compositeprefix< = CompositePrefix.12= "(" "&" <merge<  "&" ")" ;
+     <attributedeclopt< = _EMPTY_.13= "_EMPTY_"
+                   | ?.-2= <attributedecl< ;
+     <attributedecl< = ?.14= <patterndecl< 
+                   | ?.14= <simpledecl< 
+                   | ?.14= <repetitiondecl< 
+                   | ?.14= <virtualdecl< 
+                   | ?.14= <bindingdecl< 
+                   | ?.14= <finaldecl< 
+                   | ?.14= <errordecl< ;
+     <patterndecl< = PatternDecl.15= <names<  ":" <merge<  ;
+     <simpledecl< = SimpleDecl.16= <names<  ":" <referencespecification<  ;
+     <repetitiondecl< = RepetitionDecl.17= <names<  ":" "[" <index<  "]" <referencespecification<  ;
+     <virtualdecl< = VirtualDecl.18= <names<  ":" "<" <disownopt<  <merge<  <restrictionopt<  ;
+     <bindingdecl< = BindingDecl.19= <names<  ":" ":" "<" <swapopt<  <disownopt<  <merge<  <restrictionopt<  ;
+     <finaldecl< = FinalDecl.20= <names<  ":" ":" <swapopt<  <merge<  ;
+     <disownopt< = _EMPTY_.21= "_EMPTY_"
+                   | ?.-2= <disown< ;
+     <disown< = Disown.22= "-" ;
+     <swapopt< = _EMPTY_.23= "_EMPTY_"
+                   | ?.-2= <swap< ;
+     <swap< = Swap.24= "!" ;
+     <restrictionopt< = _EMPTY_.25= "_EMPTY_"
+                   | ?.-2= <restrictionpart< ;
+     <restrictionpart< = RestrictionPart.26= ":" ">" <restrictions<  ;
+     <restrictions< = Restrictions.27= <restriction< 
+                   | +.27= <restrictions< ","<restriction< ;
+     <restriction< = Restriction.28= <attributedenotation<  ;
+     <variablepattern< = VariablePattern.29= "##" <attributedenotation<  ;
+     <referencespecification< = ?.30= <staticitem< 
+                   | ?.30= <virtualstaticitem< 
+                   | ?.30= <finalstaticitem< 
+                   | ?.30= <dynamicitem< 
+                   | ?.30= <staticcomponent< 
+                   | ?.30= <dynamiccomponent< 
+                   | ?.30= <variablepattern< ;
+     <staticitem< = StaticItem.31= "@" <merge<  ;
+     <virtualstaticitem< = VirtualStaticItem.32= "<" <disownopt<  "@" <attributedenotation<  ;
+     <finalstaticitem< = FinalStaticItem.33= ":" "@" <merge<  ;
+     <dynamicitem< = DynamicItem.34= "^" <exactopt<  <attributedenotation<  ;
+     <exactopt< = _EMPTY_.35= "_EMPTY_"
+                   | ?.-2= <exact< ;
+     <exact< = Exact.36= "=" ;
+     <staticcomponent< = StaticComponent.37= "@" "|" <merge<  ;
+     <dynamiccomponent< = DynamicComponent.38= "^" "|" <exactopt<  <attributedenotation<  ;
+     <objectspecification< = ?.39= <objectdescriptor< 
+                   | ?.39= <attributedenotation< ;
+     <merge< = Merge.40= <objectspecification< 
+                   | +.40= <merge< "&"<objectspecification< ;
+     <index< = ?.41= <simpleindex< 
+                   | ?.41= <namedindex< ;
+     <namedindex< = NamedIndex.42= <namedcl<  ":" <evaluation<  ;
+     <actionpart< = ActionPart.43= <enterpartopt<  <dopartopt<  <exitpartopt<  ;
+     <enterpartopt< = _EMPTY_.44= "_EMPTY_"
+                   | ?.-2= <enterpart< ;
+     <dopartopt< = _EMPTY_.45= "_EMPTY_"
+                   | ?.-2= <dopart< ;
+     <exitpartopt< = _EMPTY_.46= "_EMPTY_"
+                   | ?.-2= <exitpart< ;
+     <enterpart< = EnterPart.47= "enter" <evaluation<  ;
+     <dopart< = DoPart.48= "do" <imperatives<  ;
+     <exitpart< = ExitPart.49= "exit" <evaluation<  ;
+     <imperatives< = Imperatives.50= <impopt< 
+                   | +.50= <imperatives< ";"<impopt< ;
+     <impopt< = _EMPTY_.51= "_EMPTY_"
+                   | ?.-2= <imp< ;
+     <imp< = ?.52= <labelledimp< 
+                   | ?.52= <leaveimp< 
+                   | ?.52= <restartimp< 
+                   | ?.52= <innerimp< 
+                   | ?.52= <suspendimp< 
+                   | ?.52= <evaluation< 
+                   | ?.52= <whileimp< 
+                   | ?.52= <whenimp< 
+                   | ?.52= <codeimp< 
+                   | ?.52= <errorimp< ;
+     <labelledimp< = LabelledImp.53= <namedcl<  ":" <imp<  ;
+     <forimp< = ForImp.54= "(" "for" <index<  <repdo<  <imperatives<  "for" ")" ;
+     <repdo< = ?.55= <rep< 
+                   | ?.55= <doit< ;
+     <rep< = Rep.56= "repeat" ;
+     <doit< = Doit.57= "do" ;
+     <whileimp< = WhileImp.58= "(" "while" <evaluation<  <repdo<  <imperatives<  "while" ")" ;
+     <generalifimp< = GeneralIfImp.59= "(" "if" <evaluation<  <alternatives<  <elsepartopt<  "if" ")" ;
+     <simpleifimp< = SimpleIfImp.60= "(" "if" <evaluation<  "then" <imperatives<  <elsepartopt<  "if" ")" ;
+     <whenimp< = WhenImp.61= "(" "when" <namedcl<  ":" <attributedenotation<  <whenalternatives<  <elsepartopt<  "when" ")" ;
+     <leaveimp< = LeaveImp.62= "leave" <scopespecopt<  ;
+     <restartimp< = RestartImp.63= "restart" <scopespecopt<  ;
+     <innerimp< = InnerImp.64= "inner" <scopespecopt<  ;
+     <scopespecopt< = _EMPTY_.65= "_EMPTY_"
+                   | ?.-2= <scopespec< ;
+     <scopespec< = ?.66= <integerscopespec< 
+                   | ?.66= <nameaplscopespec< ;
+     <integerscopespec< = IntegerScopeSpec.67= <integerconst<  ;
+     <nameaplscopespec< = NameAplScopeSpec.68= <nameapl<  ;
+     <suspendimp< = SuspendImp.69= "suspend" ;
+     <codeimp< = CodeImp.70= "(" "code" <codeitems<  "code" ")" ;
+     <alternatives< = Alternatives.71= <alternative< 
+                   | +.71= <alternatives< <alternative< ;
+     <alternative< = Alternative.72= <selections<  "then" <imperatives<  ;
+     <selections< = Selections.73= <selection< 
+                   | +.73= <selections< <selection< ;
+     <selection< = ?.74= <caseselection< ;
+     <caseselection< = CaseSelection.75= "//" <evaluation<  ;
+     <whenalternatives< = WhenAlternatives.76= <whenalternative< 
+                   | +.76= <whenalternatives< <whenalternative< ;
+     <whenalternative< = WhenAlternative.77= "//" <exactopt<  <attributedenotation<  "then" <imperatives<  ;
+     <elsepartopt< = _EMPTY_.78= "_EMPTY_"
+                   | ?.-2= <elsepart< ;
+     <elsepart< = ElsePart.79= "else" <imperatives<  ;
+     <evaluations< = Evaluations.80= <evaluation< 
+                   | +.80= <evaluations< ","<evaluation< ;
+     <evaluation< = ?.81= <expression< 
+                   | ?.81= <assignmentevaluation< ;
+     <assignmentevaluation< = AssignmentEvaluation.82= <evaluation<  "->" <transaction<  ;
+     <transaction< = ?.83= <reference< 
+                   | ?.83= <objectreference< 
+                   | ?.83= <evallist< 
+                   | ?.83= <structurereference< 
+                   | ?.83= <primitive< 
+                   | ?.83= <address< 
+                   | ?.83= <forimp< 
+                   | ?.83= <simpleifimp< 
+                   | ?.83= <generalifimp< ;
+     <reference< = ?.84= <objectdenotation< 
+                   | ?.84= <dynamicobjectgeneration< 
+                   | ?.84= <computedobjectevaluation< 
+                   | ?.84= <repetitionslice< ;
+     <dynamicobjectgeneration< = ?.85= <dynamicitemgeneration< 
+                   | ?.85= <dynamiccomponentgeneration< ;
+     <objectdenotation< = ObjectDenotation.86= <merge<  ;
+     <computedobjectevaluation< = ComputedObjectEvaluation.87= <reference<  "!" ;
+     <objectreference< = ObjectReference.88= <reference<  "[]" ;
+     <structurereference< = StructureReference.89= <merge<  "##" ;
+     <evallist< = EvalList.90= "(" <evaluations<  ")" ;
+     <dynamicitemgeneration< = DynamicItemGeneration.91= "&" <merge<  ;
+     <dynamiccomponentgeneration< = DynamicComponentGeneration.92= "&" "|" <merge<  ;
+     <primitive< = Primitive.93= "tos" <simpleentry<  ;
+     <address< = Address.94= "@@" <attributedenotation<  ;
+     <attributedenotation< = ?.95= <nameapl< 
+                   | ?.95= <remote< 
+                   | ?.95= <computedremote< 
+                   | ?.95= <indexed< 
+                   | ?.95= <thisobject< 
+                   | ?.95= <qualifiedattrden< 
+                   | ?.95= <remoteprimitive< ;
+     <remote< = Remote.96= <attributedenotation<  "." <nameapl<  ;
+     <computedremote< = ComputedRemote.97= "(" <evaluations<  ")" "." <nameapl<  ;
+     <indexed< = Indexed.98= <attributedenotation<  "[" <evaluation<  "]" ;
+     <thisobject< = ThisObject.99= "this" "(" <scopespecopt<  ")" ;
+     <qualifiedattrden< = QualifiedAttrDen.100= <attributedenotation<  "(" ":" <merge<  ":" ")" ;
+     <remoteprimitive< = RemotePrimitive.101= <attributedenotation<  ".%" <nameapl<  ;
+     <expression< = ?.102= <relationalexp< 
+                   | ?.102= <simpleexp< ;
+     <relationalexp< = ?.103= <eqexp< 
+                   | ?.103= <ltexp< 
+                   | ?.103= <leexp< 
+                   | ?.103= <gtexp< 
+                   | ?.103= <geexp< 
+                   | ?.103= <neexp< ;
+     <simpleexp< = ?.104= <addexp< 
+                   | ?.104= <signedterm< 
+                   | ?.104= <term< ;
+     <addexp< = ?.105= <plusexp< 
+                   | ?.105= <minusexp< 
+                   | ?.105= <orexp< 
+                   | ?.105= <xorexp< ;
+     <signedterm< = ?.106= <unaryplusexp< 
+                   | ?.106= <unaryminusexp< ;
+     <term< = ?.107= <mulexp< 
+                   | ?.107= <factor< ;
+     <mulexp< = ?.108= <timesexp< 
+                   | ?.108= <realdivexp< 
+                   | ?.108= <intdivexp< 
+                   | ?.108= <modexp< 
+                   | ?.108= <andexp< 
+                   | ?.108= <primitiveexp< ;
+     <eqexp< = EqExp.109= <simpleexp<  "=" <simpleexp<  ;
+     <ltexp< = LtExp.110= <simpleexp<  "<" <simpleexp<  ;
+     <leexp< = LeExp.111= <simpleexp<  "<=" <simpleexp<  ;
+     <gtexp< = GtExp.112= <simpleexp<  ">" <simpleexp<  ;
+     <geexp< = GeExp.113= <simpleexp<  ">=" <simpleexp<  ;
+     <neexp< = NeExp.114= <simpleexp<  "<>" <simpleexp<  ;
+     <plusexp< = PlusExp.115= <simpleexp<  "+" <term<  ;
+     <minusexp< = MinusExp.116= <simpleexp<  "-" <term<  ;
+     <orexp< = OrExp.117= <simpleexp<  "or" <term<  ;
+     <xorexp< = XorExp.118= <simpleexp<  "xor" <term<  ;
+     <unaryplusexp< = UnaryPlusExp.119= "+" <term<  ;
+     <unaryminusexp< = UnaryMinusExp.120= "-" <term<  ;
+     <timesexp< = TimesExp.121= <term<  "*" <factor<  ;
+     <realdivexp< = RealDivExp.122= <term<  "/" <factor<  ;
+     <intdivexp< = IntDivExp.123= <term<  "div" <factor<  ;
+     <modexp< = ModExp.124= <term<  "mod" <factor<  ;
+     <andexp< = AndExp.125= <term<  "and" <factor<  ;
+     <primitiveexp< = PrimitiveExp.126= <term<  "%" <nameapl<  <factor<  ;
+     <factor< = ?.127= <textconst< 
+                   | ?.127= <integerconst< 
+                   | ?.127= <notexp< 
+                   | ?.127= <noneexp< 
+                   | ?.127= <transaction< 
+                   | ?.127= <unaryprimitiveexp< ;
+     <repetitionslice< = RepetitionSlice.128= <attributedenotation<  "[" <evaluation<  ":" <evaluation<  "]" ;
+     <notexp< = NotExp.129= "not" <factor<  ;
+     <noneexp< = NoneExp.130= "none" ;
+     <unaryprimitiveexp< = UnaryPrimitiveExp.131= "%" <nameapl<  <factor<  ;
+     <names< = Names.132= <namedcl< 
+                   | +.132= <names< ","<namedcl< ;
+     <namedcl< = NameDcl.133= <namedecl<  ;
+     <nameapl< = NameApl.134= <nameappl<  ;
+     <simpleentry< = _EMPTY_.135= "_EMPTY_"
+                   | ?.-2= <textconst< ;
+     <textconst< = TextConst.136= <string<  ;
+     <integerconst< = IntegerConst.137= <const<  ;
+     <simpleindex< = SimpleIndex.138= <evaluation<  ;
+     <codeitems< = CodeItems.139= <codeitem< 
+                   | +.139= <codeitems< ","<codeitem< ;
+     <codeitem< = ?.140= <codestring< 
+                   | ?.140= <codeconst< ;
+     <codestring< = CodeString.141= <string<  ;
+     <codeconst< = CodeConst.142= <const<  ;
+     <errordecl< = ErrorDecl.143= "_ERROR_" ;
+     <errorimp< = ErrorImp.144= "_ERROR_" ;
+     ;;
+
+*********************************  END OF LIST ****************************
+
+
+*******************************  GRAMMARCHECKS  **************************
+
+IT HAS BEEN CHECKED THAT ALL NONTERMINALS
+EXCEPT THE GOALSYMBOL APPEAR IN BOTH
+LEFT AND RIGHTSIDE OF A PRODUCTION
+
+
+IT HAS BEEN CHECKED  THAT THERE 
+EXISTS NO IDENTICAL PRODUCTIONS 
+
+
+IT HAS BEEN CHECKED THAT ALL NONTERMINALS CAN
+PRODUCE A STRING OF ONLY TERMINAL SYMBOLS
+
+
+*********************************************  The Grammar  *************************
+     BOBS
+
+   1   1   <betaform> ::= _ERROR_                                      :_ERROR_
+                                                                        .-1
+
+   2   4   <nameappl> ::= _NAME_                                       :^.-3
+
+   3   5   <namedecl> ::= _NAME_                                       ::.-4
+
+   4   6   <const> ::= _KONST_                                         :%.-5
+
+   5   7   <string> ::= _STRING_                                       :'.-6
+
+   6   2   <betaform> ::= <descriptorform>                             :?.1
+   7   3               |  <attributesform>                             :?.1
+
+   8   8   <descriptorform> ::= <objectdescriptor>                     :Descrip
+                                                                        torForm
+                                                                        .2
+
+   9   9   <attributesform> ::= <attributes>                           :Attribu
+                                                                        tesForm
+                                                                        .3
+
+  10  10   <objectdescriptor> ::= <prefixopt> <mainpart>               :ObjectD
+                                                                        escript
+                                                                        or.4
+
+  11  15   <mainpart> ::= <longmainpart>                               :?.5
+  12  16               |  <shortmainpart>                              :?.5
+
+  13  17   <longmainpart> ::= (# <attributes> <actionpart> #)          :LongMai
+                                                                        nPart.6
+
+  14  18   <shortmainpart> ::= { <attributes> <actionpart> }           :ShortMa
+                                                                        inPart.
+                                                                        7
+
+  15  11   <attributes> ::= <attributedeclopt>                         :Attribu
+                                                                        tes.8
+  16  12                 |  <attributes> ; <attributedeclopt>          :+.8
+
+  17  13   <prefixopt> ::= _EMPTY_                                     :_EMPTY_
+                                                                        .9
+  18  14                |  <prefix>                                    :?.-2
+
+  19  22   <prefix> ::= <simpleprefix>                                 :?.10
+  20  23             |  <compositeprefix>                              :?.10
+
+  21  24   <simpleprefix> ::= <attributedenotation>                    :SimpleP
+                                                                        refix.1
+                                                                        1
+
+  22  25   <compositeprefix> ::= ( & <merge> & )                       :Composi
+                                                                        tePrefi
+                                                                        x.12
+
+  23  20   <attributedeclopt> ::= _EMPTY_                              :_EMPTY_
+                                                                        .13
+  24  21                       |  <attributedecl>                      :?.-2
+
+  25  35   <attributedecl> ::= <patterndecl>                           :?.14
+  26  36                    |  <simpledecl>                            :?.14
+  27  37                    |  <repetitiondecl>                        :?.14
+  28  38                    |  <virtualdecl>                           :?.14
+  29  39                    |  <bindingdecl>                           :?.14
+  30  40                    |  <finaldecl>                             :?.14
+  31  41                    |  <errordecl>                             :?.14
+
+  32  42   <patterndecl> ::= <names> : <merge>                         :Pattern
+                                                                        Decl.15
+
+  33  43   <simpledecl> ::= <names> : <referencespecification>         :SimpleD
+                                                                        ecl.16
+
+  34  44   <repetitiondecl> ::= <names> : [ <index> ] 
+                                <referencespecification>               :Repetit
+                                                                        ionDecl
+                                                                        .17
+
+  35  45   <virtualdecl> ::= <names> : < <disownopt> <merge> 
+                             <restrictionopt>                          :Virtual
+                                                                        Decl.18
+
+  36  46   <bindingdecl> ::= <names> : : < <swapopt> <disownopt> 
+                             <merge> <restrictionopt>                  :Binding
+                                                                        Decl.19
+
+  37  47   <finaldecl> ::= <names> : : <swapopt> <merge>               :FinalDe
+                                                                        cl.20
+
+  38  60   <disownopt> ::= _EMPTY_                                     :_EMPTY_
+                                                                        .21
+  39  61                |  <disown>                                    :?.-2
+
+  40  66   <disown> ::= -                                              :Disown.
+                                                                        22
+
+  41  64   <swapopt> ::= _EMPTY_                                       :_EMPTY_
+                                                                        .23
+  42  65              |  <swap>                                        :?.-2
+
+  43  67   <swap> ::= !                                                :Swap.24
+
+  44  62   <restrictionopt> ::= _EMPTY_                                :_EMPTY_
+                                                                        .25
+  45  63                     |  <restrictionpart>                      :?.-2
+
+  46  68   <restrictionpart> ::= : > <restrictions>                    :Restric
+                                                                        tionPar
+                                                                        t.26
+
+  47  69   <restrictions> ::= <restriction>                            :Restric
+                                                                        tions.2
+                                                                        7
+  48  70                   |  <restrictions> , <restriction>           :+.27
+
+  49  71   <restriction> ::= <attributedenotation>                     :Restric
+                                                                        tion.28
+
+  50  72   <variablepattern> ::= ## <attributedenotation>              :Variabl
+                                                                        ePatter
+                                                                        n.29
+
+  51  51   <referencespecification> ::= <staticitem>                   :?.30
+  52  52                             |  <virtualstaticitem>            :?.30
+  53  53                             |  <finalstaticitem>              :?.30
+  54  54                             |  <dynamicitem>                  :?.30
+  55  55                             |  <staticcomponent>              :?.30
+  56  56                             |  <dynamiccomponent>             :?.30
+  57  57                             |  <variablepattern>              :?.30
+
+  58  73   <staticitem> ::= @ <merge>                                  :StaticI
+                                                                        tem.31
+
+  59  74   <virtualstaticitem> ::= < <disownopt> @ 
+                                   <attributedenotation>               :Virtual
+                                                                        StaticI
+                                                                        tem.32
+
+  60  75   <finalstaticitem> ::= : @ <merge>                           :FinalSt
+                                                                        aticIte
+                                                                        m.33
+
+  61  76   <dynamicitem> ::= ^ <exactopt> <attributedenotation>        :Dynamic
+                                                                        Item.34
+
+  62  79   <exactopt> ::= _EMPTY_                                      :_EMPTY_
+                                                                        .35
+  63  80               |  <exact>                                      :?.-2
+
+  64  81   <exact> ::= =                                               :Exact.3
+                                                                        6
+
+  65  77   <staticcomponent> ::= @ | <merge>                           :StaticC
+                                                                        omponen
+                                                                        t.37
+
+  66  78   <dynamiccomponent> ::= ^ | <exactopt> <attributedenotation> :Dynamic
+                                                                        Compone
+                                                                        nt.38
+
+  67  82   <objectspecification> ::= <objectdescriptor>                :?.39
+  68  83                          |  <attributedenotation>             :?.39
+
+  69  33   <merge> ::= <objectspecification>                           :Merge.4
+                                                                        0
+  70  34            |  <merge> & <objectspecification>                 :+.40
+
+  71  58   <index> ::= <simpleindex>                                   :?.41
+  72  59            |  <namedindex>                                    :?.41
+
+  73  85   <namedindex> ::= <namedcl> : <evaluation>                   :NamedIn
+                                                                        dex.42
+
+  74  19   <actionpart> ::= <enterpartopt> <dopartopt> <exitpartopt>   :ActionP
+                                                                        art.43
+
+  75  89   <enterpartopt> ::= _EMPTY_                                  :_EMPTY_
+                                                                        .44
+  76  90                   |  <enterpart>                              :?.-2
+
+  77  91   <dopartopt> ::= _EMPTY_                                     :_EMPTY_
+                                                                        .45
+  78  92                |  <dopart>                                    :?.-2
+
+  79  93   <exitpartopt> ::= _EMPTY_                                   :_EMPTY_
+                                                                        .46
+  80  94                  |  <exitpart>                                :?.-2
+
+  81  95   <enterpart> ::= enter <evaluation>                          :EnterPa
+                                                                        rt.47
+
+  82  96   <dopart> ::= do <imperatives>                               :DoPart.
+                                                                        48
+
+  83  97   <exitpart> ::= exit <evaluation>                            :ExitPar
+                                                                        t.49
+
+  84  98   <imperatives> ::= <impopt>                                  :Imperat
+                                                                        ives.50
+  85  99                  |  <imperatives> ; <impopt>                  :+.50
+
+  86 100   <impopt> ::= _EMPTY_                                        :_EMPTY_
+                                                                        .51
+  87 101             |  <imp>                                          :?.-2
+
+  88 102   <imp> ::= <labelledimp>                                     :?.52
+  89 103          |  <leaveimp>                                        :?.52
+  90 104          |  <restartimp>                                      :?.52
+  91 105          |  <innerimp>                                        :?.52
+  92 106          |  <suspendimp>                                      :?.52
+  93 107          |  <evaluation>                                      :?.52
+  94 108          |  <whileimp>                                        :?.52
+  95 109          |  <whenimp>                                         :?.52
+  96 110          |  <codeimp>                                         :?.52
+  97 111          |  <errorimp>                                        :?.52
+
+  98 112   <labelledimp> ::= <namedcl> : <imp>                         :Labelle
+                                                                        dImp.53
+
+  99 121   <forimp> ::= ( for <index> <repdo> <imperatives> for )      :ForImp.
+                                                                        54
+
+ 100 122   <repdo> ::= <rep>                                           :?.55
+ 101 123            |  <doit>                                          :?.55
+
+ 102 124   <rep> ::= repeat                                            :Rep.56
+
+ 103 125   <doit> ::= do                                               :Doit.57
+
+ 104 117   <whileimp> ::= ( while <evaluation> <repdo> <imperatives> 
+                          while )                                      :WhileIm
+                                                                        p.58
+
+ 105 126   <generalifimp> ::= ( if <evaluation> <alternatives> 
+                              <elsepartopt> if )                       :General
+                                                                        IfImp.5
+                                                                        9
+
+ 106 131   <simpleifimp> ::= ( if <evaluation> then <imperatives> 
+                             <elsepartopt> if )                        :SimpleI
+                                                                        fImp.60
+
+ 107 118   <whenimp> ::= ( when <namedcl> : <attributedenotation> 
+                         <whenalternatives> <elsepartopt> when )       :WhenImp
+                                                                        .61
+
+ 108 113   <leaveimp> ::= leave <scopespecopt>                         :LeaveIm
+                                                                        p.62
+
+ 109 114   <restartimp> ::= restart <scopespecopt>                     :Restart
+                                                                        Imp.63
+
+ 110 115   <innerimp> ::= inner <scopespecopt>                         :InnerIm
+                                                                        p.64
+
+ 111 134   <scopespecopt> ::= _EMPTY_                                  :_EMPTY_
+                                                                        .65
+ 112 135                   |  <scopespec>                              :?.-2
+
+ 113 136   <scopespec> ::= <integerscopespec>                          :?.66
+ 114 137                |  <nameaplscopespec>                          :?.66
+
+ 115 138   <integerscopespec> ::= <integerconst>                       :Integer
+                                                                        ScopeSp
+                                                                        ec.67
+
+ 116 139   <nameaplscopespec> ::= <nameapl>                            :NameApl
+                                                                        ScopeSp
+                                                                        ec.68
+
+ 117 116   <suspendimp> ::= suspend                                    :Suspend
+                                                                        Imp.69
+
+ 118 119   <codeimp> ::= ( code <codeitems> code )                     :CodeImp
+                                                                        .70
+
+ 119 127   <alternatives> ::= <alternative>                            :Alterna
+                                                                        tives.7
+                                                                        1
+ 120 128                   |  <alternatives> <alternative>             :+.71
+
+ 121 144   <alternative> ::= <selections> then <imperatives>           :Alterna
+                                                                        tive.72
+
+ 122 145   <selections> ::= <selection>                                :Selecti
+                                                                        ons.73
+ 123 146                 |  <selections> <selection>                   :+.73
+
+ 124 147   <selection> ::= <caseselection>                             :?.74
+
+ 125 148   <caseselection> ::= // <evaluation>                         :CaseSel
+                                                                        ection.
+                                                                        75
+
+ 126 132   <whenalternatives> ::= <whenalternative>                    :WhenAlt
+                                                                        ernativ
+                                                                        es.76
+ 127 133                       |  <whenalternatives> <whenalternative> :+.76
+
+ 128 149   <whenalternative> ::= // <exactopt> <attributedenotation> 
+                                 then <imperatives>                    :WhenAlt
+                                                                        ernativ
+                                                                        e.77
+
+ 129 129   <elsepartopt> ::= _EMPTY_                                   :_EMPTY_
+                                                                        .78
+ 130 130                  |  <elsepart>                                :?.-2
+
+ 131 150   <elsepart> ::= else <imperatives>                           :ElsePar
+                                                                        t.79
+
+ 132 151   <evaluations> ::= <evaluation>                              :Evaluat
+                                                                        ions.80
+ 133 152                  |  <evaluations> , <evaluation>              :+.80
+
+ 134  87   <evaluation> ::= <expression>                               :?.81
+ 135  88                 |  <assignmentevaluation>                     :?.81
+
+ 136 155   <assignmentevaluation> ::= <evaluation> -> <transaction>    :Assignm
+                                                                        entEval
+                                                                        uation.
+                                                                        82
+
+ 137 156   <transaction> ::= <reference>                               :?.83
+ 138 157                  |  <objectreference>                         :?.83
+ 139 158                  |  <evallist>                                :?.83
+ 140 159                  |  <structurereference>                      :?.83
+ 141 160                  |  <primitive>                               :?.83
+ 142 161                  |  <address>                                 :?.83
+ 143 162                  |  <forimp>                                  :?.83
+ 144 163                  |  <simpleifimp>                             :?.83
+ 145 164                  |  <generalifimp>                            :?.83
+
+ 146 165   <reference> ::= <objectdenotation>                          :?.84
+ 147 166                |  <dynamicobjectgeneration>                   :?.84
+ 148 167                |  <computedobjectevaluation>                  :?.84
+ 149 168                |  <repetitionslice>                           :?.84
+
+ 150 175   <dynamicobjectgeneration> ::= <dynamicitemgeneration>       :?.85
+ 151 176                              |  <dynamiccomponentgeneration>  :?.85
+
+ 152 174   <objectdenotation> ::= <merge>                              :ObjectD
+                                                                        enotati
+                                                                        on.86
+
+ 153 177   <computedobjectevaluation> ::= <reference> !                :Compute
+                                                                        dObject
+                                                                        Evaluat
+                                                                        ion.87
+
+ 154 169   <objectreference> ::= <reference> []                        :ObjectR
+                                                                        eferenc
+                                                                        e.88
+
+ 155 171   <structurereference> ::= <merge> ##                         :Structu
+                                                                        reRefer
+                                                                        ence.89
+
+ 156 170   <evallist> ::= ( <evaluations> )                            :EvalLis
+                                                                        t.90
+
+ 157 179   <dynamicitemgeneration> ::= & <merge>                       :Dynamic
+                                                                        ItemGen
+                                                                        eration
+                                                                        .91
+
+ 158 180   <dynamiccomponentgeneration> ::= & | <merge>                :Dynamic
+                                                                        Compone
+                                                                        ntGener
+                                                                        ation.9
+                                                                        2
+
+ 159 172   <primitive> ::= tos <simpleentry>                           :Primiti
+                                                                        ve.93
+
+ 160 173   <address> ::= @@ <attributedenotation>                      :Address
+                                                                        .94
+
+ 161  26   <attributedenotation> ::= <nameapl>                         :?.95
+ 162  27                          |  <remote>                          :?.95
+ 163  28                          |  <computedremote>                  :?.95
+ 164  29                          |  <indexed>                         :?.95
+ 165  30                          |  <thisobject>                      :?.95
+ 166  31                          |  <qualifiedattrden>                :?.95
+ 167  32                          |  <remoteprimitive>                 :?.95
+
+ 168 183   <remote> ::= <attributedenotation> . <nameapl>              :Remote.
+                                                                        96
+
+ 169 184   <computedremote> ::= ( <evaluations> ) . <nameapl>          :Compute
+                                                                        dRemote
+                                                                        .97
+
+ 170 185   <indexed> ::= <attributedenotation> [ <evaluation> ]        :Indexed
+                                                                        .98
+
+ 171 186   <thisobject> ::= this ( <scopespecopt> )                    :ThisObj
+                                                                        ect.99
+
+ 172 187   <qualifiedattrden> ::= <attributedenotation> ( : <merge> : 
+                                  )                                    :Qualifi
+                                                                        edAttrD
+                                                                        en.100
+
+ 173 188   <remoteprimitive> ::= <attributedenotation> .% <nameapl>    :RemoteP
+                                                                        rimitiv
+                                                                        e.101
+
+ 174 153   <expression> ::= <relationalexp>                            :?.102
+ 175 154                 |  <simpleexp>                                :?.102
+
+ 176 189   <relationalexp> ::= <eqexp>                                 :?.103
+ 177 190                    |  <ltexp>                                 :?.103
+ 178 191                    |  <leexp>                                 :?.103
+ 179 192                    |  <gtexp>                                 :?.103
+ 180 193                    |  <geexp>                                 :?.103
+ 181 194                    |  <neexp>                                 :?.103
+
+ 182 195   <simpleexp> ::= <addexp>                                    :?.104
+ 183 196                |  <signedterm>                                :?.104
+ 184 197                |  <term>                                      :?.104
+
+ 185 204   <addexp> ::= <plusexp>                                      :?.105
+ 186 205             |  <minusexp>                                     :?.105
+ 187 206             |  <orexp>                                        :?.105
+ 188 207             |  <xorexp>                                       :?.105
+
+ 189 208   <signedterm> ::= <unaryplusexp>                             :?.106
+ 190 209                 |  <unaryminusexp>                            :?.106
+
+ 191 210   <term> ::= <mulexp>                                         :?.107
+ 192 211           |  <factor>                                         :?.107
+
+ 193 218   <mulexp> ::= <timesexp>                                     :?.108
+ 194 219             |  <realdivexp>                                   :?.108
+ 195 220             |  <intdivexp>                                    :?.108
+ 196 221             |  <modexp>                                       :?.108
+ 197 222             |  <andexp>                                       :?.108
+ 198 223             |  <primitiveexp>                                 :?.108
+
+ 199 198   <eqexp> ::= <simpleexp> = <simpleexp>                       :EqExp.1
+                                                                        09
+
+ 200 199   <ltexp> ::= <simpleexp> < <simpleexp>                       :LtExp.1
+                                                                        10
+
+ 201 200   <leexp> ::= <simpleexp> <= <simpleexp>                      :LeExp.1
+                                                                        11
+
+ 202 201   <gtexp> ::= <simpleexp> > <simpleexp>                       :GtExp.1
+                                                                        12
+
+ 203 202   <geexp> ::= <simpleexp> >= <simpleexp>                      :GeExp.1
+                                                                        13
+
+ 204 203   <neexp> ::= <simpleexp> <> <simpleexp>                      :NeExp.1
+                                                                        14
+
+ 205 212   <plusexp> ::= <simpleexp> + <term>                          :PlusExp
+                                                                        .115
+
+ 206 213   <minusexp> ::= <simpleexp> - <term>                         :MinusEx
+                                                                        p.116
+
+ 207 214   <orexp> ::= <simpleexp> or <term>                           :OrExp.1
+                                                                        17
+
+ 208 215   <xorexp> ::= <simpleexp> xor <term>                         :XorExp.
+                                                                        118
+
+ 209 216   <unaryplusexp> ::= + <term>                                 :UnaryPl
+                                                                        usExp.1
+                                                                        19
+
+ 210 217   <unaryminusexp> ::= - <term>                                :UnaryMi
+                                                                        nusExp.
+                                                                        120
+
+ 211 230   <timesexp> ::= <term> * <factor>                            :TimesEx
+                                                                        p.121
+
+ 212 231   <realdivexp> ::= <term> / <factor>                          :RealDiv
+                                                                        Exp.122
+
+ 213 232   <intdivexp> ::= <term> div <factor>                         :IntDivE
+                                                                        xp.123
+
+ 214 233   <modexp> ::= <term> mod <factor>                            :ModExp.
+                                                                        124
+
+ 215 234   <andexp> ::= <term> and <factor>                            :AndExp.
+                                                                        125
+
+ 216 235   <primitiveexp> ::= <term> % <nameapl> <factor>              :Primiti
+                                                                        veExp.1
+                                                                        26
+
+ 217 224   <factor> ::= <textconst>                                    :?.127
+ 218 225             |  <integerconst>                                 :?.127
+ 219 226             |  <notexp>                                       :?.127
+ 220 227             |  <noneexp>                                      :?.127
+ 221 228             |  <transaction>                                  :?.127
+ 222 229             |  <unaryprimitiveexp>                            :?.127
+
+ 223 178   <repetitionslice> ::= <attributedenotation> [ <evaluation> 
+                                 : <evaluation> ]                      :Repetit
+                                                                        ionSlic
+                                                                        e.128
+
+ 224 237   <notexp> ::= not <factor>                                   :NotExp.
+                                                                        129
+
+ 225 238   <noneexp> ::= none                                          :NoneExp
+                                                                        .130
+
+ 226 239   <unaryprimitiveexp> ::= % <nameapl> <factor>                :UnaryPr
+                                                                        imitive
+                                                                        Exp.131
+
+ 227  49   <names> ::= <namedcl>                                       :Names.1
+                                                                        32
+ 228  50            |  <names> , <namedcl>                             :+.132
+
+ 229  86   <namedcl> ::= <namedecl>                                    :NameDcl
+                                                                        .133
+
+ 230 141   <nameapl> ::= <nameappl>                                    :NameApl
+                                                                        .134
+
+ 231 181   <simpleentry> ::= _EMPTY_                                   :_EMPTY_
+                                                                        .135
+ 232 182                  |  <textconst>                               :?.-2
+
+ 233 236   <textconst> ::= <string>                                    :TextCon
+                                                                        st.136
+
+ 234 140   <integerconst> ::= <const>                                  :Integer
+                                                                        Const.1
+                                                                        37
+
+ 235  84   <simpleindex> ::= <evaluation>                              :SimpleI
+                                                                        ndex.13
+                                                                        8
+
+ 236 142   <codeitems> ::= <codeitem>                                  :CodeIte
+                                                                        ms.139
+ 237 143                |  <codeitems> , <codeitem>                    :+.139
+
+ 238 240   <codeitem> ::= <codestring>                                 :?.140
+ 239 241               |  <codeconst>                                  :?.140
+
+ 240 242   <codestring> ::= <string>                                   :CodeStr
+                                                                        ing.141
+
+ 241 243   <codeconst> ::= <const>                                     :CodeCon
+                                                                        st.142
+
+ 242  48   <errordecl> ::= _ERROR_                                     :ErrorDe
+                                                                        cl.143
+
+ 243 120   <errorimp> ::= _ERROR_                                      :ErrorIm
+                                                                        p.144
+
+*************************************************************************************
+ *********************  A list of LR(1) conflicts  *********************
+
+
+  -------------------------------------------------------------
+  LALR(1) conflict of type: REDUCE/REDUCE
+    first conflicting production:
+        1: <betaform> ::= _ERROR_  .
+      Lookahead set:
+     -EOF- 
+    second conflicting production:
+      48: <errordecl> ::= _ERROR_  .
+      lookahead set:
+     -EOF- ; 
+    Conflict on symbol(s)
+     -EOF-
+    
+
+ ********************* End of LR(1) conflicts  *************************
+
+***********************************************************************
+
+           The grammar is NOT LALR(1) 
+
+***********************************************************************
+
+A parser for the grammar has however been constructed.
+THIS PARSER MAY NOT WORK PROPERLY!!!
+When a parse conflict occurs, 
+the parser selects one of the possibilities.
+If the parse conflict is due to an ambiguity,
+one of the possible right parses is produced.
+If the grammar is unambiguous and NON LALR(1),
+a parse error may appear on a syntactic correct string!
+
+
+***********************  COMPILER ERROR MESSAGES  ***********
+
+
+      ERRORNO : 0      ** ILLEGAL TERMINAL SYMBOL **
+
+
+      ERRORNO :        EXPECTED SYMBOL:
+
+             1 :        BOBS-GO 
+
+             2 :        <codeconst> <const> _KONST_ 
+
+             3 :        -EOF- 
+
+             4 :        <codestring> <string> _STRING_ 
+
+             5 :        <codeitem> <codestring> <codeconst> <string> <const> 
+                     _STRING_ _KONST_ 
+
+             6 :        <unaryprimitiveexp> % 
+
+             7 :        <nameapl> <nameappl> _NAME_ 
+
+             8 :        <mainpart> <longmainpart> <shortmainpart> (# { 
+
+             9 :        : , 
+
+            10 :        <namedcl> <namedecl> _NAME_ 
+
+            11 :        ( 
+
+            12 :        ) 
+
+            13 :        : 
+
+            14 :        <attributedenotation> <nameapl> <remote> <computedremote> 
+                     <indexed> <thisobject> <qualifiedattrden> <remoteprimitive> 
+                     <nameappl> ( this _NAME_ 
+
+            15 :        then <alternatives> -> <alternative> <selections> <selection> 
+                     <caseselection> // 
+
+            16 :        then <selection> <caseselection> // 
+
+            17 :        <repdo> <rep> <doit> repeat do 
+
+            18 :        for ; 
+
+            19 :        ) , 
+
+            20 :        <codeitems> <codeitem> <codestring> <codeconst> <string> 
+                     <const> _STRING_ _KONST_ 
+
+            21 :        code , 
+
+            22 :        <whenalternatives> . [ ( .% <whenalternative> // 
+
+            23 :        then . [ ( .% 
+
+            24 :        when 
+
+            25 :        <repdo> -> <rep> <doit> repeat do 
+
+            26 :        while ; 
+
+            27 :        if 
+
+            28 :        . 
+
+            29 :        ] -> 
+
+            30 :        : & 
+
+            31 :        : ] -> 
+
+            32 :        > 
+
+            33 :        <restrictions> <restriction> <attributedenotation> 
+                     <nameapl> <remote> <computedremote> <indexed> <thisobject> 
+                     <qualifiedattrden> <remoteprimitive> <nameappl> ( this 
+                     _NAME_ 
+
+            34 :        <restriction> <attributedenotation> <nameapl> <remote> 
+                     <computedremote> <indexed> <thisobject> <qualifiedattrden> 
+                     <remoteprimitive> <nameappl> ( this _NAME_ 
+
+            35 :        ] 
+
+            36 :        <referencespecification> <staticitem> <virtualstaticitem> 
+                     <finalstaticitem> <dynamicitem> <staticcomponent> <dynamiccomponent> 
+                     <variablepattern> @ < : ^ ## 
+
+            37 :        @ 
+
+            38 :        } 
+
+            39 :        #) 
+
+            40 :        <noneexp> none 
+
+            41 :        <notexp> not 
+
+            42 :        <textconst> <string> _STRING_ 
+
+            43 :        % * / div mod and 
+
+            44 :        <unaryminusexp> - 
+
+            45 :        <unaryplusexp> + 
+
+            46 :        xor + - or 
+
+            47 :        -EOF- * / div mod and % 
+
+            48 :        <signedterm> <unaryplusexp> <unaryminusexp> + - 
+
+            49 :        <> + - or xor 
+
+            50 :        >= + - or xor 
+
+            51 :        > + - or xor 
+
+            52 :        <= + - or xor 
+
+            53 :        < + - or xor 
+
+            54 :        = + - or xor 
+
+            55 :        -EOF- + - or xor 
+
+            56 :        = < <= > >= <> + - or xor 
+
+            57 :        .% . [ ( 
+
+            58 :        <thisobject> this 
+
+            59 :        <computedremote> ( 
+
+            60 :        <dynamiccomponentgeneration> & 
+
+            61 :        | 
+
+            62 :        <dynamicitemgeneration> & 
+
+            63 :        <repetitionslice> <attributedenotation> <nameapl> <remote> 
+                     <computedremote> <indexed> <thisobject> <qualifiedattrden> 
+                     <remoteprimitive> <nameappl> ( this _NAME_ 
+
+            64 :        ! 
+
+            65 :        <dynamicobjectgeneration> <dynamicitemgeneration> <dynamiccomponentgeneration> 
+                     & 
+
+            66 :        <address> @@ 
+
+            67 :        <primitive> tos 
+
+            68 :        ## & 
+
+            69 :        <evallist> ( 
+
+            70 :        [] ! 
+
+            71 :        -EOF- ! 
+
+            72 :        -> 
+
+            73 :        -EOF- , 
+
+            74 :        <elsepart> else 
+
+            75 :        <whenalternative> // 
+
+            76 :        <caseselection> // 
+
+            77 :        <selection> <caseselection> // 
+
+            78 :        <selections> <selection> <caseselection> // 
+
+            79 :        -EOF- <selection> <caseselection> // 
+
+            80 :        <alternative> <selections> <selection> <caseselection> 
+                     // 
+
+            81 :        <integerconst> <const> _KONST_ 
+
+            82 :        <nameaplscopespec> <nameapl> <nameappl> _NAME_ 
+
+            83 :        <integerscopespec> <integerconst> <const> _KONST_ 
+
+            84 :        <scopespec> <integerscopespec> <nameaplscopespec> <integerconst> 
+                     <nameapl> <const> <nameappl> _KONST_ _NAME_ 
+
+            85 :        <whenalternatives> <whenalternative> // 
+
+            86 :        -EOF- <whenalternative> // 
+
+            87 :        <simpleifimp> ( 
+
+            88 :        then -> 
+
+            89 :        <alternatives> <alternative> <selections> <selection> 
+                     <caseselection> // 
+
+            90 :        -EOF- <alternative> <selections> <selection> <caseselection> 
+                     // 
+
+            91 :        <generalifimp> ( 
+
+            92 :        <alternatives> -> <alternative> <selections> <selection> 
+                     <caseselection> // 
+
+            93 :        <doit> do 
+
+            94 :        <rep> repeat 
+
+            95 :        <forimp> ( 
+
+            96 :        for 
+
+            97 :        <errorimp> _ERROR_ 
+
+            98 :        <codeimp> ( 
+
+            99 :        code 
+
+           100 :        <whenimp> ( 
+
+           101 :        <whileimp> ( 
+
+           102 :        while 
+
+           103 :        <suspendimp> suspend 
+
+           104 :        <innerimp> inner 
+
+           105 :        <restartimp> restart 
+
+           106 :        <leaveimp> leave 
+
+           107 :        <labelledimp> <namedcl> <namedecl> _NAME_ 
+
+           108 :        -EOF- ; 
+
+           109 :        <exitpart> exit 
+
+           110 :        <dopart> do 
+
+           111 :        <enterpart> enter 
+
+           112 :        -EOF- -> 
+
+           113 :        <namedindex> <namedcl> <namedecl> _NAME_ 
+
+           114 :        <exact> = 
+
+           115 :        <dynamiccomponent> ^ 
+
+           116 :        <staticcomponent> @ 
+
+           117 :        <dynamicitem> ^ 
+
+           118 :        <finalstaticitem> : 
+
+           119 :        <virtualstaticitem> < 
+
+           120 :        <staticitem> @ 
+
+           121 :        <variablepattern> ## 
+
+           122 :        <restrictionpart> : 
+
+           123 :        <swap> ! 
+
+           124 :        <disown> - 
+
+           125 :        <names> <namedcl> <namedecl> _NAME_ 
+
+           126 :        <errordecl> _ERROR_ 
+
+           127 :        <finaldecl> <names> <namedcl> <namedecl> _NAME_ 
+
+           128 :        <bindingdecl> <names> <namedcl> <namedecl> _NAME_ 
+
+           129 :        < 
+
+           130 :        <virtualdecl> <names> <namedcl> <namedecl> _NAME_ 
+
+           131 :        <repetitiondecl> <names> <namedcl> <namedecl> _NAME_ 
+
+           132 :        [ 
+
+           133 :        <simpledecl> <names> <namedcl> <namedecl> _NAME_ 
+
+           134 :        <patterndecl> <names> <namedcl> <namedecl> _NAME_ 
+
+           135 :        <attributedecl> <patterndecl> <simpledecl> <repetitiondecl> 
+                     <virtualdecl> <bindingdecl> <finaldecl> <errordecl> 
+                     <names> _ERROR_ <namedcl> <namedecl> _NAME_ 
+
+           136 :        -EOF- & 
+
+           137 :        -EOF- . [ ( .% 
+
+           138 :        <compositeprefix> ( 
+
+           139 :        & 
+
+           140 :        <simpleprefix> <attributedenotation> <nameapl> <remote> 
+                     <computedremote> <indexed> <thisobject> <qualifiedattrden> 
+                     <remoteprimitive> <nameappl> ( this _NAME_ 
+
+           141 :        <prefix> <simpleprefix> <compositeprefix> <attributedenotation> 
+                     ( <nameapl> <remote> <computedremote> <indexed> <thisobject> 
+                     <qualifiedattrden> <remoteprimitive> <nameappl> this 
+                     _NAME_ 
+
+           142 :        <shortmainpart> { 
+
+           143 :        <longmainpart> (# 
+
+           144 :        <string> _STRING_ 
+
+           145 :        <const> _KONST_ 
+
+           146 :        <namedecl> _NAME_ 
+
+           147 :        <nameappl> _NAME_ 
+
+
+*********************************************************************
+
+ 
+ statistics :
+ const1 used          243 of 2400
+ const2 used          217 of 1200
+ const3 used            0 of 720
+ const4 used        11227 of 80000
+ const5 used            0 of 63
+ const6 used            2 of 6000
+ const7 used         2691 of 20000
+ const8 used           59 of 600
+ const9 used            0 of 10000
+ const10 used         1215 of 7200
+ const11 used            0 of 130
+ const12 used          110 of 1500
+ const13 used            0 of 5
+ const14 used            0 of 15
+ const15 used            0 of  not used 
+ const16 used         2692 of 10000
+ const17 used            0 of  not used 
+ const18 used            0 of 75
+ const19 used            0 of 18000
+ const20 used            0 of  not used 

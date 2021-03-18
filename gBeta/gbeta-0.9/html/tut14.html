@@ -1,0 +1,208 @@
+
+
+
+
+
+
+
+<HTML>
+<HEAD><TITLE>gbeta Tutorial:: The "new" (&amp;) Operator</TITLE></HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF"
+  LINK="#0000FF" VLINK="#800080" ALINK="#FF00FF">
+<TABLE WIDTH="100%">
+<TR><TD ALIGN="right">
+<TABLE><TR ALIGN="center">
+  <TD><A HREF="tutorial_index13.html" TARGET="display"><IMG SRC="left.gif"></A></TD>
+  <TD><A HREF="tutorial_index15.html" TARGET="display"><IMG SRC="right.gif"></A></TD>
+</TR></TABLE></TD></TR>
+<TR><TD ALIGN="left"><H1>Tutorial: The "new" (&amp;) Operator</H1></TD></TR>
+</TABLE>
+<P><HR></P>
+<TABLE><TR><TD WIDTH="25%">&nbsp;</TD><TD WIDTH="50%">
+
+<P>
+Sometimes it is desirable to explicitly request that a new object is
+instantiated, instead of relying on the <A HREF="tutorial_index4.html" TARGET="display">coercion</A> mechanism
+to create objects tranparently whenever an object is required and the
+denoted entity is a pattern or a pattern reference.  
+</P>
+
+<P>
+One reason why the transparency might be unwanted is that the
+semantics may depend on having fresh objects.  This is actually mostly
+a matter of convenience and performance, since it is typically because
+the implementation of a pattern depends on the initialization values
+for instances of <A HREF="tutorial_index16.html" TARGET="display">basic patterns</A>.  E.g. a new
+<CODE>integer</CODE> has the value zero, and a new <CODE>string</CODE>
+is empty. 
+</P>
+
+<P>
+If some piece of syntax (&lt;Merge&gt;, actually), should denote a
+fresh, newly instantiated object, then just put the "new" operator in
+front of it:
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>"&amp;" &lt;Merge&gt;</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+As usual, there is a "<A HREF="tutorial_index11.html" TARGET="display">concurrent</A> version" creating an
+object which is also a <CODE>component</CODE>:
+
+  
+<P>
+  <CENTER>
+    <TABLE BORDER=2 CELLPADDING=10 BGCOLOR="#FFFFFF">
+      <TR><TD><CODE>"&amp;" "|" &lt;Merge&gt;</CODE></TD></TR>
+    </TABLE>
+  </CENTER>
+</P>
+
+If you are explicitly requesting a new object and the given syntax
+denotes an existing object, there is a compile-time (well, analysis
+time) error and the program is rejected.
+</P>
+
+<h3>Renewing an object reference</h3>
+<P>
+One extension in <B>gbeta</B> compared to traditional BETA is the
+possibility to use the <CODE>"&amp;"</CODE> operator with a name which
+denotes an object reference (a "dynamic reference,"
+declared with the <A HREF="tutorial_index3.html" TARGET="display"><CODE>"^"</CODE> marker</A>).  This used to
+be a static semantic error.
+</P>
+
+<P>
+The semantics in <B>gbeta</B> is that a new instance of the declared type is
+created, and the object reference is made to refer to that new
+object.  This is similar to the creation syntax <CODE>"!!"</CODE> in
+Eiffel.  It is nothing but syntactic sugar for an explicit object
+instantiation followed by a reference assignment, e.g.
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE>
+(#
+   ir: ^integer
+do 
+   (* This: *)
+   <FONT COLOR="blue"><B>&iref[]</B></FONT>;
+   (* .. is the same as: *)
+   &integer[]-&gt;iref[];
+
+   (* And this: *)
+   <FONT COLOR="blue"><B>&iref</B></FONT>;
+   (* .. is the same as: *)
+   &integer[]-&gt;iref[]; 
+   iref;
+#)</PRE></TD></TR>
+  </TABLE>
+</P>
+
+Whether or not the (newly created) object should be executed is
+determined by the <A HREF="tutorial_index5.html" TARGET="display"><CODE>"[]"</CODE> marker</A>: when this marker is
+present in an imperative (or in an evaluation), the denoted entity is
+identified ("a pointer to it is computed") but nothing more happens.
+When it is not present, the <CODE>do</CODE>-part is executed, as
+always.  Since the execution of an <A HREF="tutorial_index16.html" TARGET="display">integer</A> is a no-op,
+nobody would notice in this particular example, though.
+</P>
+
+<h3>Caching</h3>
+<P>
+One special reason why it might be important to explicitly request a
+fresh object is that, traditionally, BETA allows a compiler to set up
+caching for all objects which are not explicitly requested to be new.
+This only applies to objects created as a result of coercion from
+pattern or pattern reference to object in an imperative. 
+This is normally known by the term <EM>inserted item</EM> even
+though that is also the name of a syntactic category which does not
+cover all the cases where caching is allowed.  As an example:
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE>
+(#
+   p: (# value: @integer do value+1-&gt;value exit value #)
+do 
+   (for 3 repeat <FONT COLOR="blue"><B>p</B></FONT>-&gt;putint for)
+#)</PRE></TD></TR>
+  </TABLE>
+</P>
+
+This is should print "123" with caching, since the (same) imperative
+mentioning <CODE>p</CODE> will use the same instance of the pattern
+denoted by <CODE>p</CODE> which was created by coercion.  In <B>gbeta</B>
+(and in the <A HREF="http://www.mjolner.dk/" TARGET="_top">Mjolner BETA System</A>) it prints "111".  In contrast: 
+  
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE>
+(#
+   p: (# value: @integer do value+1-&gt;value exit value #)
+do 
+   (for 3 repeat <FONT COLOR="blue"><B>&amp;p</B></FONT>-&gt;putint for)
+#)</PRE></TD></TR>
+  </TABLE>
+</P>
+
+This must definitely print "111", even according to <A HREF="tutorial_index1.html" TARGET="display">"the
+BETA book."</A>
+</P>
+
+<P>
+However, this has never been implemented for any cases where it could
+be detected (in terms of program state), and it is generally frowned
+upon, so it is not (and will not be) implemented to do caching of
+inserted items in <B>gbeta</B>.  Think of it as a non-issue.
+</P>
+
+<P>
+On the other hand, it might very well be interesting to provide this
+functionality explicitly, such that:
+
+
+<P>
+  <TABLE BORDER=2 CELLPADDING=10 WIDTH=90% BGCOLOR="#FFFFFF">
+    <TR><TD><PRE>
+(#
+   p: (# value: @integer do value+1-&gt;value exit value #)
+do 
+   (for 3 repeat <FONT COLOR="blue"><B>@p</B></FONT>-&gt;putint for)
+#)</PRE></TD></TR>
+  </TABLE>
+</P>
+
+will print "123" thus making caching an explicit choice by the
+programmer.  This has not been implemented, and the grammar does not
+even allow it.
+</P>
+
+<P>
+The <A HREF="tutorial_index15.html" TARGET="display">next</A> topic is general block structure, which might seem
+somewhat alien to users of many other languages.
+</P>
+
+</TD><TD WIDTH="20%">&nbsp;</TD></TR></TABLE>
+<P><HR></P>
+<SMALL>
+  <I>
+    <CENTER>
+      <STRONG>Signed by: </STRONG>
+      <A HREF="mailto:eernst@cs.auc.dk">eernst@cs.auc.dk</A>.
+      Last Modified:  3-Jul-01
+<BR>
+    </CENTER>
+  </I>
+</SMALL>
+</BODY>
+</HTML>
+

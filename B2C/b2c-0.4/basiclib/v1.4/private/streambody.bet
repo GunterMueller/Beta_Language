@@ -1,0 +1,12 @@
+ORIGIN '../betaenv';
+--- StreamPuttextDoPart: DoPart ---
+do 0->inx; l: (if (inx+1->inx)<=t.length then t.rep[inx]->p; restart l if)
+
+
+--- StreamPutintDoPart: DoPart ---
+do (if n<0 then -n->n; 45->put if); n->rec
+--- StreamPutintRec: ObjectDescriptor ---
+(# n: @integer
+enter n
+do (if n>9 then n div 10->&rec if); (n mod 10)+48->put
+#)

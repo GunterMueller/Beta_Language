@@ -1,0 +1,73 @@
+ORIGIN '../evaluationlib';
+INCLUDE 'type';
+INCLUDE '../label';
+BODY 'basicbody';
+(*
+ * Basic evaluations, that are generated, when standard BETA expressions
+ * (like ObjectEvaluation) are reduced.
+ *)
+--- CompilerLib: Attributes ---
+EnterExit: AnyDenotation
+  (#
+     isenter: @Boolean;
+     type:: (# <<SLOT EnterExitType: DoPart>> #);
+     reduce::
+       (#
+	  od: ^ObjectDescriptor;
+	  ev: ^Evaluation;
+	  red: ^ReduceFunction;
+	  flag: @Boolean;
+       <<SLOT EnterExitReduceDoPart: DoPart>>
+       #);
+  enter ad[]
+  do INNER
+  #);
+
+EnterExitComplex: EnterExit (# enter isenter exit this(EnterExitComplex)[] #);
+
+EnterExitSimple: AnyDenotation
+  (#
+     type:: (# od: ^ObjectDescriptor <<SLOT EnterExitSimpleType: DoPart>> #);
+     reduce:: (# do this(EnterExitSimple)[]->enteropt[]->exitopt[] #);
+     assignable:: TrueObject;
+  enter ad[]
+  exit this(EnterExitSimple)[]
+  #);
+
+CallPattern: AnyDenotation
+  (#
+     DoDo:: (# od: ^ObjectDescriptor <<SLOT CallPatternDoDo: DoPart>> #);
+     lab: ^Label;
+  enter ad[]
+  do currentLabel.l[]->lab[]
+  exit this(CallPattern)[]
+  #);
+
+CallExternal: EnterExit
+  (#
+     origad: ^AttributeDenotation;
+     exitvalueisused: @Boolean;
+     args: @EvaluationPtr;
+     MainPart: @Evaluation (# DoDo:: (# <<SLOT CallExternalDoDo: DoPart>> #) #);
+     ExitExternal: @Evaluation
+       (#
+	  DoCexpr::
+	    (# od: ^ObjectDescriptor <<SLOT CallExternalDoCexpr: DoPart>> #);
+	  type::
+	    (#
+	       oev: ^ObjectEvaluation;
+	       tmpad: ^AttributeDenotation;
+	       od: ^ObjectDescriptor;
+	    <<SLOT CallExternalType: DoPart>>
+	    #);
+       #);
+     checkExtra:
+       (# od: ^ObjectDescriptor <<SLOT CallExternalCheckExtra: DoPart>> #);
+  enter origad[]
+  do
+     true->isenter;
+     NONE->args;
+     false->exitvalueisused;
+     checkExtra##->c_file.todoExtra;
+  exit this(CallExternal)[]
+  #);

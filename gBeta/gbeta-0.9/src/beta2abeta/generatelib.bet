@@ -1,0 +1,135 @@
+(* FILE "./beta2abeta/generatelib.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: generatelib.bet,v 1.10 2001/07/01 21:44:10 eernst Exp $
+ *)
+
+ORIGIN 'betaast';
+
+-- betaTreeLevelLib:attributes --
+
+processBeta:
+  (#
+     onCategorical:<  (# id: ^text enter id[] do INNER #);
+     onConcrete:< (# id: ^text; sym: @integer enter (id[],sym) do INNER #);
+
+     theDecl: ^PatternDecl;
+     theDesc: ^ObjectDescriptor;
+     theMain: ^MainPart;
+     theAttr: ^Attributes;
+  enter theDecl[]
+  do
+     (* dive down to attribute list *)
+     theDecl.getObjectDescriptor->theDesc[];
+     theDesc.getMainPart->theMain[];
+     theMain.getAttributes->theAttr[];
+
+     (* traverse attribute list for pattern decl.s *)
+     theAttr.scan
+     (# thePDecl: ^PatternDecl;
+        theNames: ^Names;
+        id: ^text;
+        symbolNo: @integer;
+     do
+        (if current.symbol=PatternDecl then
+
+            (* extract the (single) declared name into 'id' *)
+            current[]->thePDecl[];
+            thePDecl.getNames->theNames[];
+            L: theNames.newScan
+              (# theNameDecl: ^nameDecl;
+              do current.getNameDecl->theNameDecl[];
+                 theNameDecl.getText->id[];
+                 leave L;
+              #); (* label L *)
+
+            (* extract the exited integer into 'symbolNo' *)
+            (# theDesc: ^ObjectDescriptor;
+               theMain: ^MainPart;
+               theAPart: ^ActionPart;
+               someAst: ^ast;
+               theExit: ^ExitPart;
+            do
+               (* dive down to (possibly absent) exitpart *)
+               thePDecl.getObjectDescriptor->theDesc[];
+               theDesc.getMainPart->theMain[];
+               theMain.getActionPart->theAPart[];
+               theAPart.getExitPartOpt->someAst[];
+
+               L: (if someAst.symbol<>ExitPart then
+
+                      (* No exit part - it`s an alternation rule node *)
+
+                      (* ------------------------------ *)
+                      (* 'id' extracted, 'symbolno' N/A *)
+                      (* ------------------------------ *)
+
+                      id[]->onCategorical;
+
+                   else
+
+                      (* There is an exit part *)
+
+                      (* We expect exactly one integer literal; find it *)
+                      someAst[]->theExit[];
+                      IntegerConst->theExit.suffixwalkforprod
+                      (# scanCat::IntegerConst;
+                         theConst: ^const;
+                      do current.getConst->theConst[];
+                         theConst.getValue->symbolNo;
+
+                         (* --------------------------------------- *)
+                         (* 'id' and 'symbolNo' have been extracted *)
+                         (* --------------------------------------- *)
+
+                         (id[],symbolNo)->onConcrete;
+                         leave L;
+                      #);
+
+                      (* No integer constant in the exit part?! *)
+                      (failure,'Exit part with no integer literal?!')->stop;
+
+                  if); (* label L *)
+            #);
+
+         (* else: ignore attributes which are not patterndecls *)
+        if);
+     #);
+  #);
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

@@ -1,0 +1,50 @@
+-- betaenv:descriptor --
+(# 
+   Set: (* semi-dummy impl. *)
+     (# Element:< object;
+        insert: (# e: ^Element enter e[] do e[]->storage[top+1->top][] #);
+        delete: (# e: ^Element enter e[] do (*..*) INNER #);
+        scan: 
+          (# current: ^Element 
+          do (for i:top repeat storage[i][]->current[]; INNER for) 
+          #);
+        storage: [10]^Element;
+        top: @integer
+     #);
+   TextBuffer:
+     (# name: @string;
+        setFileName:< (# enter name do INNER #);
+        getFileName:< (# do INNER exit name #);
+     #);
+   Window: (# refresh: (# do (*..*) INNER #)#);
+   ColorIcon: Window
+     (# setIconTitle: (# s: @string enter s do (*..*) INNER #)#); 
+   
+   ObserverDesignPattern:
+     (# Subject:< 
+          (# attach: (# enter observers.insert #);
+             detach: (# enter observers.delete #);
+             notify: observers.scan(# do this(Subject)[]->current.update #);
+             observers: @Set(# Element::< Observer #)
+          #);
+        Observer:< (# update:< (# s: ^Subject enter s[] do INNER #)#)
+     #);
+   WindowAndTextODP: ObserverDesignPattern
+     (# Subject::< TextBuffer
+          (# (* ensure that 'notify' is called after changes *)
+             setFileName::< (# do INNER; notify #)
+          #);
+        Observer::< Window
+          (# update::< (# do s[]->getState; refresh #);
+             getState:< (# s: ^Subject enter s[] do INNER #)
+          #)
+     #);
+   myODP: @WindowAndTextODP;
+   myBuffer: @myODP.Subject;
+   myIcon: @(& ColorIcon & myODP.Observer &)
+     (# getState::< (# do s.getFileName->setIconTitle #)#)
+do
+   myIcon[]->myBuffer.attach;
+   'a new name'->myBuffer.setFileName
+#)
+

@@ -1,0 +1,9 @@
+ORIGIN 'ordered'
+
+-- OrderedMax:dopart --
+do  
+   (if other[]->greaterEqual then 
+       other[]->maxi[]
+    else 
+       this(ordered)[]->maxi[]
+   if)

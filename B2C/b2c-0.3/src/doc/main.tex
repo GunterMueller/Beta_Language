@@ -1,0 +1,36 @@
+\documentstyle{book}
+% user customisation
+\input{custom.tex}
+
+\title{b2c - A freeware implementation of the BETA language}
+\author{Kai Petzke \\ M\"ullerstr.\ 69 \\ 13349 Berlin \\
+        wpp@physik.tu-berlin.de}
+
+\begin{document}
+\maketitle
+
+% chapter 0: preface/introduction
+\chapter*{Preface}
+\input{intro.tex}
+
+% chapter 1: The BETA language
+\chapter{The BETA language}
+\input{langhist.tex}
+
+% chapter 2: Overview
+\chapter[Overview over the implementation]{Overview
+over the implementation of the compiler}
+\input{overview.tex}
+
+% chapter 3: Patterns, Objects and DO-Parts
+\chapter{Patterns, Objects and DO-Parts}
+\input{pattern.tex}
+\input{specialdesc.tex}
+\input{repetition.tex}
+
+% chapter 4: Attribute Denotations
+\chapter{Attribute Denotations}
+\input{attden.tex}
+\input{path.tex}
+
+\end{document}

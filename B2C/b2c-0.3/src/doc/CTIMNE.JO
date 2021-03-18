@@ -1,0 +1,27 @@
+
+Toto je volne siritelna verze prekladace jazyka BETA do jazyka C.
+Pro ziskani vice informaci (v anglickem jazyce) viz obsah adresare
+s nazvem petzke, ktery obsahuje popis (v LaTeX) puvodni verze prekladace.
+
+Tato verze je modifikovana (veskere upravy jsou oznaceny komentari, ktere
+obsahuji jako prvni znak pismeno G).
+Vice informaci o upravach viz Jan Okrouhly: "Krizovy prekladac
+jazyka BETA", Zapadoceska univerzita v Plzni, fakulta aplikovanych ved,
+katedra informatiky a vypocetni techniky, diplomova prace, 1996 
+(email: okrouh1@ody.zcu.cz).
+
+Tento adresar krome zdrovovych souboru obsahuje rovnez prelozeny
+prekladac jazyka BETA do jazyka C (soubor b2c) jiz se zabudovanym
+cisticem pameti, aby jej nebylo nutno pred testovanim prekladat.
+Priklady pro testovani jsou v adresari test, ktery rovnez obsahuje
+program regression pro kompletni test vsech prikladu.
+
+Preklad zdrojovych textu tohoto prekladace vyzaduje prekladac jazyka BETA
+firmy Mjolner Informatics ApS, instalovany program yacc a prekladac cc.
+
+Preklad provede prikaz:
+
+beta -q b2c
+
+Tato verze prekladace slouzi vyhradne jako priloha k vyse uvedene praci.
+

@@ -1,0 +1,9 @@
+ORIGIN '../basiclib/v1.4/betaenv'
+--- program: ObjectDescriptor ---
+(#
+   integer: (# #);
+   int: integer (# #);
+   k: jj.x (# #);
+   foo: (# x: (# #) #);
+   jj: @foo;
+#)

@@ -1,0 +1,50 @@
+ORIGIN '~beta/basiclib/current/betaenv';
+INCLUDE 'put5';
+--- program: ObjectDescriptor ---
+(#
+   <<SLOT programLib: Attributes>>;
+   p1:
+     (# a: @integer; b: @IntegerObject; c: @Integer
+     <<SLOT p1DoPart: DoPart>>
+     exit a
+     #);
+   p2: <<SLOT p2: ObjectDescriptor>>;
+   pp2: p2 (# do ' extended Object Descriptor Slot!'->puttext #);
+   p3: (# <<SLOT p3DoPart: DoPart>> #);
+   sp,u: @integer;
+
+   o2: @p2;
+
+   x1: (# m:< (# do (73,sp,97,109,sp)->put5; INNER #) do m #);
+   x2: x1
+     (# m::<
+	  (# do (99,117,114,105,111)->put5; u->put; 115->put; INNER; 10->put
+	  #)
+     #);
+   x3: x2 (# m::< (# do (sp,97,98,111,u)->put5; 116->put #) #);
+
+   y0: (# x:< Object do x #);
+   y1: y0 (# x::< x1 #);
+   y2: y1 (# x::< x2 #);
+   y3: y2 (# x:: x3 #);
+do
+   32->sp;
+   117->u;
+   p1; p2; pp2; o2.world; p3; p4; y1; y3;
+   (# x: @integer do (65->x,66->u,67,68,69)->put5; 10->put #)
+#)
+
+--- p1DoPart: DoPart ---
+do (72,101,108,108,111)->put5; 32->put; INNER
+
+--- p3DoPart: DoPart ---
+do INNER
+
+--- p2: ObjectDescriptor ---
+p1
+  (# world: (# do (87,111,114,108,100)->put5; #)
+  do world; INNER; 33->put; 10->put;
+  #)
+
+--- programLib: Attributes ---
+p4: (# do (65,116,116,114,105)->put5; (98,117,116,101,115)->put5; 10->put #);

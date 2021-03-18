@@ -1,0 +1,31 @@
+ORIGIN 'betaenv';
+INCLUDE 'graph';
+INCLUDE 'ne'
+
+-- program:merge --
+(# 
+   LabelledGraph: Graph(# Edge::< (# label: @string #)#);
+   build:
+     (# g:< @Graph; n: ^g.Node; e: ^g.Edge; b: @boolean
+     enter (n[],e[],b)
+     do n->e.n1[]->e.n2[];
+        (if (e->n.touches)=b then 'OK\n'->stdio if)
+     #);
+   listBuild:
+     (# ne:< @NodesAndEdges;
+        n: ^ne.g.Node; e: ^ne.g.Edge;
+     do ne.nodes.head->n[];
+        ne.edges.head->e[];
+        (n,e,true)->build(# g::@ne.g #)
+     #);
+   m1: (# x: ^NodesAndEdges enter x[] do listBuild(# ne::@x #)#);
+   m2: (# x: ^NodesAndEdges enter x[] do x[]->m1 #);
+   m3: (# x: ^NodesAndEdges enter x[] do x[]->m2 #);
+
+   myGraph: @LabelledGraph;
+   myNodesAndEdges: @NodesAndEdges(# g::@myGraph #)
+do
+   myGraph.Node->myNodesAndEdges.nodes.append;
+   myGraph.Edge->myNodesAndEdges.edges.append;
+   myNodesAndEdges[]->m3
+#)

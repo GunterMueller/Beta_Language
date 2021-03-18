@@ -1,0 +1,127 @@
+ORIGIN '../betaenv';
+--- TextPeek: DoPart ---
+do (if pos<l then rep[pos+1]->ch else &EOSraise if)
+
+
+--- TextGet: DoPart ---
+do (if pos<l then rep[pos+1->pos]->ch else &EOSraise if)
+
+
+--- TextPut: DoPart ---
+do
+   (if (pos+1->pos)>l then
+      (if (pos->l)>rep.range then 5+rep.range div 2->rep.extend if)
+   if);
+   ch->rep[pos];
+
+
+--- TextPuttext: DoPart ---
+do
+   (if (pos+t.l->i)>l then
+      (if (i->l)>rep.range then i-rep.range->rep.extend if)
+   if);
+   1->i;
+   l: (if i<=t.l then t.rep[i]->rep[pos+i]; i+1->i; restart l if);
+   pos+t.l->pos;
+
+
+--- TextSetPos: DoPart ---
+do
+   (* !!! This is, how Mjolner does it.  I'd prefer to raise the indexError
+    *     exception, if the position is set outside the legal range of
+    *     the string *)
+   (if true // p<0 then 0->pos // p>l then l->pos else p->pos if);
+
+
+--- TextInxGet: DoPart ---
+do (if (inx<1) or (inx>l) then &indexRaise else rep[inx]->value if);
+
+
+--- TextInxPut: DoPart ---
+do (if (inx<1) or (inx>l) then &indexRaise else ch->rep[inx] if);
+
+
+--- TextCopy: DoPart ---
+do
+   this(text)##->q##;
+   &q[]->t1[];
+   rep[1:l]->t1.rep;
+   l->t1.l;
+   pos->t1.pos;
+
+
+--- TextSub: DoPart ---
+do
+   this(text)##->q##;
+   &q[]->t1[];
+   (if i<1 then 1->i if);
+   (if j>l then l->j if);
+   (if i<=j then
+      rep[i:j]->t1.rep;
+      j-i+1->t1.l;
+      pos-i+1->t1.pos;
+      (if t1.pos<0 then 0->t1.pos if);
+      (if t1.pos>t1.l then t1.l->t1.pos if);
+   if);
+
+
+--- TextAppend: DoPart ---
+do
+   (if l+t.l>rep.range then l+t.l-rep.range->rep.extend if);
+   0->p;
+   loop: (if (p+1->p)<=t.l then t.rep[p]->rep[p+l]; restart loop if);
+   (if pos>=(l+t.l->l) then pos+t.l->pos if);
+
+
+--- TextPrepend: DoPart ---
+do
+   (if t.l>0 then
+      (if l+t.l>rep.range then l+t.l-rep.range->rep.extend if);
+      l->p;
+      loop: (if p>0 then rep[p]->rep[p+t.l]; p-1->p; restart loop if);
+      t.l->p;
+      loop: (if p>0 then t.rep[p]->rep[p]; p-1->p; restart loop if);
+      l+t.l->l;
+      (if pos>0 then pos+t.l->pos if);
+   if);
+
+
+--- TextInsert: DoPart ---
+do
+   (if t.l>0 then
+      (if l+t.l>rep.range then l+t.l-rep.range->rep.extend if);
+      l->p;
+      (if at<1 then 1->at if);
+      (if at>l then l+1->at if);
+      loop: (if p>=at then rep[p]->rep[p+t.l]; p-1->p; restart loop if);
+      t.l->p;
+      loop: (if (p-1->p)>0 then t.rep[p+1]->rep[p+at]; restart loop if);
+      (if pos>=at then pos+t.l->pos if);
+      l+t.l->l;
+   if);
+
+
+--- TextDelete: DoPart ---
+do
+   j-i+1->p;
+   (if (p<0) or (i<1) or (j>l) then
+      i->&indexRaise
+   else
+      (if p>0 then
+	 (if pos>=i then (if pos>j then pos-p->pos else i-1->pos if) if);
+	 l-p->l;
+	 l: (if i<=l then rep[i+p]->rep[i]; i+1->i; restart l if);
+      if);
+   if);
+
+
+--- TextEqual: DoPart ---
+do
+   (if (t.l=l)->value then
+      1->privInt;
+      loop: (if privInt<=l then
+	 (if t.rep[privInt]<>rep[privInt] then false->value; leave loop if);
+	 privInt+1->privInt;
+	 restart loop;
+      if);
+   if)

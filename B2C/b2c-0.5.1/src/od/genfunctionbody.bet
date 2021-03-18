@@ -1,0 +1,105 @@
+ORIGIN 'genfunction';
+INCLUDE 'funcdecl';
+INCLUDE '../ctype';
+INCLUDE '../eelib';
+INCLUDE '../specialdesc';
+INCLUDE '../ad/backlevel';
+INCLUDE '../ad/bitch';
+INCLUDE '../ad/nameapl';
+INCLUDE '../ad/rename';
+--- GenFunctionDoPart: DoPart ---
+do
+   (* Generate a fake item declaration for this object descriptor,
+    * as well, as a reference to that declaration.  Then use the
+    * DoInit method of our fake item to get an evaluation list, that
+    * can be used to set up the object.
+    *)
+   genee.init;
+   genee[]->ee[];
+   this(ObjectDescriptor)[]->sdec.od[]->sdec.os[];
+   true->sdec.data_inline;
+   1->sdec.checked;
+   sdec[]->rem.att.att[];
+   outer[]->sdec.encl[];
+   (if pref[]=NONE then
+      mapname[]->fname[];
+      (outer[]->callod[],0)->&DirectBacklevel->rem.prec[];
+   else
+      (if pref##<=AttributeDenotation## then
+         pref[]->ad[]; ad.prec[]->rem.prec[];
+      else
+	 (callod[],0)->&DirectBacklevel->rem.prec[];
+      if);
+      genee.disableInsertedAttributes;
+   if);
+   1->rem.resolved;
+   (rem[],'n')->&AttDenRename->ad[];
+   (if pref[]=NONE then ad[]->ee.InsertionBase if);
+   ad[]->sdec.DoInit->genee.add;
+   newptr[]->genee.add;
+   (if pref[]<>NONE then
+      (* In case of virtual creator functions: generate a reference to
+       * the enclosing object. *)
+      ad[]->om.om[outerindx].copy->ad[];
+      ad.reduce->genee.add;
+   if);
+
+   genee.markRootSet;
+   genee.DoDo##->c_file.cfunction;
+
+
+--- GenFunctionHead: DoPart ---
+do
+   (* function header *)
+   'struct O'->c_file.cstream.puttext;
+   mapname[]->c_file.cstream.puttext;
+   (if callod[]<>NONE then callod.private.mapname[]->t[] else NONE->t[] if);
+   (if pref[]=NONE then
+      ' *N'->c_file.cstream.puttext;
+      fname[]->c_file.cstream.puttext;
+      t[]->cintf.funcdef;
+   else
+      ' *V'->c_file.cstream.puttext;
+      fname[]->c_file.cstream.puttext;
+      t[]->cintf.virtfuncdef;
+   if);
+
+
+--- GenFunctionNewPtr: DoPart ---
+do
+   (* Generate a declaration for the "n" variable, which will point
+    * to the to-be-generated object.  Don't forget to allocate some
+    * space for it.
+    *)
+   '    struct I'->c_file.cstream.puttext;
+   mapname[]->c_file.cstream.puttext;
+   ' *n;\n'->c_file.cstream.puttext;
+   (if pref[]<>NONE then
+       '    if(p) {\n'->c_file.cstream.puttext;
+       '\tp->pattern = (struct pattern *) &P'->c_file.cstream.puttext;
+       mapname[]->c_file.cstream.puttext;
+       ';\n\tp->encl = (struct object *) '->c_file.cstream.puttext;
+       ctype_objectptr->ad.putcexpr;
+       ';\n\treturn;\n    }\n'->c_file.cstream.puttext;
+   if);
+   '    n = (struct I'->c_file.cstream.puttext;
+   mapname[]->c_file.cstream.puttext;
+   ' *) mmalloc(sizeof(struct I'->c_file.cstream.puttext;
+   mapname[]->c_file.cstream.puttext;
+   (* JO Save reference to list of local references (mstack) *)
+   '));\n    mstackinsert((struct object **)&n);\n'->c_file.cstream.puttext;
+   (* JO *)
+   '    memset(n, 0, sizeof(struct I'->c_file.cstream.puttext;
+   mapname[]->c_file.cstream.puttext;
+   '));\n'->c_file.cstream.puttext;
+
+
+--- GenFunctionTail: DoPart ---
+do
+   (* JO Restore list of local references to original state
+   DoStackRet;
+   *)
+   (* JO *)
+   '    return (struct O'->c_file.cstream.puttext;
+   mapname[]->c_file.cstream.puttext;
+   ' *) n;\n}\n'->c_file.cstream.puttext;

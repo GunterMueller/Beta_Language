@@ -1,0 +1,20 @@
+ORIGIN '../imperative';
+INCLUDE '../label';
+--- CompilerLib: Attributes ---
+(* labelled imperative *)
+LabelledImp: Imperative
+  (#
+     str: @text;
+     l: @label
+       (#
+          nme:: (# do str[]->t[] #);
+	  reduce:: (# do imp.reduce #);
+       #);
+     imp: ^Imperative;
+     checkFollow:: (# do imp.checkFollow #);
+     checkComplete:: (# do l.assign; imp.checkComplete; l.deassign #);
+     reduce:: (# do l.reduce #);
+     print:: (# do str[]->s.append; ': '->s.append; s[]->imp.print #);
+  enter (str,imp[])
+  do this(LabelledImp)[]->imp.encl[]
+  #);

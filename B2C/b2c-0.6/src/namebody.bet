@@ -1,0 +1,28 @@
+ORIGIN 'name';
+INCLUDE 'nametable';
+--- NameDoMapName: DoPart ---
+do
+   (* !!! this leads to problems, when names are re-declared in
+    *     subpatterns! *)
+   'b_'->mapname;
+   str.scanAll (# do ch->ascii.lowcase->mapname.put #)
+
+
+--- NameCheckName: DoPart ---
+do
+   check:
+     (#
+     do
+	(* DEBUG 'checking name: '->puttext; str[]->putline; *)
+	(str[],encl.encl[])->nameTable.findName
+	  (# do 'Name defined twice!'->error; leave check #);
+	this(Name)[]->nameTable.insert;
+     #)
+
+
+--- TemporaryNameDoPart: DoPart ---
+do
+   &Name[]->nme[];
+   c_file.NameMapper.state->nme.mapname;
+   't'->nme.mapname.prepend;
+   c_file.NameMapper.advance;

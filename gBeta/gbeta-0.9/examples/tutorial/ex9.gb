@@ -1,0 +1,13 @@
+(* FILE ex9.gb *)
+-- betaenv:descriptor --
+(#
+   done: @integer(# do value+1->value; (if value=3 then '\n'->stdio if)#);
+   cmp1: @|(# do (for 50 repeat '.'->stdio for); done #);
+   cmp2: @|(# do (for 100 repeat 'x'->stdio for); done #)
+do
+   cmp1.fork;
+   cmp2.fork;
+   (for i:75 repeat (if i mod 7 = 0 then '\nmain '->stdio if)for);
+   done
+#)
+

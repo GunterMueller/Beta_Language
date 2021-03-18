@@ -1,0 +1,11 @@
+ORIGIN '~beta/basiclib/current/betaenv';
+--- program: ObjectDescriptor ---
+(#
+   qua0: (# p:< IntegerValue; #);
+   p1: ^pattern;
+   pattern: (# qua: @qua0 (# p:: (# do 10->value #) #); #);
+do
+   &pattern[]->p1[];
+   (if p1.qua.p<>10 then (Failure,'Something went wrong')->stop if);
+   p1.qua; (&qua0[]).p; qua0;
+#)

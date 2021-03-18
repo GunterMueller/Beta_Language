@@ -1,0 +1,107 @@
+ORIGIN 'indexed';
+INCLUDE 'bitch';
+INCLUDE 'special';
+INCLUDE '../attributelib';
+INCLUDE '../ctype';
+INCLUDE '../eelib';
+INCLUDE '../evaluationlib';
+INCLUDE '../getcexprlib';
+INCLUDE '../namebitch';
+--- IndexedCheckFollow: DoPart ---
+do
+   resolve;
+   checkPath;
+   (if not value and (att.att[]<>NONE) then att.att.checkFollow->value if)
+
+
+--- IndexedCheckPath: DoPart ---
+do
+   prec.checkPath;
+   ev.checkFollow;
+
+
+--- IndexedCopy: DoPart ---
+do
+   ev[]->cpy.ev[];
+   (if toadd[]<>NONE then
+      (* !!! Is this a problem?  I have seen this happen, but everything
+       *     still went ok so far. *)
+      (if indexvar[]<>NONE then
+	 'An instance of indexed is copied, which was already reduced!'->warn;
+      if);
+      (if evpref[]<>NONE then
+	 toadd[]->evpref.copy->cpy.evpref[]
+      else
+	 NONE->toadd.copy->cpy.evpref[]
+      if);
+   else
+      (if evpref[]<>NONE then
+         NONE->evpref.copy->cpy.evpref[]
+      else
+         NONE->cpy.evpref[]
+      if);
+   if);
+   indexvar[]->cpy.indexvar[];
+
+
+--- IndexedResolve: DoPart ---
+do
+   (if not prec.isrep then
+      'A repetition is expected here!'->prec.error;
+   else
+      prec.att.att.getRepEl->att.att[];
+      att.att.resolve;
+   if);
+
+
+--- IndexedReduce: ObjectDescriptor ---
+(#
+   assev: @AssignmentEvaluation;
+   before: ^Evaluation;
+   red: ^assev.reduce;
+do
+   (if indexvar[]=NONE then
+      (&IntegerDenotation,true)->ee.item->(indexvar[],before[]);
+      (this(Indexed).ev[],(indexvar[],0)->&ObjectEvaluation)->assev;
+      this(Indexed)[]->assev.encl[];
+      &assev.reduce[]->red[];
+      evpref[]->red;
+      ((ev[],before[])->EvaluationJoin,(red.before[],red.main[])
+	->EvaluationJoin)->EvaluationJoin->ev[];
+   if)
+#)
+
+
+--- IndexedGetcexpr: ObjectDescriptor ---
+(# sd: ^SimpleDecl
+do
+   denote;
+   'b_ptr['->t.append;
+   t[]->indexvar.getcexpr;
+   '-1]'->t.append;
+   att.att[]->sd[];
+   (if sd.data_inline then ctype_object->ctype else ctype_objectptr->ctype if);
+#)
+
+
+--- DirectIndexedDoPart: DoPart ---
+do
+   (if not prec.isrep then
+      (failureTrace, 'Compiler error: DirectIndexed applied to something, that is not a repetition!')->stop;
+   else
+      prec.att.att.getRepEl->att.att[];
+   if);
+
+
+--- DirectIndexedIsstatic: DoPart ---
+do (if att.att[]<>NONE then att.att[]->sd[]; sd.type=0->value if)
+
+
+--- DirectIndexedGetcexpr: DoPart ---
+do
+   denote;
+   'b_ptr['->t.append;
+   var[]->t.append;
+   ']'->t.append;
+   att.att[]->sd[];
+   (if sd.data_inline then ctype_object->ctype else ctype_objectptr->ctype if);

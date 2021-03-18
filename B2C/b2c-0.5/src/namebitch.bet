@@ -1,0 +1,4 @@
+ORIGIN 'attribute';
+INCLUDE 'name';
+--- NamePtrExt: ObjectDescriptor ---
+NamePtr (# #)

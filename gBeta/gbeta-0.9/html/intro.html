@@ -1,0 +1,191 @@
+
+
+
+
+
+<HTML>
+<HEAD><TITLE>gbeta: </TITLE></HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF"
+  LINK="#0000FF" VLINK="#800080" ALINK="#FF00FF">
+<TABLE WIDTH="100%">
+<TR><TD ALIGN="right"><CENTER><IMG SRC="clean.jpg" ALT="gbeta"></CENTER></TD></TR>
+<TR><TD ALIGN="left"><H1></H1></TD></TR>
+</TABLE>
+<P><HR></P>
+<TABLE><TR><TD WIDTH="25%">&nbsp;</TD><TD WIDTH="50%">
+
+<H1>What is <B>gbeta</B>?</H1>
+
+<P>
+<BIG><BIG><B>gbeta</B> is a generalization of the programming language
+<A HREF="index_beta.html" TARGET="_top">BETA</A>.  You can <A HREF="index_download.html" TARGET="_top">download</A> a
+compiler/interpreter for <B>gbeta</B>, and the source code of this
+implementation is freely available under the <A HREF="index_copyright.html" TARGET="_top">GPL
+copyright</A>.</BIG></BIG>
+</P>
+
+
+<P>&nbsp;</P> 
+<CENTER>
+  <TABLE BORDER=1>
+    <TR><TD><IMG SRC="logo-small.gif" ALT="small gbeta logo"></TD></TR>
+  </TABLE>
+</CENTER>
+
+<H3>Here are some features of the language:</H3>
+<P>
+In <B>gbeta</B>, <EM>object metamorphosis</EM> coexists with strict,
+static type-checking:  It is possible to take an existing object and
+modify its structure until it is an instance of a given class, which
+is possibly only known or even constructed at run-time.  Still, the
+static analysis ensures that message-not-understood errors can never
+occur at run-time.
+</P>
+
+<P>
+It is possible to define relations between classes, e.g., to specify
+that the class <TT>MyPoint</TT> must be a subclass of
+<TT>YourPoint</TT> (without committing to exactly what classes they
+are).  This makes it possible to define a kind of <EM>constraint graph
+of classes</EM>.  It ensures that certain relations hold, such that
+one inheritance operation may give rise to a complex but orderly
+propagation of type changes in a framework of classes.
+</P>
+
+<P>
+Like BETA, <B>gbeta</B> supports inheritance hierarchies not only for
+classes but also for methods.  This can be used together with dynamic
+inheritance to build <EM>dynamic control structures</EM>; dynamic
+control structures enable your algorithms to be parameterized with
+e.g. a while statement, an iteration through all elements of a given
+list, or reading input from a file.  (NB: a control structure as a
+parameter is richer than a procedure or function parameter, because the
+control structure can provide a name space to its body).
+</P>
+
+<P>
+BETA already has strong support for <EM>co-evolution of classes</EM>.
+For example, the classes <CODE>vehicle</CODE> and
+<CODE>operator</CODE> depend on each other, and they should "know"
+each other's enhancement to <CODE>car</CODE> respectively
+<CODE>chauffeur</CODE>.   The support for class co-evolution is even
+more powerful and flexible in the generalized language <B>gbeta</B>,
+enabling such things as the <CODE>observerDesignPattern</CODE> as a
+class which can simply be used in stead of a micro-design-guide (a
+"design pattern") which must  be re-implemented again and again.
+</P>
+
+<P>
+Finally, you might want to get to know more about that weird language
+called <EM>BETA</EM> that you have heard so much about but never
+really tried out, hands on; the <B>gbeta</B> implementation provides in some
+ways a more dynamic environment even if it is just used to try out
+BETA programs. 
+</P>
+
+<P>
+If you are interested in the design or implementation of modern,
+object-oriented programming languages, you should take a closer look
+at <B>gbeta</B>. <A HREF="index_beta.html" TARGET="_top">BETA</A> has been around since 1978 or so, but
+still it is quite innovative and, IMHO it is very well-designed.
+<B>gbeta</B> implements a superset of BETA,
+<A HREF="index_compatibility.html" TARGET="_top">preserving</A> the static type checking and adding
+a lot of <A HREF="index_advanced.html" TARGET="_top">new possibilities</A>.
+</P>
+
+<CENTER>
+  <TABLE BORDER=1>
+    <TR><TD><IMG SRC="logo-small.gif" ALT="small gbeta logo"></TD></TR>
+  </TABLE>
+</CENTER>
+
+<H3>Who doesn't want it, then?</H3>
+<P>
+There is currently no support for calling external code (e.g., C
+libraries), and this prevents the execution of existing BETA programs
+which could be compiled by e.g. the <A HREF="http://www.mjolner.dk/" TARGET="_top">Mjolner BETA System</A> because the basic
+libraries of this system depend on some externals.  Another limitation
+is in program size.  It 
+would cost too much memory and take too long to run e.g. a
+100,000 line program (using many libraries pushes the effective
+line-count up); 3000 lines is more realistic, especially if
+<A HREF="index_lazy.html" TARGET="_top">lazy analysis</A> is used to achieve a quick startup time.
+The current <B>gbeta</B> implementation is more for the (possibly academic)
+geek who is interested in programming language design, and less for
+the no-nonsense practical programmer who wants to write large
+mission-critical applications.  In other words, it's slow but it uses
+a lot of memory.  Finally, the library support is hardly existing by
+now.  There is a fair chance that some libraries from the Mjolner BETA System
+will be adapted to work with <B>gbeta</B> and made available somehow for
+free, but this hasn't happened yet.
+</P>
+
+<CENTER>
+  <TABLE BORDER=1>
+    <TR><TD><IMG SRC="logo-small.gif" ALT="small gbeta logo"></TD></TR>
+  </TABLE>
+</CENTER>
+
+<H3>Why was it created?</H3>
+<P>
+It has been developed as part of my PhD project, as a workbench for
+language design experiments and as a proof-of-concept implementation.
+The emphasis has been on a clear, high-level expression of the
+language semantics.  This means that language design experiments
+can be made at a high level by modifying the <B>gbeta</B> implementation
+itself, using the existing, rather well-encapsulated abstractions.
+Moreover the implementation is very general, supporting a number of
+"gray corners" of BETA which have not been implemented in the
+Mjolner BETA System.
+</P>
+
+<P>
+Nevertheless, the main point in implementing the entire language from 
+scratch was to rethink the basic concepts of the language, and to
+rebuild a language which has traditional BETA as a special case, but
+at the same time enhances the expressive power considerably.
+</P>
+
+<H3><A HREF="mailto:eernst@cs.auc.dk">Feed-back</A></H3> 
+<P>
+is always welcome,
+about the language and/or its implementation, about the language
+design effort that it incarnates, and about this web site.
+</P>
+
+<CENTER>
+  <TABLE BORDER=1>
+    <TR><TD><IMG SRC="logo-small.gif" ALT="small gbeta logo"></TD></TR>
+  </TABLE>
+</CENTER>
+
+<H3>Aahhh, yes...</H3>
+
+<P>
+...the funny symbol on the many colored background is a <B>gbeta</B> logo, a
+stylized version of the letters "gb".  You are welcome to use this
+logo on your own web pages if you want to refer to <B>gbeta</B>.  And here
+is a picture which shows a situation during a <B>gbeta</B> session hosted in
+GNU Emacs (click on it to see more):
+</P>
+
+<CENTER>
+<A HREF="gbeta-screen.gif" TARGET="top">
+<IMG SRC="gbeta-small-screen.gif" ALT="screen shot"></A>
+</CENTER>
+
+</TD><TD WIDTH="20%">&nbsp;</TD></TR></TABLE>
+<P><HR></P>
+<SMALL>
+  <I>
+    <CENTER>
+      <STRONG>Signed by: </STRONG>
+      <A HREF="mailto:eernst@cs.auc.dk">eernst@cs.auc.dk</A>.
+      Last Modified:  3-Jul-01
+<BR>
+    </CENTER>
+  </I>
+</SMALL>
+</BODY>
+</HTML>
+

@@ -1,0 +1,13 @@
+ORIGIN '../attribute';
+BODY 'pvariablebody';
+--- CompilerLib: Attributes ---
+PatternVariableDecl: Attribute
+  (#
+     print:: (# do ': ##'->s.append #);
+     ispattern:: (# do true->value #);
+     isvirtual:: (# do os.isvirtual->value #);
+     ispvariable:: (# do true->value #);
+     getcdecl:: (# <<SLOT PatternVariableDeclGetcdecl: DoPart>> #);
+     getcexpr:: (# <<SLOT PatternVariableDeclGetcexpr: DoPart>> #);
+     maybesubpattern:: (# do true->value #);
+  #);

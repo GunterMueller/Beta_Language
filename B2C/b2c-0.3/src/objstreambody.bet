@@ -1,0 +1,260 @@
+ORIGIN 'objstream';
+--- objstreamLib: attributes ---
+errlist:
+  (#
+      next: ^errlist;
+      pos: @integer;
+      t: @text;
+  enter t
+  do  
+     (if top.pending[]=NONE then &top.line if);
+     NONE->next[];
+     0->pos;
+  exit this(errlist)[]
+  #);
+elappend:
+  (# el, it: ^errlist; diff: @integer
+  enter el[]
+  do
+     (* DEBUG 'elappend start'->putline; *)
+     (if top.pending[]=NONE then
+        '\nWARNING: elappend called when current line was empty!'->putline;
+	&top.line
+     if);
+     (if el[] <> NONE
+       then
+	  el[]->it[];
+	  top.pending.t.length->diff;
+	  l1: (if it[]<>NONE
+	    then it.pos+diff->it.pos; it.next[]->it[]; restart l1
+	  if);
+          top.pending.el[] -> it[];
+	  (if it[]
+	    // NONE then el[]->top.pending.el[]
+	    else
+	       l2: (if it.next[]<>NONE then it.next[]->it[]; restart l2 if);
+	       el[]->it.next[]
+	  if);
+     if)
+  #);
+dobl:
+  (# old: ^level; t: ^text; el: ^errlist;
+  do
+     (* DEBUG 'start of dobl'->putline; *)
+     (if not blpend then leave dobl if);
+     (if top[]=toppend[] then NONE->toppend[] if);
+     top[]->old[];
+     top.prev[]->top[];
+     (* DEBUG 'half of dobl'->putline; *)
+     NONE->top.nxt[];
+     (if old.pending[]<>NONE then
+	(if top.pending[]=NONE then
+	   old.thisident->top.thisident
+	else
+	   (if top.pending.t.length=0 then
+	      old.thisident->top.pending.lineident
+	   if);
+	if);
+	(* DEBUG 'before join'->putline; *)
+	old.join->(t[],el[]);
+	t[]->append;
+	el[]->elappend;
+	(* DEBUG 'after join'->putline; *)
+	(if top.prev[]=NONE then top.print if);
+     if);
+     false->blpend;
+  #)
+
+
+--- objstreamInit: Descriptor ---
+(# do 0->level; true->top.wide; NONE->toppend[]; NONE->top.pending[] #)
+
+--- objstreamLevel: Descriptor ---
+(#
+   pending: ^line;
+   ident,thisident: @integer;
+   prev,nxt: ^level;
+   wide: @boolean;
+   line:
+     (#
+	t: @text;
+	lineident: @integer;
+	prev: ^line;
+	el: ^errlist;
+	printrec:
+	  (# 
+	  do
+	     (if prev[]<>NONE then prev.printrec if);
+	     (if el[]=NONE then printline else printwitherr if);
+	     ident->thisident;
+	     totpend-t.length->totpend;
+	  #);
+	printline:
+	  (# 
+	  do
+	     (if t.length>0 then
+		(for i:lineident repeat ' '->s.put for);
+		t.spaceDropBoth->s.putline;
+	     if);
+	  #);
+	printident:
+	  (# ident: @integer; t: ^text
+	  enter (t[], ident)
+	  do (for i:ident repeat ' '->s.put for); t.spaceDropEnd->s.putline
+	  #);
+	printwitherr:
+	  (# it: ^errlist; p0, p1, p2: @integer
+	  do
+	     0->p1;
+	     t.length->p2;
+	     l1: (if p1<p2
+	       then (if p1+1->t.InxGet // ' ' then p1+1->p1; restart l1 if)
+	     if);
+	     lineident-p1->p0;
+	     el[]->it[];
+	     loop:
+	       (#
+	       do
+		  (if it.pos>p1
+		    then ((p1+1,it.pos)->t.sub,p0+p1)->printident
+	          if);
+		  (* DEBUG it.pos->putint; ' '->puttext; *)
+		  it.t[]->s.putline;
+		  it.pos->p1;
+		  it.next[]->it[];
+		  (if it[] <> NONE then restart loop if)
+	       #);
+	     t.length->p2;
+	     (if p2>p1 then ((p1+1,p2)->t.sub,p0+p1)->printident if)
+	  #);
+     do ''->t; pending[]->prev[]; this(line)[]->pending[]; thisident->lineident
+     #); (* line *)
+   print:
+     (# l: ^line;
+     do
+	(if (pending[]->l[])=NONE then leave print if);
+	(if (l.prev[]=NONE) or wide or (l.t.length=0) then
+	   (if this(level)[]=toppend[] then toppend.nxt[]->toppend[] if);
+	   NONE->pending[]
+	else
+	   l.prev[]->l[]; NONE->pending.prev[]
+	if);
+	l.printrec;
+	(if pending[]<>NONE then pending.lineident->thisident if);
+	true->wide;
+     #);
+   join:
+     (# res: @text; toadd: ^text; l: ^line; el, it: ^errlist; diff: @integer
+     do
+	NONE->el[];
+	''->res;
+	pending[]->l[];
+	0->diff;
+	loop: (if l[]<>NONE
+	  then
+	     totpend-l.t.length->totpend;
+	     (if res.spaceAtBeg then
+	        l.t.spaceDropEnd->toadd[];
+	     else
+	        l.t[]->toadd[];
+	     if);
+	     toadd[]->res.prepend;
+	     diff+toadd.length->diff;
+	     (if (l.el[]->it[])<>NONE then
+		l2:
+		  (#
+		  do
+		     it.pos-diff->it.pos;
+		     (if it.next[]<>NONE then it.next[]->it[]; restart l2 if);
+		  #);
+		el[]->it.next[];
+		l.el[]->el[]
+	     if);
+	     l.prev[]->l[];
+	     restart loop
+	if);
+	(* DEBUG 'join returns: '->puttext; res[]->putline; *)
+     exit (res[], el[])
+     #);
+
+enter ident
+do
+   false->wide;
+   NONE->pending[];
+   (if top[]<>NONE
+     then
+	(if top.prev[]=NONE then
+	   (* If top is the outermost level, and it is "empty" (ie. has
+	    * not seen any text yet), then set the identation to zero.
+	    *)
+	   (if totpend=0 then 0->ident if);
+	else
+	   ident+top.ident->ident
+	if);
+        this(level)[]->top.nxt[]
+   if);
+   ident->thisident;
+   &line;
+   top[]->prev[];
+   NONE->nxt[];
+   this(level)[]->top[];
+#)
+
+--- objstreamAppend: Dopart ---
+do
+   (* DEBUG
+   'append called with: '''->puttext;
+   t[]->puttext;
+   ''', totpend = '->puttext;
+   totpend->putint;
+   (if toppend[]<>NONE then
+      ', thisident = '->puttext;
+      toppend.thisident->putint;
+   if);
+   screen.newline;
+   *)
+   (if t.length>0 then
+      (if top.pending[]=NONE then true->top.wide; &top.line if);
+      (if toppend[]=NONE then top[]->toppend[] if);
+      t[]->top.pending.t.puttext;
+      totpend+t.length->totpend;
+      loop: (if (totpend+toppend.thisident>80) and (totpend>40) then
+	 toppend.print; (if toppend[]<>NONE then restart loop if)
+      if)
+   if);
+
+--- objstreamError: Dopart ---
+do t->errlist->elappend
+
+--- objstreamNewline: Dopart ---
+do dobl; (if top.wide then top.print else &top.line; if)
+
+--- objstreamNewlevel: Dopart ---
+do t[]->append; l->&level
+
+--- objstreamBacklevel: ObjectDescriptor ---
+(# do dobl; true->blpend; (if top.prev.prev[]=NONE then dobl if) #)
+
+
+--- TextLib: Attributes ---
+spaceAtEnd: BooleanValue
+  (* Return true, if there is a space at the end of the text. *)
+  (# do (if Empty then false->value else (Length->InxGet)=' '->value if) #);
+spaceAtBeg: BooleanValue
+  (* Return true, if there is a space at the beginning of the text. *)
+  (# do (if Empty then false->value else (1->InxGet)=' '->value if); #);
+spaceDropEnd:
+  (* Drop all space from the beginning of a text variable *)
+  (# i,j: @integer
+  do
+     1->i;
+     Length->j;
+     loop: (if i<=j then (if j->InxGet // ' ' then j-1->j; restart loop if) if);
+     INNER;
+  exit (i,j)->Sub
+  #);
+spaceDropBoth: spaceDropEnd
+  (* Drop all space from both ends of a text variable *)
+  (#
+  do loop: (if i<=j then (if i->InxGet // ' ' then i+1->i; restart loop if) if);
+  #);

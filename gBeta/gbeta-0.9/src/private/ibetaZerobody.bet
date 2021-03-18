@@ -1,0 +1,696 @@
+(* FILE "./private/ibetaZerobody.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaZerobody.bet,v 1.26 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN '../ibetaZero';
+INCLUDE 'ibetaCommonlib';
+INCLUDE 'ibetaTransientlib'
+
+(************************************************************* 
+ *                                                           * 
+ *                  Level Zero - Transients                  * 
+ *                                                           * 
+ *************************************************************)
+
+-- TransientBooleanPrint:dopart --
+do
+   ' = '->output;
+   value->outputBoolean
+
+-- TransientBooleanPrintShort:dopart --
+do
+   '='->output;
+   value->outputBooleanShort
+
+-- TransientBooleanCompareEq:dopart -- 
+do
+   (if other##<=l0TransientBoolean## then 
+       (# l0trb: ^l0TransientBoolean
+       do other[]->l0trb[];
+          (l0trb.value=this(l0TransientBoolean).value)->eq
+       #)
+    else
+       'Comparing different transients'
+         ->internalError
+   if)
+
+-- TransientBooleanCompareUnEq:dopart -- 
+do
+   (if other##<=l0TransientBoolean## then 
+       (# l0trb: ^l0TransientBoolean
+       do other[]->l0trb[];
+          (l0trb.value<=this(l0TransientBoolean).value)->le;
+          (l0trb.value>=this(l0TransientBoolean).value)->ge
+       #)
+    else
+       'Comparing different transients'
+         ->internalError
+   if)
+
+-- TransientCharPrint:dopart --
+do
+   ' = '->output;
+   value->outputChar
+
+-- TransientCharPrintShort:dopart --
+do
+   '='->output;
+   value->outputChar
+
+-- TransientCharCompareEq:dopart -- 
+do
+   (if other##<=l0TransientChar## then 
+       (# l0trc: ^l0TransientChar
+       do other[]->l0trc[];
+          (l0trc.value=this(l0TransientChar).value)->eq
+       #)
+    else
+       'Comparing different transients'
+         ->internalError
+   if)
+
+-- TransientCharCompareUnEq:dopart -- 
+do
+   (if other##<=l0TransientChar## then 
+       (# l0trc: ^l0TransientChar
+       do other[]->l0trc[];
+          (l0trc.value<=this(l0TransientChar).value)->le;
+          (l0trc.value>=this(l0TransientChar).value)->ge
+       #)
+    else
+       'Comparing different transients'
+         ->internalError
+   if)
+
+-- TransientIntegerPrint:dopart --
+do
+   ' = '->output;
+   value->outputInteger
+
+-- TransientIntegerPrintShort:dopart --
+do
+   '='->output;
+   value->outputInteger
+
+-- TransientIntegerCompareEq:dopart -- 
+do
+   (if other##<=l0TransientInteger## then 
+       (# l0tri: ^l0TransientInteger
+       do other[]->l0tri[];
+          (l0tri.value=this(l0TransientInteger).value)->eq
+       #)
+    else
+       'Comparing different transients for equality'
+         ->internalError
+   if)
+
+-- TransientIntegerCompareUnEq:dopart -- 
+do
+   (if other##<=l0TransientInteger## then 
+       (# l0tri: ^l0TransientInteger
+       do other[]->l0tri[];
+          (l0tri.value<=this(l0TransientInteger).value)->le;
+          (l0tri.value>=this(l0TransientInteger).value)->ge
+       #)
+    else
+       'Comparing different transients for equality'
+         ->internalError
+   if)
+
+-- TransientRealPrint:dopart --
+do
+   ' = '->output;
+   value->outputReal
+
+-- TransientRealPrintShort:dopart --
+do
+   '='->output;
+   value->outputReal
+
+-- TransientRealCompareEq:dopart -- 
+do
+   (if other##<=l0TransientReal## then
+       (# l0trr: ^l0TransientReal
+       do other[]->l0trr[];
+          (l0trr.value=this(l0TransientReal).value)->eq
+       #)
+    else
+       'Comparing different transients'
+         ->internalError
+   if)
+
+-- TransientRealCompareUnEq:dopart -- 
+do
+   (if other##<=l0TransientReal## then
+       (# l0trr: ^l0TransientReal
+       do other[]->l0trr[];
+          (l0trr.value<=this(l0TransientReal).value)->le;
+          (l0trr.value>=this(l0TransientReal).value)->ge
+       #)
+    else
+       'Comparing different transients'
+         ->internalError
+   if)
+
+-- TransientStringPrint:dopart --
+do
+   ' = "'->output;
+   value[]->output;
+   '"'->output
+
+-- TransientStringPrintShort:dopart --
+do
+   '="'->output;
+   value[]->output;
+   '"'->output
+
+-- TransientStringCompareEq:dopart --
+do
+   (if other##<=l0TransientString## then
+       (# l0trs: ^l0TransientString
+       do other[]->l0trs[];
+          l0trs->this(l0TransientString).value.equal->eq
+       #)
+    else
+       'Comparing different transients'
+         ->internalError
+   if)
+
+-- TransientStringCompareUnEq:dopart --
+do
+   (if other##<=l0TransientString## then
+       (# l0trs: ^l0TransientString
+       do other[]->l0trs[];
+          (if l0trs->this(l0TransientString).value.equal then
+              true->le->ge
+           else
+              (* not equal *)
+              (if (l0trs->this(l0TransientString).value.less) then
+                  (* 'other' is strictly less *)
+                  true->le;
+                  false->ge
+               else
+                  (* not equal, and other is not less: other is greater *)
+                  false->le;
+                  true->ge
+              if)
+          if)
+       #)
+    else
+       'Comparing different transients'
+         ->internalError
+   if)
+
+-- TransientPatternRefPrint:dopart --
+do
+   (if value[]<>NONE then 
+       ' --> '->output;
+       (dest[],indentation,false,NONE)->value.print
+    else
+       ' (NONE)'->output
+   if)
+
+-- TransientPatternRefPrintShort:dopart --
+do
+   (if value[]<>NONE then 
+       '-->'->output;
+       (dest[],indentation,false)->value.printShort
+    else
+       '0'->output
+   if)
+
+-- TransientPatternRefCompareEq:dopart -- 
+do
+   (# l0trpr: ^l0TransientPatternRef
+   do (if other##<=l0TransientPatternRef## then 
+          other[]->l0trpr[];
+          (if this(l0TransientPatternRef)=NONE then 
+              (if l0trpr=NONE then 
+                  (* both NONE *)
+                  true->eq
+               else
+                  (* NONE<>not-NONE *)
+                  false->eq
+              if)
+           else
+              (if l0trpr=NONE then 
+                  (* NONE<>not-NONE *)
+                  false->eq
+               else
+                  (* both not-NONE *)
+                  l0trpr->(this(l0TransientPatternRef)).equal->eq
+              if)
+          if)
+       else
+          'Comparing different transients'
+            ->internalError
+      if)
+   #)
+
+-- TransientPatternRefCompareUnEq:dopart -- 
+do
+   (# fail:
+        (# 
+        do ('NONE reference found during pattern comparison'
+           ,thrd[],unwind##)->refNoneError
+        #);
+      l0trpr: ^l0TransientPatternRef
+   do (if other##<=l0TransientPatternRef## then 
+          other[]->l0trpr[];
+          (if this(l0TransientPatternRef)=NONE then 
+              fail
+           else
+              (if l0trpr=NONE then 
+                  fail
+               else
+                  (* both not-NONE *)
+                  l0trpr->(this(l0TransientPatternRef)).lessequal->le;
+                  l0trpr->(this(l0TransientPatternRef)).greaterequal->ge
+              if)
+          if)
+       else
+          'Comparing different transients'
+            ->internalError
+      if)
+   #)
+
+-- TransientObjectRefPrint:dopart --
+do
+   (if value[]<>NONE then 
+       ' --> '->output;
+       (dest[],indentation,false,NONE)->value.print
+    else
+       ' (NONE)'->output
+   if)
+
+-- TransientObjectRefPrintShort:dopart --
+do
+   (if value[]<>NONE then 
+       '-->'->output;
+       (dest[],indentation,false)->value.printShort
+    else
+       '0'->output
+   if)
+
+-- TransientObjectRefCompareEq:dopart -- 
+do
+   (if other##<=l0TransientObjectRef## then 
+       (# l0tror: ^l0TransientObjectRef
+       do other[]->l0tror[];
+          (l0tror=this(l0TransientObjectRef))->eq
+       #)
+    else
+       'Comparing different transients'
+         ->internalError
+   if)
+
+-- TransientNoneRefCompareEq:dopart -- 
+do
+   (if other##<=l0TransientNoneRef## then 
+       (* NONE=NONE, always true *)
+       true->eq
+    else
+       'Comparing different transients'
+         ->internalError
+   if)
+
+-- TransientRepetitionPrint:dopart --
+do
+   ' = ['->output;
+   low->outputInteger;
+   ':'->output;
+   high->outputInteger;
+   '] by '->output;
+   (if reference then 
+       'reference'->output
+    else
+       'value'->output
+   if);
+   (dest[],indentation+indent_delta,true,NONE)->value.print
+
+-- TransientRepetitionPrintShort:dopart --
+do
+   '=['->output;
+   low->outputInteger;
+   ':'->output;
+   high->outputInteger;
+   '] by '->output;
+   (if reference then 
+       'Ref '->output
+    else
+       'Val '->output
+   if);
+   (dest[],indentation+indent_delta,false)->value.printShort
+
+-- TransientRepetitionOrdered:dopart --
+do 
+   (* !!! a literal char is certainly ordered, and repetitions
+    * in general are sometimes ordered; for now we take the 
+    * chance, and failure will be a run-time error *)
+   true->value
+
+-- TransientRepetitionCompareEq:dopart -- 
+do 
+   (* lexicographic comparison *)
+   (# oneEmpty:
+        (# 
+        do (* at least one of them is empty *)
+           (if (low>high) and (otherRep.low>otherRep.high) then
+               (* both are empty, so they are equal *)
+               true->eq
+            else
+               (* one is empty and the other is not *)
+               false->eq
+           if)
+        #);
+      
+      nonEmptyAndSameLength:
+        (# inx1,inx2: @integer;
+           l1ent1,l1ent2: ^l1Entity;
+           l0tr1,l0tr2: ^l0Transient;
+           xi1,xi2: ^exitIterator;
+           l0tror1,l0tror2: ^l0TransientObjectRef
+        do 
+           (* the reps are non-empty and same length, now test elements *)
+           low->inx1;
+           otherRep.low->inx2;
+           
+           (* set up default values *)
+           true->eq;
+           
+           (if reference then
+               (* set up l0tror1 *)
+               &l0TransientObjectRef[]->l0tror1[];
+               usageAst[]->l0tror1.usageAst[]
+           if);
+           (if otherRep.reference then
+               (* set up l0tror1 *)
+               &l0TransientObjectRef[]->l0tror2[];
+               otherRep.usageAst[]->l0tror2.usageAst[]
+           if);
+           
+           L: (if (inx1<=high) and (inx2<=otherRep.high) then
+                  
+                  (* INVARIANT: 'eq' is true iff every entry pair
+                   * tested until now gave a true 'entryEq' *)
+                  
+                  (* obtain entities to compare *)
+                  (thrd[],unwind##,inx1)
+                    ->value.get
+                    ->l1ent1[];
+                  (thrd[],unwind##,inx2)
+                    ->otherRep.value.get
+                    ->l1ent2[];
+                  
+                  (* obtain transients/iters *)
+                  (if reference then 
+                      (* !!! as long as we do not have repetitions
+                       * of patterns this will work *)
+                      (if l1ent1##<=l1ObjectEntity## then
+                          l1ent1[]->l0tror1.value[]
+                      if)
+                   else
+                      (thrd[],unwind##,stocp[],world[],usageAst[])
+                        ->l1ent1.getExitIter
+                        ->xi1[]
+                  if);
+                  (if otherRep.reference then 
+                      (* !!! as long as we do not have repetitions
+                       * of patterns this will work *)
+                      (if l1ent2##<=l1ObjectEntity## then
+                          l1ent2[]->l0tror2.value[]
+                      if)
+                   else
+                      (thrd[],unwind##
+                      ,otherRep.stocp[],otherRep.world[]
+                      ,otherRep.usageAst[])
+                        ->l1ent2.getExitIter
+                        ->xi2[]
+                  if);
+                  
+                  (* comparing *)
+                  (if true
+                   // reference and otherRep.reference then 
+                      (thrd[],unwind##,l0tror1[])
+                        ->l0tror2.compareEq
+                        ->entryEq
+                      
+                   // reference and (not otherRep.reference) then 
+                      (thrd[],unwind##,l0tror1[])
+                        ->((thrd[],unwind##,xi2[])->exitOneValue).compareEq
+                        ->entryEq
+                      
+                   // (not reference) and otherRep.reference then 
+                      (thrd[],unwind##,(thrd[],unwind##,xi1[])->exitOneValue)
+                        ->l0tror2.compareEq
+                        ->entryEq
+                      
+                   else (* (not reference) and (not otherRep.reference) *)
+                      (thrd[],unwind##,(thrd[],unwind##,xi1[])->exitOneValue)
+                        ->((thrd[],unwind##,xi2[])->exitOneValue).compareEq
+                        ->entryEq
+                  if);
+                  
+                  (if not entryEq then false->eq; leave L if);
+                  
+                  (* no decision with this entry, look at the next *)
+                  inx1+1 -> inx1;
+                  inx2+1 -> inx2;
+                  restart L
+                  
+               else
+                  
+                  (* (inx1>high) or (inx2>otherRep.high) *)
+                  (if (inx1<=high) or (inx2<=otherRep.high) then
+                      (* reps not exhausted at the same time! *)
+                      'Repetition length comparison error'
+                        ->internalError
+                   else
+                      leave L
+                  if)
+                  
+              if)
+        #);
+      
+      entryEq: @boolean;
+      otherRep: ^l0TransientRepetition
+      
+   do (if other##<=l0TransientRepetition## then 
+          other[]->otherRep[];
+          
+          (* casing on length relations *)
+          (if (low>high) or (otherRep.low>otherRep.high) then
+              oneEmpty
+           else
+              (if (high-low)<>(otherRep.high-otherRep.low) then
+                  (* different length, i.e. different *)
+                  false->eq
+               else
+                  nonEmptyAndSameLength
+              if)
+          if)
+          
+       else
+          (* the other transient is not even a repetition *)
+          (thrd[],unwind##,typename,other.typename)->kindFailure
+      if)
+   #)
+
+-- TransientRepetitionCompareUnEq:dopart -- 
+do 
+   (* lexicographic comparison *)
+   (# oneEmpty:
+        (# 
+        do (* at least one of them is empty *)
+           (if (low>high) and (otherRep.low>otherRep.high) then
+               
+               (* both are empty, so they are equal *)
+               true->le->ge
+               
+            else
+               
+               (* one is empty and the other is not; longer wins *)
+               (if (low>high) then 
+                   (* I am empty and 'otherRep' is non-empty *)
+                   false->le;
+                   true->ge
+                else
+                   (* I am non-empty and 'otherRep' is empty *)
+                   true->le;
+                   false->ge
+               if)
+           if)
+        #);
+      
+      nonEmpty:
+        (# inx1,inx2: @integer;
+           l1ent1,l1ent2: ^l1Entity;
+           xi1,xi2: ^exitIterator;
+           l0tr1,l0tr2: ^l0Transient;
+           transientLe,transientGe: @boolean
+        do 
+           (* both are non-empty, now test contents *)
+           low->inx1;
+           otherRep.low->inx2;
+           
+           (* set up default values *)
+           true->le->ge;
+           
+           (if reference or otherRep.reference then
+               (* there are _no_ ordered references *)
+               ('Attempting inequality comparison with by-reference repetition'
+               ,thrd[],unwind##)->incomparableError
+           if);
+           
+           L: (if (inx1<=high) and (inx2<=otherRep.high) then
+                  
+                  (* INVARIANT: 'le' is true iff every entry pair
+                   * tested until now gave a true 'entryLe'; 
+                   * 'ge' is true iff every entry pair tested until
+                   * now gave a true 'entryGe' *)
+                  
+                  (* obtain entities to compare *)
+                  (thrd[],unwind##,inx1)
+                    ->value.get->l1ent1[];
+                  (thrd[],unwind##,inx2)
+                    ->otherRep.value.get
+                    ->l1ent2[];
+                  
+                  (* obtain transients *)
+                  (thrd[],unwind##,stocp[],world[],usageAst[])
+                    ->l1ent1.getExitIter
+                    ->xi1[];
+                  (thrd[],unwind##
+                  ,otherRep.stocp[],otherRep.world[]
+                  ,otherRep.usageAst[])
+                    ->l1ent2.getExitIter
+                    ->xi2[];
+                  
+                  (* comparing; only single-value exit iterators
+                   * supported; static analysis should prevent
+                   * more complex comparisons *)
+                  (thrd[],unwind##,xi1[])->exitOneValue->l0tr1[];
+                  (thrd[],unwind##,xi2[])->exitOneValue->l0tr2[];
+                  (if l0tr1.ordered and l0tr2.ordered then
+                      (thrd[],unwind##,l0tr1[])
+                        ->l0tr2.compareUnEq
+                        ->(entryLe,entryGe)
+                   else
+                      ('Comparing repetitions with incomparable entries'
+                      ,thrd[],unwind##)->incomparableError
+                  if);
+                  
+                  (* check whether the global result is known now *)
+                  (if entryLe and entryGe then
+                      
+                      (* equality at this entry, continue *)
+                      
+                   else
+                      
+                      (if entryLe and (not entryGe) then
+                          (* other is strictly less here *)
+                          true->le;
+                          false->ge;
+                          leave L
+                       else
+                          (if (not entryLe) and entryGe then
+                              (* other is strictly greater here *)
+                              false->le;
+                              true->ge;
+                              leave L
+                           else
+                              (* then entryLe=entryGe=false *)
+                              false->le->ge;
+                              leave L
+                          if)
+                      if)
+                      
+                  if);
+                  
+                  (* no decision with this entry, look at the next *)
+                  inx1+1 -> inx1;
+                  inx2+1 -> inx2;
+                  restart L
+                  
+               else
+                  
+                  (* (inx1>high) or (inx2>otherRep.high) *)
+                  (if (inx1>high) and (inx2>otherRep.high) then
+                      (* both reps exhausted at the same time,
+                       * so they are equal *)
+                      leave L
+                   else
+                      (* exactly one rep exhausted, the longer wins *)
+                      (if (inx1>high) then
+                          (* other is longer *)
+                          false->le;
+                          true->ge;
+                          leave L
+                       else
+                          (* I am longer *)
+                          true->le;
+                          false->ge;
+                          leave L
+                      if)
+                  if)
+                  
+              if)
+        #);
+      
+      entryLe,entryGe: @boolean;
+      otherRep: ^l0TransientRepetition
+      
+   do (if other##<=l0TransientRepetition## then 
+          other[]->otherRep[];
+          
+          (* casing on length relations *)
+          (if (low>high) or (otherRep.low>otherRep.high) then
+              oneEmpty
+           else
+              nonEmpty
+          if)
+          
+       else
+          (* the other transient is not even a repetition *)
+          (thrd[],unwind##,typename,other.typename)->kindFailure
+      if)
+   #)
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

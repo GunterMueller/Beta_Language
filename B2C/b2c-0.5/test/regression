@@ -1,0 +1,137 @@
+#! /bin/sh
+# test the freeware beta compiler b2c
+
+rm -f *.o ../basiclib/v1.4/*.o ../basiclib/v1.4/private/*.o \
+	  ../containers/v1.4/*.o ../containers/v1.4/private/*.o
+cc -c -O2 betamain.c
+cc -c -O2 mmalloc.c
+cc -c -O2 gc.c
+
+fail="***** REGRESSION TEST FAILURE"
+b2c=../bin/b2c
+
+cleanup() {
+    rm -f ../basiclib/v1.4/*.lst ../basiclib/v1.4/*.[cho]
+    rm -f ../basiclib/v1.4/private/*.lst ../basiclib/v1.4/private/*.[cho]
+    rm -f ../containers/v1.4/*.lst ../containers/v1.4/*.[cho]
+    rm -f ../containers/v1.4/private/*.lst ../containers/v1.4/private/*.[cho]
+    rm -f put5.lst put5.c put5.h put5.o
+
+    rm -f t1.lst t1.c t1.h t1.o t1
+    rm -f t2.lst t2.c t2.h t2.o t2
+    rm -f t3.lst t3.c t3.h t3.o t3
+    rm -f t5.lst t5.c t5.h t5.o t5
+    rm -f t6.lst t6.c t6.h t6.o t6
+    rm -f t7.lst t7.c t7.h t7.o t7
+    rm -f t8.lst t8.c t8.h t8.o t8
+    rm -f t9.lst t9.c t9.h t9.o t9
+    rm -f t10.lst t10.c t10.h t10.o t10
+    rm -f t11.lst t11.c t11.h t11.o t11
+    rm -f t12.lst t12.c t12.h t12.o t12
+    rm -f t13.lst t13.c t13.h t13.o t13
+    rm -f t14.lst t14.c t14.h t14.o t14
+    rm -f t15.lst t15.c t15.h t15.o t15
+    rm -f t16.lst t16.c t16.h t16.o t16
+    rm -f t17.lst t17.c t17.h t17.o t17
+    rm -f t18.lst t18.c t18.h t18.o t18
+    rm -f t19.lst t19.c t19.h t19.o t19
+    rm -f t20.lst t20.c t20.h t20.o t20
+    rm -f t21.lst t21.c t21.h t21.o t21
+    rm -f t22.lst t22.c t22.h t22.o t22
+    rm -f t23.lst t23.c t23.h t23.o t23
+    rm -f t25.lst t25.c t25.h t25.o t25
+    rm -f t26.lst t26.c t26.h t26.o t26
+    rm -f t27.lst t27.c t27.h t27.o t27 testfile
+}
+
+should_not_compile() {
+    echo "b2c $1"
+    if $b2c $1 ; then
+	echo "$fail: Compiling $1.bet did not fail as expected!"
+    else
+	if [ $2 != `grep -c '^\*\*\*\*\* ' $1.lst` ] ; then
+	    echo "$fail: Compiling $1.bet produced wrong number of errors!"
+	    cleanup
+	    exit 1
+	fi
+    fi
+}
+
+should_compile_and_run() {
+    echo "b2c $1"
+    if $b2c $1 ; then
+	if [ ! -f $1.lst ] && [ $2 = 0 ] ||
+	   [ $2 = `grep -c '^WARNING' $1.lst` ] ; then
+	    echo "running $1"
+	    $1
+	    if [ $? != 0 ] ; then
+		echo "$fail: Running $1 failed unexpectedly!"
+		cleanup
+		exit 1
+	    fi
+	else
+	    echo "$fail: Compiling $1.bet gave the wrong number of warnings!"
+	    cleanup
+	    exit 1
+	fi
+    else
+	echo "$fail: Compiling $1.bet failed unexpectedly!"
+	cleanup
+	exit 1
+    fi
+}
+
+should_compile_and_not_run() {
+    echo "b2c $1"
+    if $b2c $1 ; then
+	if [ $2 = `grep -c '^WARNING' $1.lst` ] ; then
+	    echo "running $1"
+	    if $1 ; then
+		echo "$fail: Running $1 did not produce an error as expected!"
+		cleanup
+		exit 1
+	    fi
+	else
+	    echo "$fail: Compiling $1.bet gave the wrong number of warnings!"
+	    cleanup
+	    exit 1
+	fi
+    else
+	echo "$fail: Compiling $1.bet failed unexpectedly!"
+	cleanup
+	exit 1
+    fi
+}
+
+cleanup
+should_compile_and_run t1 0
+should_compile_and_run t2 0
+should_not_compile t3 3
+# currently, t4 causes a deadlock.  Can't use it for the regression test.
+# should_not_compile t4
+should_compile_and_run t5 0
+should_compile_and_run t6 0
+should_compile_and_run t7 0
+should_compile_and_run t8 0
+should_compile_and_run t9 0
+should_compile_and_run t10 1
+should_compile_and_run t11 0
+should_compile_and_not_run t12 1
+should_compile_and_run t13 0
+should_compile_and_run t14 0
+should_compile_and_run t15 4
+should_compile_and_run t16 0
+should_compile_and_run t17 0
+should_compile_and_run t18 0
+should_compile_and_run t19 8
+should_compile_and_run t20 0
+should_compile_and_run t21 0
+should_compile_and_run t22 1
+should_compile_and_run t23 3
+should_compile_and_run t25 0
+should_not_compile t26 1
+should_compile_and_run t27 0
+
+echo ""
+echo "REGRESSION test completed SUCCESSFULLY!"
+cleanup

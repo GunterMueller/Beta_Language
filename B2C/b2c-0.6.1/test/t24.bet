@@ -1,0 +1,16 @@
+ORIGIN '~beta/basiclib/current/betaenv';
+INCLUDE '~beta/containers/current/btree.bet';
+--- Program: ObjectDescriptor ---
+(* this is a file, that currently will cause a crash due to a known bug
+ * in the garbage collector *)
+(#
+   pat: (# int: @IntegerObject do i->int exit int[] #);
+   io: ^IntegerObject;
+   i: @integer;
+   doit: (# do &pat->io[] #);
+do
+   0->i;
+   &doit;
+
+   l: (if i < 1000 then io->putint; newline; i+1->i; restart l if);
+#)

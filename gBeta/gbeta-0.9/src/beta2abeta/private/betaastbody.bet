@@ -1,0 +1,105 @@
+(* FILE "./beta2abeta/private/betaastbody.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: betaastbody.bet,v 1.34 2001/07/01 21:44:10 eernst Exp $
+ *)
+
+ORIGIN  '../betaast';
+INCLUDE '~beta/basiclib/betaenvold';
+INCLUDE '~beta/mps/metagrammarcfl';
+INCLUDE '~beta/mps/private/astparser';
+INCLUDE '~beta/mps/grammarinit';
+INCLUDE '~beta/basiclib/file';
+BODY 'betaastbodybody'
+
+-- lib:attributes --
+
+betaTracer:
+  (# level: @integer;
+     premsg,subject,postmsg: ^text
+  enter (level,premsg[],subject[],postmsg[])
+  do INNER
+  #)
+
+-- BetaAstInterfaceLib:attributes --
+
+grammarInitialize:
+  (#
+     grammar: ^treeLevel;
+     grammarPath1,grammarPath2,parserPath: ^text;
+     grammarName: ^text;
+     grammarGroup: ^fragmentGroup;
+     bobsfile: @file;
+     error: ^exception
+  enter (grammar[],grammarPath1[],grammarName[])
+  <<SLOT GrammarInitialize:dopart>>
+  #);
+
+setupTracing: (# var: ^text <<SLOT SetupTracing:dopart>> #)
+
+-- BetaAstInterfacePrivate:descriptor --
+(#
+   traceDest: ^stream;
+   self: ^betaAstInterface;
+   
+   theBetaTracer: @betaTracer
+     (# init: (# enter tracelevel #);
+        tracelevel: @integer
+     <<SLOT TheBetaTracer:dopart>>
+     #)
+#)
+
+-- BetaTreeLevelPrivate:descriptor --
+(#
+   indentlevel: @integer;
+   indentStep: (# exit 2 #);
+   indentUp: (# do indentlevel+indentStep->indentlevel #);
+   indentDown: (# do indentlevel-indentStep->indentlevel #);
+   indent: (# do (for indentlevel repeat ' '->put for)#)
+#)
+
+-- GbetaTreeLevelPrivate:descriptor --
+(#
+   indentlevel: @integer;
+   indentStep: (# exit 2 #);
+   indentUp: (# do indentlevel+indentStep->indentlevel #);
+   indentDown: (# do indentlevel-indentStep->indentlevel #);
+   indent: (# do (for indentlevel repeat ' '->put for) #)
+#)
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

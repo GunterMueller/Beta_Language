@@ -1,0 +1,11 @@
+
+-- betaenv:descriptor --
+(#
+   puttext: (# s: @string enter s do (for i:s.length repeat i->s.at->stdio for)#);
+   s,t: @string;
+do
+   'test'->s;
+   s->t;
+   t->puttext;
+#)
+

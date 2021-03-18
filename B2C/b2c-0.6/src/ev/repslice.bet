@@ -1,0 +1,41 @@
+ORIGIN '../evaluationlib';
+INCLUDE 'type';
+INCLUDE '../eelib';
+INCLUDE '../ad/special';
+--- RepetitionSliceType: DoPart ---
+do evtype_rep->value
+
+
+--- RepetitionSliceCheckComplete: DoPart ---
+do
+   ad.checkComplete;
+   from.checkComplete;
+   to.checkComplete;
+   (if not ad.isrep then 'A repetition is expected here!'->ad.error if);
+
+
+--- RepetitionSliceReduce: DoPart ---
+do
+   (* create a new repetition slice for this item's exit list: *)
+   &RepetitionSlice[]->rsl[]->exitopt[];
+   toadd[]->ad.copy->rsl.ad[];
+   from[]->rsl.from[];
+   to[]->rsl.to[];
+
+   (* assign the "from" value to a temporary variable *)
+   (&IntegerDenotation,true)->ee.item->(rsl.fromvar[],before[]);
+   (from[],(rsl.fromvar[],0)->&ObjectEvaluation)->&AssignmentEvaluation->ass[];
+   this(RepetitionSlice)[]->ass.encl[];
+   &ass.reduce[]->red[];
+   toadd[]->red;
+   red.main[]->main[];
+   (before[],red.before[])->EvaluationJoin->before[];
+
+   (* assign the "to" value to a temporary variable *)
+   (&IntegerDenotation,true)->ee.item->(rsl.tovar[],bef2[]);
+   (to[],(rsl.tovar[],0)->&ObjectEvaluation)->&AssignmentEvaluation->ass[];
+   this(RepetitionSlice)[]->ass.encl[];
+   &ass.reduce[]->red[];
+   toadd[]->red;
+   (main[],red.main[])->EvaluationJoin->main[];
+   (before[],(bef2[],red.before[])->EvaluationJoin)->EvaluationJoin->before[];

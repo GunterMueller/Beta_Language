@@ -1,0 +1,25 @@
+ORIGIN 'attden';
+--- CompilerLib: Attributes ---
+(* The definition of the main Evaluation pattern had to be moved to the
+ * file "attden.bet".
+ *)
+EvaluationPtr: BETAlistPtr
+  (#
+     <<SLOT AtributePtrLib: AttributeDecl>>;
+     listtype:: Evaluation;
+     print:: (# sep2:: (# do ','->t[] #); #);
+     assignable:
+       (# value: @Boolean
+       do l: iterate (# do (if not (el.assignable->value) then leave l if) #)
+       exit value
+       #);
+  #);
+
+
+(* prepend the ev2 list to the ev1 list *)
+EvaluationJoin:
+  (# ev1,ev2,ev: ^Evaluation
+  enter (ev1[],ev2[])
+  <<SLOT EvaluationJoin: DoPart>>
+  exit ev[]
+  #);

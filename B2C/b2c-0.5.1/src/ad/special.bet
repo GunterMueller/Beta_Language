@@ -1,0 +1,69 @@
+ORIGIN 'nameref';
+BODY 'specialbody';
+--- CompilerLib: Attributes ---
+(* denotations of special patterns *)
+SpecialDenotation: NameRef
+  (#
+     findit:
+       (# i: @integer; od,startod,destod: ^ObjectDescriptor; t: ^text
+       enter (startod[],destod[])
+       <<SLOT SpecialDenotationFindIt: DoPart>>
+       #);
+  do INNER
+  #);
+
+
+(* denote the special "repetition" pattern *)
+RepetitionDenotation: SpecialDenotation
+  (# resolve:: (# <<SLOT RepetitionDenotationResolve: DoPart>> #)
+  do 'repetition'->str;
+  exit this(RepetitionDenotation)[]
+  #);
+
+
+(* denote the special "text" pattern *)
+TextDenotation: SpecialDenotation
+  (#
+  do 'text'->str; (ee.getod,TextPattern[])->&findit
+  exit this(TextDenotation)[]
+  #);
+
+
+(* denote the special "real" pattern *)
+RealDenotation: SpecialDenotation
+  (#
+  do 'real'->str; (ee.getod,RealPattern[])->&findit
+  exit this(RealDenotation)[]
+  #);
+
+
+(* denote the special "integer" pattern *)
+IntegerDenotation: SpecialDenotation
+  (#
+  do 'integer'->str; (ee.getod,IntegerPattern[])->&findit
+  exit this(IntegerDenotation)[]
+  #);
+
+
+(* denote the special "char" pattern *)
+CharDenotation: SpecialDenotation
+  (#
+  do 'char'->str; (ee.getod,CharPattern[])->&findit
+  exit this(CharDenotation)[]
+  #);
+
+
+(* denote the special "boolean" pattern *)
+BooleanDenotation: SpecialDenotation
+  (#
+  do 'boolean'->str; (ee.getod,BooleanPattern[])->&findit
+  exit this(BooleanDenotation)[]
+  #);
+
+
+(* denote the special "object" pattern *)
+ObjectDenotation: SpecialDenotation
+  (#
+  do 'object'->str; (ee.getod,ObjectPattern[])->&findit
+  exit this(ObjectDenotation)[]
+  #);

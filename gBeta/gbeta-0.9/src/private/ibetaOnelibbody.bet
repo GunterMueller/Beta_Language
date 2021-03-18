@@ -1,0 +1,161 @@
+(* FILE "./private/ibetaOnelibbody.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaOnelibbody.bet,v 1.27 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN 'ibetaOnelib';
+INCLUDE '../ibetaSType';
+INCLUDE '../ibetaIter';
+INCLUDE 'ibetaCommonlib';
+INCLUDE 'ibetaTransientlib'
+
+-- IndexEntityStep:dopart --
+do
+   (* this should be the only direct write operation to 
+    * 'value' in the entire interpreter! *)
+   value+1->value
+
+-- RepetitionEntityRenewEntries:dopart --
+do
+   (thrd[],unwind##,enclosing[],hi-lo+1,qual[]
+   ,&instantiateManyCallback(# do (thrd[],unwind##,inx+lo-1,l1ent[])->put #)[])
+     ->rdecl.ReferenceSpecification.instantiateMany
+
+-- RepetitionEntityAdjustLength:dopart --
+do 
+   (if true 
+    // count>value.range then 
+       (* create some new receiving entries *)
+       value.range->oldrange;
+       (count-oldrange)->value.extend;
+       (thrd[],unwind##,oldrange+1,value.range)->renewEntries
+       
+    // count<value.range then 
+       (* more entries than requested, remove the extras *)
+       (# tmp: [count]^l1Entity;
+       do (* save the old entities *)
+          (for i:count repeat value[i][]->tmp[i][] for);
+          (* reduce the length of 'value' *)
+          count->value.new;
+          (* restore the old entities *)
+          (for i:count repeat tmp[i][]->value[i][] for)
+       #)
+   if)
+
+
+-- RepetitionEntityRangePrint:dopart --
+do
+   ' = '->output;
+   this(l1RepetitionEntity).value.range->putint
+
+-- RepetitionEntityRangePrintShort:dopart --
+do
+   '='->output;
+   this(l1RepetitionEntity).value.range->putint
+
+-- RepetitionEntityRangeGetEnterIter:dopart --
+do
+   'Trying to assign to "range" of repetition'
+     ->internalError
+
+-- RepetitionEntityRangeGetExitIter:dopart --
+do
+   &exitOnce
+   (# l0tri: ^l0TransientInteger
+   do &l0TransientInteger[]->l0tri[]->l0tr[];
+      NONE->l0tr.usageAst[];
+      this(l1RepetitionEntity).value.range->l0tri
+   #)[]->xi[]
+
+-- RepetitionEntityRangeGetEnterExitIter:dopart --
+do
+   'Trying to assign-then-evaluate "range" of repetition'
+     ->internalError
+
+-- RepetitionEntityExtendGetEnterIter:dopart --
+do
+   &enterOnce
+   (# newEntry: @integer;
+      l0tri: ^l0TransientInteger
+   do l0tr[]->transient_many2integer->l0tri[];
+      this(l1RepetitionEntity).value.range+1->newEntry;
+      l0tri->this(l1RepetitionEntity).value.extend;
+      (thrd[],unwind##,newEntry,this(l1RepetitionEntity).value.range)
+        ->renewEntries
+   #)[]->ni[]
+
+-- RepetitionEntityExtendGetExitIter:dopart --
+do
+   'Trying to evaluate "extend" of repetition'
+     ->internalError
+
+-- RepetitionEntityExtendGetEnterExitIter:dopart --
+do
+   'Trying to assign-then-evaluate "extend" of repetition'
+     ->internalError
+
+-- RepetitionEntityNewGetEnterIter:dopart --
+do
+   &enterOnce
+   (# l0tri: ^l0TransientInteger
+   do l0tr[]->transient_many2integer->l0tri[];
+      l0tri->this(l1RepetitionEntity).value.new;
+      (thrd[],unwind##,1,this(l1RepetitionEntity).value.range)->renewEntries
+   #)[]->ni[]
+
+-- RepetitionEntityNewGetExitIter:dopart --
+do
+   'Trying to evaluate "new" of repetition'
+     ->internalError
+
+-- RepetitionEntityNewGetEnterExitIter:dopart --
+do
+   'Trying to assign-then-evaluate "new" of repetition'
+     ->internalError
+
+-- RepetitionEntityPrivateInit:dopart --
+do
+   (predefinedSyntax.predefinedNames.private.rangeDcl[],theRange.init)
+     ->names[1].init;
+   (predefinedSyntax.predefinedNames.private.extendDcl[],theExtend.init)
+     ->names[2].init;
+   (predefinedSyntax.predefinedNames.private.newDcl[],theNew.init)
+     ->names[3].init
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

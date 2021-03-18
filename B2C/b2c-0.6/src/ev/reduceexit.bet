@@ -1,0 +1,35 @@
+ORIGIN '../evaluation';
+INCLUDE 'type';
+--- ReduceExit: DoPart ---
+do
+   (* get an object from the exit list of the evaluation, that shall be
+    * reduced: *)
+   evtype_unreduced->type;
+   loop: (if (mainred.exitopt[]->thisexit[])<>NONE then
+      (if (thisexit.type->type)=evtype_unreduced then
+	 (* DEBUG 'about to assign exit list!'->putline; *)
+	 &thisexit.reduce[]->red[];
+	 (* DEBUG 'exit list assigned!'->putline; *)
+	 red;
+	 (mainred.before[],red.before[])->EvaluationJoin->mainred.before[];
+	 (mainred.main[],red.main[])->EvaluationJoin->mainred.main[];
+	 (thisexit.next[],red.exitopt[])->EvaluationJoin->mainred.exitopt[];
+	 restart loop
+      else
+	 thisexit.next[]->mainred.exitopt[];
+	 NONE->thisexit.next[];
+      if);
+   if);
+   INNER;
+
+
+--- ReduceExitSingle: DoPart ---
+do
+   (if true
+     // mainred.exitopt[]<>NONE then
+	'An exit list of length 1 is expected here!'->ev.error
+     // thisexit[]=NONE then
+	'Empty exit list!'->ev.error
+     // type=evtype_rep then
+        'A repetition cannot be used here!'->ev.error
+   if)

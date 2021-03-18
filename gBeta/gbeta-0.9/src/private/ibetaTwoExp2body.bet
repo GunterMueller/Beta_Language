@@ -1,0 +1,1530 @@
+(* FILE "./private/ibetaTwoExp2body.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaTwoExp2body.bet,v 1.96 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN 'ibetaTwobody';
+INCLUDE 'ibetaCommonlib';
+INCLUDE 'ibetaTwolib';
+INCLUDE 'ibetaOnelib';
+INCLUDE 'ibetaSlicelib'
+
+(************************************************************* 
+ *                                                           * 
+ *                     l2RepetitionSlice                     * 
+ *                                                           * 
+ *************************************************************)
+
+-- RepetitionSlicePrint:dopart --
+do
+   (dest[],indentation,false)->AttributeDenotation.print;
+   '['->output;
+   (dest[],indentation,false)->Low.print;
+   ':'->output;
+   (dest[],indentation,false)->High.print;
+   ']'->output
+
+-- RepetitionSliceScanImpl:dopart --
+do
+   (preCB[],postCB[])->AttributeDenotation.scanImpl;
+   (preCB[],postCB[])->Low.scanImpl;
+   (preCB[],postCB[])->High.scanImpl
+
+-- RepetitionSliceCheck:dopart --
+do
+   (# checkLimit:
+        (# stran: ^staticTransient;
+           limitname: ^text
+        enter (stran[],limitname[])
+        do (if true
+            // stran##<=staticBooleanTransient## then 
+               (* warning *)
+               boolToIntwarning
+            // stran##<=staticCharTransient## then 
+            // stran##<=staticIntegerTransient## then 
+            // stran##<=staticRealTransient## then 
+               (* OK *)
+               (* !!! register the coercion *)
+            else
+               (# t: ^text
+               do 'Attempt to use a '->t[];
+                  (t[],0,false)->stran.printShort;
+                  ' transient as '->t.puttext;
+                  limitname[]->t.puttext;
+                  ' limit of repetition slice'->t.puttext;
+                  (t[]
+                  ,'Use integer valued expressions in "[..:..]"'
+                  ,this(l2RepetitionSlice)[])->staticError
+               #)
+           if)
+        #);
+      stsub: ^staticSubstance;
+      strep: ^staticRepetition
+   do (context[],world[],this(l2RepetitionSlice)[])
+        ->AttributeDenotation.getStaticSubstance
+        ->stsub[];
+      (if not ( stsub##<=staticRepetition## ) then 
+          (# t: ^text
+          do 'Attempt to create a repetition slice from '->t[];
+             (stsub.typename).withIndefArticle->t.puttext; 
+             (t[]
+             ,'Use a repetition'
+             ,this(l2RepetitionSlice)[])->staticError
+          #)
+      if);
+      (Low.localStaticTransientOut,'lower')->checkLimit;
+      (High.localStaticTransientOut,'upper')->checkLimit
+   #)
+
+-- RepetitionSliceGetQuaType:dopart --
+do
+   (context[],world[],usageAst[])
+     ->AttributeDenotation.getStaticQuaType
+     ->(qual[],qualExact)
+
+-- RepetitionSliceGetTranOut:dopart --
+do
+   (# stsub: ^staticSubstance;
+      strep: ^staticRepetition
+   do (context[],world[],this(l2RepetitionSlice)[])
+        ->AttributeDenotation.getStaticSubstance
+        ->stsub[];
+      (if stsub##<=staticRepetition## then 
+          stsub[]
+            ->strep[];
+          (world[],this(l2RepetitionSlice)[])
+            ->strep.stocp.getStaticTransientOut
+            ->stran[];
+          (strep.pathTo[],strep.RepetitionDecl[],false,stran[],false)
+            ->(&staticRepeatedTransient[]).init
+            ->stran[]
+       else
+          (# msg: ^text
+          do 'Attempt to create a repetition slice from '->msg[];
+             (stsub.typename).withIndefArticle->msg.puttext;
+             (msg[]
+             ,'Use a repetition'
+             ,this(l2RepetitionSlice)[])->staticError
+          #)
+      if)
+   #)
+
+-- RepetitionSliceGetTranIn:dopart --
+do
+   (# stsub: ^staticSubstance;
+      strep: ^staticRepetition
+   do (context[],world[],this(l2RepetitionSlice)[])
+        ->AttributeDenotation.getStaticSubstance
+        ->stsub[];
+      (if stsub##<=staticRepetition## then 
+          stsub[]
+            ->strep[];
+          (world[],this(l2RepetitionSlice)[])
+            ->strep.stocp.getStaticTransientIn
+            ->stran[];
+          (strep.pathTo[],strep.RepetitionDecl[],false,stran[],false)
+            ->(&staticRepeatedTransient[]).init
+            ->stran[]
+       else
+          (# msg: ^text
+          do 'Attempt to create a repetition slice from '->msg[];
+             (stsub.typename).withIndefArticle->msg.puttext;
+             (msg[]
+             ,'Use a repetition'
+             ,this(l2RepetitionSlice)[])->staticError
+          #)
+      if)
+   #)
+
+-- RepetitionSliceGetSub:dopart --
+do
+   (context[],world[],usageAst[])
+     ->AttributeDenotation.getStaticSubstance
+     ->stsub[]
+
+-- RepetitionSliceGetCplr:dopart --
+do
+   (* Make sure the bounds expressions will produce integers *)
+   (&staticIntegerTransient[]).init
+     ->Low.exitSTran[]
+     ->High.exitSTran[];
+   &exeCompiler
+   (# generate::
+        (# stsub: ^staticSubstance;
+           strep: ^staticRepetition;
+           typeKind: @integer
+        do AttributeDenotation.localStaticSubstance
+             ->stsub[];
+           (if stsub##<=staticRepetition## then 
+               stsub[]->strep[]
+            else
+               'Repetition slice applied to non-repetition?!'
+                 ->internalError
+           if);
+           ('ibetaTwoExp2body.bet/179',strep.pathTo[]
+           ,strep.RepetitionDecl[],Low[],High[]
+           ,strep.stocp.sptype.kind)
+             ->(&callRepSliceCode[]).init
+             ->program.append
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- RepetitionSliceGetEnterCplr:dopart --
+do
+   (* NB: this does not extend the program since we cannot 
+    * set up repetition transfers separately for the enter 
+    * and exit ends; it just tells assignment about the rep *)
+   (# complexFail:
+        (# msg: ^text
+        do 'Sorry! Cannot yet handle non-simple patterns '->msg[];
+           'in rep. value assignments;\nconsider using '->msg.puttext;
+           '(for..for) instead'->msg.puttext;
+           msg[]->notyet
+        #);
+      aden_stsub: ^staticSubstance;
+      strep: ^staticRepetition
+   do (context[],world[],this(l2RepetitionSlice)[])
+        ->AttributeDenotation.getStaticSubstance
+        ->aden_stsub[];
+      (if aden_stsub##<=staticRepetition## then 
+          aden_stsub[]->strep[]
+       else
+          'RepetitionSlice with a.den. which was not a rep. encountered'
+            ->internalError
+      if);
+      (* !!! Filter out the "general" case *)
+      (if (strep.stocp.sptype.kind<>objectTypeKind) and
+          (strep.stocp.sptype.kind<>objectRefTypeKind) then
+          complexFail
+      if);
+      (if strep.stocp.sptype.slices.size<>1 then complexFail if);
+      (if not
+          (strep.stocp.sptype.slices.firstLink##<=basicStaticSlice##)
+          then
+          (* !! this allows (# cr:[2]@|object do cr->cr #),
+           * similarly for 'semaphore'; any problems with that? *)
+          complexFail
+      if);
+      &enterOnceCompiler
+      (# generate::
+           (# rep_stran: ^staticRepeatedTransient
+           do (context[],world[])
+                ->getStaticTransientIn
+                ->rep_stran[];
+              (* adjust to include bounds and initialize execute *)
+              Low[]->rep_stran.lo[];
+              High[]->rep_stran.hi[];
+              context.pathTo[]->rep_stran.boundsPathTo[];
+              this(getEnterCompiler).execute->rep_stran.execute;
+              (* deliver *)
+              rep_stran[]->stran[] 
+           #)
+      #)[]->nc[];
+      (&staticIntegerTransient[]).init
+        ->Low.exitSTran[]
+        ->High.exitSTran[]
+   #)
+
+-- RepetitionSliceGetExitCplr:dopart --
+do
+   (* NB: this does not extend the program; see above *)
+   (# complexFail:
+        (# msg: ^text
+        do 'Sorry! Cannot yet handle non-simple patterns '->msg[];
+           'in rep. value assignments;\nconsider using '->msg.puttext;
+           '(for..for) instead'->msg.puttext;
+           msg[]->notyet
+        #);
+      aden_stsub: ^staticSubstance;
+      strep: ^staticRepetition
+   do (context[],world[],this(l2RepetitionSlice)[])
+        ->AttributeDenotation.getStaticSubstance
+        ->aden_stsub[];
+      (if aden_stsub##<=staticRepetition## then 
+          aden_stsub[]->strep[]
+       else
+          'RepetitionSlice with a.den. which was not a rep. encountered'
+            ->internalError
+      if);
+      (* !!! Filter out the "general" case *)
+      (if (strep.stocp.sptype.kind<>objectTypeKind) and
+          (strep.stocp.sptype.kind<>objectRefTypeKind) then
+          complexFail
+      if);
+      (if strep.stocp.sptype.slices.size<>1 then complexFail if);
+      (if not
+          (strep.stocp.sptype.slices.firstLink##<=basicStaticSlice##)
+          then
+          (* !! this allows (# cr:[2]@|object do cr->cr #),
+           * similarly for 'semaphore'; any problems with that? *)
+          complexFail
+      if);
+      &exitOnceCompiler
+      (# generate::
+           (# rep_stran: ^staticRepeatedTransient
+           do (context[],world[])
+                ->getStaticTransientOut
+                ->rep_stran[];
+              (* adjust to include bounds and initialize execute *)
+              Low[]->rep_stran.lo[];
+              High[]->rep_stran.hi[];
+              context.pathTo[]->rep_stran.boundsPathTo[];
+              true->rep_stran.execute; (* actually ignored for exits *)
+              (* deliver *)
+              rep_stran[]->stran[]
+           #)
+      #)[]->xc[];
+      (&staticIntegerTransient[]).init
+        ->Low.exitSTran[]
+        ->High.exitSTran[]
+   #)
+
+-- RepetitionSliceGetEnterExitCplr:dopart --
+do
+   (* !!! For now we only support the independent case, i.e.,
+    * when there is no need for creation of temporaries *)
+   (if (AttributeDenotation.localStaticType).kind
+    // objectTypeKind // objectRefTypeKind then
+       (* no need to create tmp. objects: we can delegate *)
+       (context[],world[],usageAst[],false)->getEnterCompiler->nc[];
+       (context[],world[],usageAst[])->getExitCompiler->xc[];
+    else
+       (* patterns involved, would require temp. objects *)
+       'ibetaTwoExp2body.bet/232'->notyet; (* !!! *)
+       (* !! but remember this: *)
+       (&staticIntegerTransient[]).init->Low.exitSTran[]->High.exitSTran[]
+   if)
+
+-- RepetitionSliceObtainObjectRef:dopart --
+do
+   'ibetaTwoExp2body.bet/189'->notyet; (* !!! *)
+
+-- RepetitionSliceGenGetObject:dopart --
+do
+   'ibetaTwoExp2body.bet/193'->notyet; (* !!! *)
+
+-- RepetitionSliceGenPutObject:dopart --
+do
+   'ibetaTwoExp2body.bet/197'->notyet; (* !!! *)
+
+-- RepetitionSliceGenPutPattern:dopart --
+do
+   'ibetaTwoExp2body.bet/201'->notyet; (* !!! *)
+
+-- RepetitionSliceClosureExecute:dopart --
+do
+   (# aden_ent,l1ent: ^l1Entity;
+      l1rep: ^l1RepetitionEntity;
+      position: @runtimePath;
+      sContext: ^staticContext;
+      l0tri: ^l0TransientInteger;
+      lowIndex,highIndex: @integer
+   do 
+      (* get hold of the repetition *)
+      (thrd[],unwind##,dContext[])
+        ->AttributeDenotation.lookup
+        ->aden_ent[];
+      (if aden_ent##<=l1RepetitionEntity## then 
+          aden_ent[]->l1rep[]
+       else
+          'Trying to execute slice from non-repetition'
+            ->internalError
+      if);
+      
+      (* evaluate the limiting indices; first get static context *)
+      (NONE,NONE,scope.location)
+        ->position.init;
+      (position[],scope.world[],this(l2RepetitionSlice)[])
+        ->scope.getInitialContext
+        ->sContext[];
+      (thrd[],unwind##,(thrd[],unwind##,sContext[],scope.world[]
+      ,this(l2RepetitionSlice)[],dContext[])->Low.getExitIter)
+        ->exitOneValue(# context::(# do 'ibetaTwoExp2body.bet/231'->value[]#)#)
+        ->transient_many2integer
+        ->l0tri[];
+      l0tri->lowIndex;
+      (thrd[],unwind##,(thrd[],unwind##,sContext[],scope.world[]
+      ,this(l2RepetitionSlice)[],dContext[])->High.getExitIter)
+        ->exitOneValue(# context::(# do 'ibetaTwoExp2body.bet/237'->value[]#)#)
+        ->transient_many2integer
+        ->l0tri[];
+      l0tri->highIndex;
+      
+      (* execute the selected entries *)
+      lowIndex-1->lowIndex; (* convenience: lowIndex becomes offset *)
+      (for i:(highIndex-lowIndex) repeat
+           (thrd[],unwind##,i+lowindex)->l1rep.get->l1ent[];
+           (thrd[],unwind##)->l1ent.execute
+      for)
+   #)
+
+-- RepetitionSliceGetEnterIter:dopart --
+do 
+   (thrd[],unwind##,stsub[],world[],dContext[])->getIterBase
+   (# 
+   do (* NB: this is new syntax for sliced repeated ref. assignment *)
+      &enterOnce
+      (# l0trrep: ^l0TransientRepetition;
+         l0trs: ^l0TransientString;
+         my_entry: ^l1Entity;
+         l1obj: ^l1ObjectEntity;
+         l1oref: ^l1ObjectRefEntity
+      do 
+         (if true
+          // l0tr##<=l0TransientRepetition## then 
+             l0tr[]->l0trrep[];
+             (if l0trrep.high<l0trrep.low then
+                 (* empty repetition given: remove dest. slice *)
+                 (if highIndex<lowIndex then 
+                     (* dest. slice already empty, no action *)
+                  else
+                     (* cut out destination slice *)
+                     (# tmp: [l1rep.value.range]^l1Entity;
+                        inx,offset: @integer
+                     do (for i:l1rep.value.range repeat
+                             l1rep.value[i][]->tmp[i][]
+                        for);
+                        (l1rep.value.range-highIndex+lowIndex-1)
+                          ->l1rep.value.new;
+                        1->inx;
+                        L: (if (inx<lowIndex) and 
+                               (inx<=l1rep.value.range) then
+                               tmp[inx][]->l1rep.value[inx][];
+                               inx+1->inx;
+                               restart L
+                           if);
+                        highIndex+1->inx; 
+                        highIndex-lowIndex+1->offset;
+                        L: (if inx<=tmp.range then
+                               tmp[inx][]->l1rep.value[inx-offset][];
+                               inx+1->inx;
+                               restart L
+                           if)
+                     #)
+                 if)
+              else
+                 (* at least one transfer requested *)
+                 
+                 (# adjustSize:
+                      (* uses 'oldSliceLen', 'newSliceLen', 'lowIndex', and
+                       * 'highIndex' to adjust the size of 'l1rep.value' *)
+                      (# 
+                      do (if true 
+                          // newSliceLen<oldSliceLen then
+                             (* remove the "extra" entries 
+                              * in [lowIndex+newSliceLen:highIndex] *)
+                             (# tmp: [l1rep.value.range]^l1Entity;
+                                inx,offset: @integer
+                             do (* save all entries *)
+                                (for i:l1rep.value.range repeat
+                                     l1rep.value[i][]->tmp[i][]
+                                for);
+                                (* allocate new entries *)
+                                newLen->l1rep.value.new;
+                                (* transfer lower segment *)
+                                1->inx;
+                                L: (if (inx<lowIndex+newSliceLen) and
+                                       (inx<=l1rep.value.range) then
+                                       tmp[inx][]->l1rep.value[inx][];
+                                       inx+1->inx;
+                                       restart L
+                                   if);
+                                (* transfer upper segment *)
+                                highIndex+1->inx;
+                                highIndex+1-(lowIndex+newSliceLen)->offset;
+                                L: (if inx<=tmp.range then
+                                       tmp[inx][]->l1rep.value[inx-offset][];
+                                       inx+1->inx;
+                                       restart L
+                                   if)
+                             #)
+                             
+                          // newSliceLen>oldSliceLen then
+                             (* add new entries 
+                              * in [highIndex+1:lowIndex+newSliceLen-1] *)
+                             (# tmp: [l1rep.value.range]^l1Entity;
+                                inx,offset: @integer
+                             do (* save all entries *)
+                                (for i:l1rep.value.range repeat
+                                     l1rep.value[i][]->tmp[i][]
+                                for);
+                                (* allocate new entries *)
+                                newLen->l1rep.value.new;
+                                (* transfer lower segment *)
+                                1->inx;
+                                L: (if (inx<=highIndex) and
+                                       (inx<=l1rep.value.range) then
+                                       tmp[inx][]->l1rep.value[inx][];
+                                       inx+1->inx;
+                                       restart L
+                                   if);
+                                (* transfer upper segment *)
+                                highIndex+1->inx;
+                                (lowIndex+newSliceLen)-(highIndex+1)->offset;
+                                L: (if inx<=tmp.range then
+                                       tmp[inx][]->l1rep.value[inx+offset][];
+                                       inx+1->inx;
+                                       restart L
+                                   if);
+                                (* renew missing entries *)
+                                (thrd[],unwind##,highIndex+1
+                                ,lowIndex+newSliceLen-1)
+                                  ->l1rep.renewEntries;
+                             #)
+                             
+                          (* else: *)
+                             (* newSliceLen=oldSliceLen, no action *)
+                         if)
+                      #);
+                    l0tror: ^l0TransientObjectRef;
+                    l1ent1,l1ent2: ^l1Entity;
+                    strep: ^staticRepetition;
+                    entry_ni: ^enterIterator;
+                    entry_xi: ^exitIterator;
+                    inx,oldSliceLen,newSliceLen,newLen: @integer
+                 do 
+                    (* static info about my entries are in strep.stocp *)
+                    (if rep_stsub##<=staticRepetition## then
+                        rep_stsub[]->strep[]
+                     else
+                        'Wrong static info for assigning to repetition slice'
+                          ->internalError
+                    if);
+      
+                    (* compute lengths *)
+                    highIndex-lowIndex+1->oldSliceLen;
+                    l0trrep.high-l0trrep.low+1->newSliceLen;
+                    l1rep.value.range-oldSliceLen+newSliceLen->newLen;
+                    
+                    (if l0trrep.reference then 
+                        (* ref. semantics for exit and value sem.s for enter *)
+                  
+                        (* set up artificial wrapper for transient values *)
+                        &l0TransientObjectRef[]->l0tror[];
+                        (* default anyway: NONE->usageAst[]; *)
+                        
+                        (* check that there are enough receiving entries *)
+                        adjustSize;
+                        
+                        (* do entry-wise reference/value assignment *)
+                        (for i:newSliceLen repeat
+                             (thrd[],unwind##,l0trrep.low-1+i)
+                               ->l0trrep.value.get
+                               ->l1ent1[];
+                             
+                             (* obtain source value *)
+                             (if true 
+                              // l1ent1##<=l1ObjectEntity## then
+                                 l1ent1[]->l1obj[]
+                              // l1ent1##<=l1ObjectRefEntity## then 
+                                 l1ent1[]->l1oref[];
+                                 l1oref.value[]->l1obj[]
+                              else
+                                 'Ref./value-assigning non-object in rep.'
+                                   ->internalError
+                             if);
+                             l1obj[]->l0tror.value[];
+                             
+                             (* insert that value into the new repetition *)
+                             (thrd[],unwind##,inx+lowIndex-1)
+                               ->l1rep.get
+                               ->l1ent2[];
+                             (thrd[],unwind##,strep.stocp[]
+                             ,world[],usageAst[],execute)
+                               ->l1ent2.getEnterIter
+                               ->entry_ni[];
+                             (thrd[],unwind##,entry_ni[],l0tror[])
+                               ->enterOneValue
+                             (# context::
+                                  (# do 'ibetaTwoExp2body.bet/479'->value[]#)
+                             #)
+                        for)
+                        
+                     else
+                        (* dual value semantics repetition assignment *)
+                        
+                        (* allocate new repetition entries, if needed *)
+                        adjustSize;
+                        
+                        (* transfer values *)
+                        (for i:newSliceLen repeat
+                             (* entry-wise value transfer *)
+                             
+                             (thrd[],unwind##,l0trrep.low-1+i)
+                               ->l0trrep.value.get
+                               ->l1ent1[];
+                             (thrd[],unwind##,l0trrep.stocp[]
+                             ,l0trrep.world[],l0trrep.usageAst[])
+                               ->l1ent1.getExitIter
+                               ->entry_xi[];
+                             (thrd[],unwind##,lowIndex-1+i)
+                               ->l1rep.get
+                               ->l1ent2[];
+                             (thrd[],unwind##,strep.stocp[]
+                             ,world[],usageAst[],execute)
+                               ->l1ent2.getEnterIter
+                               ->entry_ni[];
+                             (thrd[],unwind##,entry_xi[],entry_ni[])
+                               ->transientTransfer
+                             (# context::
+                                  (# do 'ibetaTwoExp2body.bet/507'->value[] #)
+                             #)
+                        for)
+                    if)
+                 #)
+             if)
+             
+          // l0tr##<=l0TransientString## then 
+             l0tr[]->l0trs[];
+             (if l0trs.value.length=0 then
+                 (* empty string given: remove dest. slice *)
+                 (if highIndex<lowIndex then 
+                     (* dest. slice already empty, no action *)
+                  else
+                     (* cut out destination slice *)
+                     (# tmp: [l1rep.value.range]^l1Entity;
+                        inx,offset: @integer
+                     do (for i:l1rep.value.range repeat
+                             l1rep.value[i][]->tmp[i][]
+                        for);
+                        (l1rep.value.range-highIndex+lowIndex-1)
+                          ->l1rep.value.new;
+                        1->inx;
+                        L: (if (inx<lowIndex) and 
+                               (inx<=l1rep.value.range) then
+                               tmp[inx][]->l1rep.value[inx][];
+                               inx+1->inx;
+                               restart L
+                           if);
+                        highIndex+1->inx; 
+                        highIndex-lowIndex+1->offset;
+                        L: (if inx<=tmp.range then
+                               tmp[inx][]->l1rep.value[inx-offset][];
+                               inx+1->inx;
+                               restart L
+                           if)
+                     #)
+                 if)
+              else
+                 (* at least one transfer requested *)
+                 
+                 (# adjustSize:
+                      (* uses 'oldSliceLen', 'newSliceLen', 'lowIndex', and
+                       * 'highIndex' to adjust the size of 'l1rep.value';
+                       * !!! ought to combine with 'adjustSize' above *)
+                      (# 
+                      do (if true 
+                          // newSliceLen<oldSliceLen then
+                             (* remove the "extra" entries 
+                              * in [lowIndex+newSliceLen:highIndex] *)
+                             (# tmp: [l1rep.value.range]^l1Entity;
+                                inx,offset: @integer
+                             do (* save all entries *)
+                                (for i:l1rep.value.range repeat
+                                     l1rep.value[i][]->tmp[i][]
+                                for);
+                                (* allocate new entries *)
+                                newLen->l1rep.value.new;
+                                (* transfer lower segment *)
+                                1->inx;
+                                L: (if (inx<lowIndex+newSliceLen) and
+                                       (inx<=l1rep.value.range) then
+                                       tmp[inx][]->l1rep.value[inx][];
+                                       inx+1->inx;
+                                       restart L
+                                   if);
+                                (* transfer upper segment *)
+                                highIndex+1->inx;
+                                highIndex+1-(lowIndex+newSliceLen)->offset;
+                                L: (if inx<=tmp.range then
+                                       tmp[inx][]->l1rep.value[inx-offset][];
+                                       inx+1->inx;
+                                       restart L
+                                   if)
+                             #)
+                             
+                          // newSliceLen>oldSliceLen then
+                             (* add new entries 
+                              * in [highIndex+1:lowIndex+newSliceLen-1] *)
+                             (# tmp: [l1rep.value.range]^l1Entity;
+                                inx,offset: @integer
+                             do (* save all entries *)
+                                (for i:l1rep.value.range repeat
+                                     l1rep.value[i][]->tmp[i][]
+                                for);
+                                (* allocate new entries *)
+                                newLen->l1rep.value.new;
+                                (* transfer lower segment *)
+                                1->inx;
+                                L: (if (inx<=highIndex) and
+                                       (inx<=l1rep.value.range) then
+                                       tmp[inx][]->l1rep.value[inx][];
+                                       inx+1->inx;
+                                       restart L
+                                   if);
+                                (* transfer upper segment *)
+                                highIndex+1->inx;
+                                (lowIndex+newSliceLen)-(highIndex+1)->offset;
+                                L: (if inx<=tmp.range then
+                                       tmp[inx][]->l1rep.value[inx+offset][];
+                                       inx+1->inx;
+                                       restart L
+                                   if);
+                                (* renew missing entries *)
+                                (thrd[],unwind##,highIndex+1
+                                ,lowIndex+newSliceLen-1)
+                                  ->l1rep.renewEntries
+                             #)
+                             
+                          (* else: *)
+                             (* newSliceLen=oldSliceLen, no action *)
+                         if)
+                      #);
+                    l0tror: ^l0TransientObjectRef;
+                    l1ent1,l1ent2: ^l1Entity;
+                    strep: ^staticRepetition;
+                    entry_ni: ^enterIterator;
+                    entry_xi: @exitOnce
+                      (# l0trc: @l0transientChar do l0trc[]->l0tr[] #);
+                    inx,oldSliceLen,newSliceLen,newLen: @integer
+                 do 
+                    (* static info about my entries are in strep.stocp *)
+                    (if rep_stsub##<=staticRepetition## then
+                        rep_stsub[]->strep[]
+                     else
+                        'Wrong static info for assigning to repetition slice'
+                          ->internalError
+                    if);
+      
+                    (* compute lengths *)
+                    highIndex-lowIndex+1->oldSliceLen;
+                    l0trs.value.length->newSliceLen;
+                    l1rep.value.range-oldSliceLen+newSliceLen->newLen;
+                    
+                    (* allocate new repetition entries, if needed *)
+                    adjustSize;
+                    
+                    (* transfer values *)
+                    (for i:newSliceLen repeat
+                         (* entry-wise value transfer *)
+                         
+                         false->entry_xi.doneit;
+                         i->l0trs.value.inxget->entry_xi.l0trc;
+                         (thrd[],unwind##,lowIndex-1+i)
+                           ->l1rep.get
+                           ->l1ent2[];
+                         (thrd[],unwind##,strep.stocp[]
+                         ,world[],usageAst[],execute)
+                           ->l1ent2.getEnterIter
+                           ->entry_ni[];
+                         (thrd[],unwind##,entry_xi[],entry_ni[])
+                           ->transientTransfer
+                         (# context::
+                              (# do 'ibetaTwoExp2body.bet/657'->value[] #)
+                         #)
+                    for)
+                 #)
+             if)
+             
+          else
+             'Trying to sliced-repeated-assign with non-repetition'
+               ->internalError
+         if)
+      #)[]->ni[];
+      this(l2RepetitionSlice)[]->ni.usageAst[]
+   #)
+
+-- RepetitionSliceGetExitIter:dopart --
+do
+   (thrd[],unwind##,stsub[],world[],dContext[])->getIterBase
+   (# 
+   do (* create transient to deliver the selected entries *)
+      &exitIterator
+      (# sub_xi: ^exitIterator;
+         l0trrep: ^l0TransientRepetition;
+         prepare::
+           (# do (thrd[],unwind##,rep_stsub[],world[],usageAst[])
+                ->l1rep.getExitIter
+                ->sub_xi[];
+              sub_xi.prepare
+           #);
+         more::(# do sub_xi.more->value #);
+         cleanup::(# do sub_xi.cleanup #)
+      do sub_xi->l0trrep[]->l0tr[];
+         lowIndex->l0trrep.low;
+         highIndex->l0trrep.high
+      #)[]->xi[];
+      this(l2RepetitionSlice)[]->xi.usageAst[]
+   #)
+
+-- RepetitionSliceGetEnterExitIter:dopart --
+do
+   (* independent except for repetitions of pattern 
+    * variables, but this ensures correctness even 
+    * though it prevents some cases where it would 
+    * have worked with a simple 'independent'.. *)
+   'ibetaTwoExp2body.bet/700'->notyet; (* !!! *)
+
+(************************************************************ 
+ *                                                          * 
+ *                l2ComputedObjectEvaluation                * 
+ *                                                          * 
+ ************************************************************)
+
+-- ComputedObjectEvaluationPrint:dopart --
+do
+   (dest[],indentation,false)->Reference.print;
+   '!'->output
+
+-- ComputedObjectEvaluationScanImpl:dopart --
+do
+   (preCB[],postCB[])->Reference.scanImpl
+
+-- ComputedObjectEvaluationLib:attributes --
+
+getTranBase:
+  (# context: ^staticContext;
+     world: ^staticContextDB;
+     usageAst: ^l2AstNode;
+     tmpSTran: ^staticTransient;
+     sortran: ^staticORefTransient;
+     path: ^runtimePath;
+     computed_sptype: ^staticPatternType;
+     computedOCP: ^staticOCP
+  enter (context[],world[],usageAst[])
+  do (context[],world[])
+        ->Reference.getStaticTransientOut
+        ->tmpSTran[];
+      (if tmpSTran##<=staticORefTransient## then
+          tmpSTran[]->sortran[];
+          (NONE,NONE,context.getInitialSyntax)
+            ->(&runtimePath[]).init
+            ->path[];
+          (* describe this object as "somewhere" on the stack of tmp objs *)
+          (sortran.sptype[],this(l2ComputedObjectEvaluation)[],unknownStackPos)
+            ->(&runtimeTmpStep[]).init
+            ->path.append;
+          (context[],path[],NONE,usageAst[])
+            ->sortran.sptype.staticInstantiate
+            ->computedOCP[]
+       else
+          (# msg: ^text
+          do 'Attempting computed object evaluation on '->msg[];
+             (tmpStran.typename).withIndefArticle->msg.puttext;
+             (msg[]
+             ,'Make the expression before "!" deliver an object reference'
+             ,usageAst[])->staticError
+          #)
+      if);
+     INNER
+  #);
+
+iterORefFail:
+  (# thrd: ^thread;
+     unwind: ##stackUnwinder
+  enter (thrd[],unwind##)
+  do ('Attempting computed object evaluation via NONE object reference'
+     ,thrd[],unwind##)->refNoneError
+  #);
+
+iterNONEFail:
+  (# thrd: ^thread;
+     unwind: ##stackUnwinder
+  enter (thrd[],unwind##)
+  do ('Attempting computed object evaluation via NONE reference'
+     ,thrd[],unwind##)->refNoneError
+  #);
+
+iterInternalFail:
+  (# 
+  do 'Attempting computed object evaluation on a non-object-ref'
+       ->internalError
+  #);
+
+getIterBase:
+  (# (* parms *)
+     thrd: ^thread; 
+     unwind: ##stackUnwinder; 
+     stsub: ^staticSubstance; 
+     world: ^staticContextDB; 
+     dContext: ^substanceSlice; 
+     
+     (* local state *)
+     l0tr: ^l0Transient;
+     l0tror: ^l0TransientObjectRef;
+     source_obj,computed_obj: ^l1ObjectEntity
+     
+  enter (thrd[],unwind##,stsub[],world[],dContext[])
+  do
+     (* find the computed object via the reference .. *)
+     (thrd[],unwind##,dContext[],false)
+       ->Reference.obtainObject
+       ->source_obj[];
+     (thrd[],unwind##,(thrd[],unwind##,stsub[],world[]
+     ,this(l2ComputedObjectEvaluation)[])->source_obj.getExitIter)
+       ->exitOneValue(# context::(# do 'ibetaTwoExp2body.bet/797'->value[] #)#)
+       ->l0tr[];
+     
+     (* .. check that it was really an object .. *)
+     (if true
+      // l0tr##<=l0TransientObjectRef## then 
+         l0tr[]->l0tror[];
+         (if l0tror<>NONE then l0tror->computed_obj[] 
+          else 
+             (thrd[],unwind##)->iterORefFail
+         if)
+      // l0tr##<=l0TransientNoneRef## then 
+         (thrd[],unwind##)->iterNONEFail
+      else
+         iterInternalFail
+     if);
+     
+     (* .. and use 'source_obj' and/or 'computed_obj' *)
+     INNER
+  #)
+
+-- ComputedObjectEvaluationCheck:dopart --
+do 
+   (context[],world[],usageAst[])->getTranBase
+
+-- ComputedObjectEvaluationGetQuaType:dopart --
+do
+   ('Attempt to reference assign to a computed object evaluation ("x!")'
+   ,'Use an object reference attribute'
+   ,usageAst[])->staticError
+   
+-- ComputedObjectEvaluationGetTranOut:dopart -- 
+do
+   (* This was not affected by the change in semantics (see below) *)
+   (context[],world[],this(l2ComputedObjectEvaluation)[])->getTranBase
+   (#
+   do (world[],this(l2ComputedObjectEvaluation)[])
+        ->computedOCP.getStaticTransientOut
+        ->stran[]
+   #)
+
+-- ComputedObjectEvaluationGetTranIn:dopart -- 
+do
+   (* An alternative semantics would be implied by this:
+    * 
+    * (context[],world[])
+    *   ->Reference.getStaticTransientIn
+    *   ->stran[]
+    * 
+    * The alternative semantics gives input to the source
+    * (Reference) and takes output from the computed object. 
+    * That has been the semantics for several months, but 
+    * it is not very clean or usable.  Instead the new 
+    * semantics was implemented, and that is to let the 
+    * computed object take input as well as deliver the 
+    * output.  The result is that computed object evaluation
+    * is similar to backquoted expressions in UNIX shell 
+    * scripts: Compute something to put in right here, 
+    * and then let the computed thing act as if it had been 
+    * written here in the first place.
+    *)
+   (context[],world[],this(l2ComputedObjectEvaluation)[])->getTranBase
+   (#
+   do (world[],this(l2ComputedObjectEvaluation)[])
+        ->computedOCP.getStaticTransientIn
+        ->stran[]
+   #)
+      
+-- ComputedObjectEvaluationGetSub:dopart --
+do
+   (context[],world[],usageAst[])->getTranBase(# do computedOCP[]->stsub[] #)
+
+-- ComputedObjectEvaluationGetCplr:dopart --
+do
+   (* e.g. "factory!;" *)
+   &exeCompiler
+   (# generate::
+        (# stranFail:
+             (# msg: ^text
+               do 'Attempt to computed-evaluate via '->msg[];
+                (stran.typename).withIndefArticle->msg.puttext;
+                (msg[]
+                ,'Use an evaluation which delivers an object reference'
+                ,this(l2ComputedObjectEvaluation)[])->staticError
+             #);
+           framePos: @integer;
+           stran: ^staticTransient;
+           oref_stran: ^staticORefTransient;
+           stocp: ^staticOCP;
+           gen_sptype: ^staticPatternType
+        do (context[],world[],usageAst[],program[],cInfo[],false,false)
+             ->generateGetObject
+             ->gen_sptype[];
+           (* check NONE here?: no need, since we had noneAllowed=false *)
+           (* now the object is on the 'objRefs' stack; move it to tmp *)
+           cInfo.allocateTmp->framePos;
+           ('ibetaTwoExp2body.bet/1014',framePos)
+             ->(&moveObjectTmpCode[]).init
+             ->program.append;
+           (* allocate/describe the computed object *)
+           (context[],world[])
+             ->Reference.getStaticTransientOut
+             ->stran[];
+           (if stran##<=staticORefTransient## then 
+               stran[]->oref_stran[];
+               (* we use this AST itself for the canonical
+                * identification of the temporary *)
+               (context[],world[],usageAst[]
+               ,this(l2ComputedObjectEvaluation)[],framePos)
+                 ->oref_stran.sptype.tmpInstantiate
+                 ->stocp[];
+               (* request execution of the computed object, if needed *)
+               (if not stocp.sptype.doesNothing then
+                   ('ibetaTwoExp2body.bet/1003',stocp.pathTo[])
+                     ->(&callDoCode[]).init
+                     ->program.append
+               if)
+            else 
+               stranFail
+           if)
+        #)
+   #)[]->ec[];
+   usageAst[]->ec.usageAst[]
+
+-- ComputedObjectEvaluationGetEnterCplr:dopart --
+do
+   (* e.g. "..->factory!;" *)
+   &enterCompiler
+   (# subEnterCplr: ^enterCompiler;
+      prepare::
+        (# stranFail:
+             (# msg: ^text
+             do 'Attempt to computed-evaluate via '->msg[];
+                (stran.typename).withIndefArticle->msg.puttext;
+                (msg[]
+                ,'Use an evaluation which delivers an object reference'
+                ,this(l2ComputedObjectEvaluation)[])->staticError
+             #);
+           path: ^runtimePath;
+           framePos: @integer;
+           stran: ^staticTransient;
+           oref_stran: ^staticORefTransient;
+           oref_stocp: ^staticOCP;
+           gen_sptype: ^staticPatternType
+        do (context[],world[],usageAst[],program[],cInfo[],false,false)
+             ->generateGetObject
+             ->gen_sptype[];
+           (if gen_sptype.kind<>objectTypeKind then
+               (* objectRefTypeKind: ensure that it is not NONE *)
+               'ibetaTwoExp2body.bet/1038'
+                 ->(&checkNoneOrefCode[]).init
+                 ->program.append
+           if);
+           (* the object is on the 'objRefs' stack; move it to tmp *)
+           cInfo.allocateTmp->framePos;
+           ('ibetaTwoExp2body.bet/1044',framePos)
+             ->(&moveObjectTmpCode[]).init
+             ->program.append;
+           (* allocate/describe the computed object; we cannot just 
+            * use 'getStaticSubstance' because that would describe 
+            * the computed object as "somewhere" (-1) on the tmp 
+            * object stack, but here we actually know where it is,
+            * namely at 'framePos' *)
+           (context[],world[])
+             ->Reference.getStaticTransientOut
+             ->stran[];
+           (if stran##<=staticORefTransient## then
+               stran[]->oref_stran[]
+            else
+               stranFail
+           if);
+           (* we use this comp.obj.eval as the generating AST (the
+            * canonical representative) for the tmp. factory object *)
+           (context[],world[],usageAst[]
+           ,this(l2ComputedObjectEvaluation)[],framePos)
+             ->oref_stran.sptype.tmpInstantiate
+             ->oref_stocp[];
+           (* create an enterCompiler for the temp. object; 
+            * that is the "real" enterCplr we are after; we choose
+            * the 'Reference' as the canonical representative for 
+            * the temporary object since that will be unique in the scope 
+            * of the analysis of the current imperative, whereas the 
+            * exit part used to get the actual object may not be *)
+           (world[],Reference[],usageAst[],this(getEnterCompiler).execute)
+             ->oref_stocp.getEnterCompiler
+             ->subEnterCplr[];
+           (* prepare it *)
+           (program[],cInfo[])
+             ->subEnterCplr.prepare
+        #);
+      more::(# do subEnterCplr.more->value #);
+      generate::(# do (program[],cInfo[])->subEnterCplr.generate->stran[] #);
+      cleanup::(# do (program[],cInfo[])->subEnterCplr.cleanup #)
+   #)[]->nc[];
+   usageAst[]->nc.usageAst[]
+
+-- ComputedObjectEvaluationGetExitCplr:dopart --
+do
+   (* e.g. "factory!->.." *)
+   &exitCompiler
+   (# subExitCplr: ^exitCompiler;
+      prepare::
+        (# stranFail:
+             (# msg: ^text
+             do 'Attempt to computed-evaluate via '->msg[];
+                (stran.typename).withIndefArticle->msg.puttext;
+                (msg[]
+                ,'Use an evaluation which delivers an object reference'
+                ,this(l2ComputedObjectEvaluation)[])->staticError
+             #);
+           path: ^runtimePath;
+           framePos: @integer;
+           stran: ^staticTransient;
+           oref_stran: ^staticORefTransient;
+           oref_stocp: ^staticOCP;
+           gen_sptype: ^staticPatternType
+        do (context[],world[],usageAst[],program[],cInfo[],false,false)
+             ->generateGetObject
+             ->gen_sptype[];
+           (if gen_sptype.kind<>objectTypeKind then
+               (* objectRefTypeKind: ensure that it is not NONE *)
+               'ibetaTwoExp2body.bet/1119'
+                 ->(&checkNoneOrefCode[]).init
+                 ->program.append
+           if);
+           (* the object is on the 'objRefs' stack; move it to tmp *)
+           cInfo.allocateTmp->framePos;
+           ('ibetaTwoExp2body.bet/987',framePos)
+             ->(&moveObjectTmpCode[]).init
+             ->program.append;
+           (* we use 'this(l2ComputedObjectEvaluation)' for the
+            * unique identification of the temporary *)
+           (context[],world[],usageAst[]
+           ,this(l2ComputedObjectEvaluation)[],framePos)
+             ->gen_sptype.tmpInstantiate
+             ->oref_stocp[];
+           (* create an exitCompiler for the temp. object; 
+            * that is the "real" exitCplr we are after *)
+           (world[],this(l2ComputedObjectEvaluation)[],usageAst[])
+             ->oref_stocp.getExitCompiler
+             ->subExitCplr[];
+           (* prepare it *)
+           (program[],cInfo[])
+             ->subExitCplr.prepare
+        #);
+      more::(# do subExitCplr.more->value #);
+      generate::(# do (program[],cInfo[])->subExitCplr.generate->stran[] #);
+      cleanup::(# do (program[],cInfo[])->subExitCplr.cleanup #)
+   #)[]->xc[];
+   usageAst[]->xc.usageAst[]
+
+-- ComputedObjectEvaluationGetEnterExitCplr:dopart --
+do
+   (# subExitCplr: ^exitCompiler
+   do &enterCompiler
+      (# subEnterCplr: ^enterCompiler;
+         prepare::
+           (# stranFail:
+                (# msg: ^text
+                do 'Attempt to computed-evaluate via '->msg[];
+                   (stran.typename).withIndefArticle->msg.puttext;
+                   (msg[]
+                   ,'Use an evaluation which delivers an object reference'
+                   ,this(l2ComputedObjectEvaluation)[])->staticError
+                #);
+              framePos: @integer;
+              stran: ^staticTransient;
+              oref_stocp: ^staticOCP;
+              gen_sptype: ^staticPatternType
+           do (context[],world[],usageAst[],program[],cInfo[],false,false)
+                ->generateGetObject
+                ->gen_sptype[];
+              (if gen_sptype.kind<>objectTypeKind then
+                  (* objectRefTypeKind: ensure that it is not NONE *)
+                  'ibetaTwoExp2body.bet/1179'
+                    ->(&checkNoneOrefCode[]).init
+                    ->program.append
+              if);
+              (* the object is on the 'objRefs' stack; move it to tmp *)
+              cInfo.allocateTmp->framePos;
+              ('ibetaTwoExp2body.bet/1183',framePos)
+                ->(&moveObjectTmpCode[]).init
+                ->program.append;
+              (* we use this comp.obj.eval for the unique
+               * identification of the tmp. "factory" object *)
+              (context[],world[],usageAst[]
+              ,this(l2ComputedObjectEvaluation)[],framePos)
+                ->gen_sptype.tmpInstantiate
+                ->oref_stocp[];
+              (* create an enterCompiler for the temp. object; 
+               * that is the "real" enterCplr we are after; we 
+               * use the 'Reference' for the unique identification
+               * of the temporary object *)
+              (world[],Reference[],usageAst[])
+                ->oref_stocp.getEnterExitCompiler
+                ->(subEnterCplr[],subExitCplr[]);
+              (* prepare it *)
+              (program[],cInfo[])
+                ->subEnterCplr.prepare
+           #);
+         more::
+           (# do subEnterCplr.more->value #);
+         generate::
+           (# do (program[],cInfo[])->subEnterCplr.generate->stran[] #);
+         cleanup::
+           (# do (program[],cInfo[])->subEnterCplr.cleanup #)
+      #)[]->nc[];
+      usageAst[]->nc.usageAst[];
+      
+      &exitCompiler
+      (* need wrapper for 'subExitCplr' since it is still NONE *)
+      (# prepare::(# do (program[],cInfo[])->subExitCplr.prepare #);
+         more::(# do subExitCplr.more->value #);
+         generate::(# do (program[],cInfo[])->subExitCplr.generate->stran[] #);
+         cleanup::(# do (program[],cInfo[])->subExitCplr.cleanup #)
+      #)[]->xc[];
+      usageAst[]->xc.usageAst[]
+   #)
+
+-- ComputedObjectEvaluationObtainObjectRef:dopart --
+do
+   (* we have to do local analysis to obtain static context *)
+   (# position: @runtimepath;
+      sContext: ^staticContext;
+      stsub: ^staticSubstance;
+      source_obj,computed_obj: ^l1ObjectEntity;
+      l0tr: ^l0Transient;
+      l0tror: ^l0TransientObjectRef
+   do 
+      (* prepare for local analysis *)
+      (NONE,NONE,scope.location)
+        ->position.init;
+      (position[],scope.world[],this(l2ComputedObjectEvaluation)[])
+        ->scope.getInitialContext
+        ->sContext[];
+      (sContext[],scope.world[],this(l2ComputedObjectEvaluation)[])
+        ->Reference.getStaticSubstance
+        ->stsub[];
+      
+      (* find the computed object via the reference .. *)
+      (thrd[],unwind##,dContext[],renew)
+        ->Reference.obtainObjectRef
+        ->source_obj[];
+      (thrd[],unwind##,(thrd[],unwind##,stsub[],scope.world[]
+      ,this(l2ComputedObjectEvaluation)[])->source_obj.getExitIter)
+        ->exitOneValue(# context::(# do 'ibetaTwoExp2body.bet/1106'->value[] #)#)
+        ->l0tr[];
+      
+      (* .. check that it was really an object or NONE, and deliver *)
+      (if true
+       // l0tr##<=l0TransientObjectRef## then 
+          l0tr[]->l0tror[];
+          l0tror->l1obj[]
+       // l0tr##<=l0TransientNoneRef## then 
+          NONE->l1obj[]
+       else
+          iterInternalFail
+      if)
+   #)
+
+-- ComputedObjectEvaluationGenGetObject:dopart --
+do
+   (# solution: (# exit 'Make "expr" deliver exactly one object reference' #);
+      subExitCplr: ^exitCompiler;
+      substran: ^staticTransient;
+      sortran: ^staticORefTransient
+   do 
+      (context[],world[],usageAst[])
+        ->Reference.getExitCompiler
+        ->subExitCplr[];
+      (subExitCplr[],program[],cInfo[])->generateExitOneValue
+      (# EmptyOutput::
+           (# do ('In "expr!", "expr" delivers nothing'
+              ,solution,usageAst[])->staticError
+           #);
+         MultipleOutputs::
+           (# do ('In "expr!", "expr" delivers more than one value'
+              ,solution,usageAst[])->staticError
+           #)
+      #)->substran[];
+      (if substran##=staticORefTransient## then
+          substran[]->sortran[];
+          (if sortran.sptype.kind
+           // objectRefTypeKind then
+              (if not noneAllowed then
+                  'ibetaTwoExp2body.bet/1279'
+                    ->(&checkNoneOrefCode[]).init
+                    ->program.append
+              if)
+           // objectTypeKind then
+              (* OK *)
+           else
+              'Unexpected output from computed object eval / GenGetObj'
+                ->internalError
+          if);
+          sortran.sptype[]->gensptype[]
+       else
+          (# msg: ^text
+          do 'Attempt to computed-evaluate via '->msg[];
+             (substran.typename).withIndefArticle->msg.puttext;
+             (msg[]
+             ,'Use an evaluation which delivers an object reference'
+             ,this(l2ComputedObjectEvaluation)[])->staticError
+          #)
+      if)
+   #)
+
+-- ComputedObjectEvaluationGenPutObject:dopart --
+do
+   (* probably used in things like "..->(&(# exit &p[] #)![]" 
+    * but we cannot assign to the attribute of a computed 
+    * object, it might now have any (and we would not know which
+    * one even if it has one: an object does not carry knowledge 
+    * about which attribute(s) it is referred by) *)
+   ('Attempt to ref-assign to a comp.obj.eval. ("..->x![]")'
+   ,'Use an object reference for reference assignment (eg "..->x[]")'
+   ,usageAst[])->staticError
+
+-- ComputedObjectEvaluationGenPutPattern:dopart --
+do
+   (* would be something like "..->(&(# exit p## #)!##" but that would
+    * have the same "cannot-find-the-attribute" problem as above *)
+   ('Attempt to pattern-ref-assign to a comp.obj.eval. ("..->x!##")'
+   ,'Use a pattern reference for reference assignment (eg "..->pvar##")'
+   ,usageAst[])->staticError
+   
+-- ComputedObjectEvaluationClosureExecute:dopart --
+do
+   (* we have to do local analysis to obtain static context *)
+   (# position: @runtimepath;
+      sContext: ^staticContext;
+      stsub: ^staticSubstance;
+      l0tr: ^l0Transient;
+      l0tror: ^l0TransientObjectRef;
+      source_obj,computed_obj: ^l1ObjectEntity
+   do 
+      (* prepare for local analysis *)
+      (NONE,NONE,scope.location)
+        ->position.init;
+      (position[],scope.world[],this(l2ComputedObjectEvaluation)[])
+        ->scope.getInitialContext
+        ->sContext[];
+      (sContext[],scope.world[],this(l2ComputedObjectEvaluation)[])
+        ->Reference.getStaticSubstance
+        ->stsub[];
+      
+      (* find the computed object via the reference .. *)
+      (thrd[],unwind##,dContext[],false)
+        ->Reference.obtainObject
+        ->source_obj[];
+      (thrd[],unwind##,(thrd[],unwind##,stsub[],scope.world[]
+      ,this(l2ComputedObjectEvaluation)[])->source_obj.getExitIter)
+        ->exitOneValue(# context::(# do 'ibetaTwoExp2body.bet/1202'->value[] #)#)
+        ->l0tr[];
+      
+      (* .. check that it was really an object .. *)
+      (if true
+       // l0tr##<=l0TransientObjectRef## then 
+          l0tr[]->l0tror[];
+          (if l0tror<>NONE then l0tror->computed_obj[] else 
+              (thrd[],unwind##)->iterORefFail
+          if);
+       // l0tr##<=l0TransientNoneRef## then 
+          (thrd[],unwind##)->iterNONEFail
+       else
+          iterInternalFail
+      if);
+      
+      (* .. and execute it *)
+      (thrd[],unwind##)->computed_obj.execute
+   #)
+
+-- ComputedObjectEvaluationGetEnterIter:dopart --
+do
+   (# local_ni: ^enterIterator;
+      local_xi: ^exitIterator;
+      source_obj,computed_obj: ^l1ObjectEntity
+   do
+      (* find the source object for the computed object *)
+      (thrd[],unwind##,dContext[],false)
+        ->Reference.obtainObject
+        ->source_obj[];
+      (thrd[],unwind##,stsub[],world[]
+      ,this(l2ComputedObjectEvaluation)[])
+        ->source_obj.getEnterExitIter
+        ->(local_ni[],local_xi[]);
+      
+      &enterIterator
+      (# 
+         prepare::(# do local_ni.prepare #);
+         more::(# do local_ni.more->value #);
+         cleanup::
+           (# l0tr: ^l0Transient;
+              l0tror: ^l0TransientObjectRef
+           do 
+              (* finish the delegatee *)
+              local_ni.cleanup;
+              
+              (* pull the computed object out of the source object *)
+              (thrd[],unwind##,local_xi[])->exitOneValue
+              (# context::(# do 'ibetaTwoExp2body.bet/1250'->value[] #)#)
+                ->l0tr[];
+              
+              (* .. check that it was really an object .. *)
+              (if true
+               // l0tr##<=l0TransientObjectRef## then 
+                  l0tr[]->l0tror[];
+                  (if l0tror<>NONE then l0tror->computed_obj[] else 
+                      (thrd[],unwind##)->iterOrefFail
+                  if)
+               // l0tr##<=l0TransientNoneRef## then 
+                  (thrd[],unwind##)->iterNONEFail
+               else
+                  iterInternalFail
+              if)
+           #)
+      do l0tr[]->local_ni
+      #)[]->ni[];
+      this(l2ComputedObjectEvaluation)[]->ni.usageAst[]
+   #)
+
+-- ComputedObjectEvaluationGetExitIter:dopart --
+do
+   (# ref_stsub: ^staticSubstance;
+      l0tr: ^l0Transient;
+      l0tror: ^l0TransientObjectRef;
+      source_obj,computed_obj: ^l1ObjectEntity
+   do
+      (* find the computed object via the reference .. *)
+      (thrd[],unwind##,dContext[],false)
+        ->Reference.obtainObject
+        ->source_obj[];
+      
+      (* obtain the static description of the 'Reference' *)
+      (stsub[],world[],this(l2ComputedObjectEvaluation)[])
+        ->Reference.getStaticSubstance
+        ->ref_stsub[];
+      
+      (* extract an exit iterator *)
+      (thrd[],unwind##,(thrd[],unwind##,ref_stsub[],world[]
+      ,this(l2ComputedObjectEvaluation)[])->source_obj.getExitIter)
+        ->exitOneValue(# context::(# do 'ibetaTwoExp2body.bet/1291'->value[] #)#)
+        ->l0tr[];
+      
+      (* .. check that it was really an object .. *)
+      (if true
+       // l0tr##<=l0TransientObjectRef## then 
+          l0tr[]->l0tror[];
+          (if l0tror<>NONE then l0tror->computed_obj[] else 
+              (thrd[],unwind##)->iterORefFail
+          if)
+       // l0tr##<=l0TransientNoneRef## then 
+          (thrd[],unwind##)->iterNONEFail
+       else 
+          iterInternalFail
+      if);
+      
+      (* create an auxiliary exit iterator using the 'computed_obj' *)
+      (stsub[],world[],this(l2ComputedObjectEvaluation)[])->getTranBase
+      (# 
+      do (thrd[],unwind##,computedOCP[],world[]
+         ,this(l2ComputedObjectEvaluation)[])
+           ->computed_obj.getExitIter
+           ->xi[]
+      #)
+   #)
+
+-- ComputedObjectEvaluationGetEnterExitIter:dopart --
+do
+   (# local_xi: ^exitIterator;
+      ref_stsub: ^staticSubstance;
+      source_obj: ^l1ObjectEntity
+   do
+      (* find the source object for the computed object *)
+      (thrd[],unwind##,dContext[],false)
+        ->Reference.obtainObject
+        ->source_obj[];
+      
+      (* obtain the static description of the 'Reference' *)
+      (stsub[],world[],this(l2ComputedObjectEvaluation)[])
+        ->Reference.getStaticSubstance
+        ->ref_stsub[];
+      
+      (* extract iterators *)
+      (thrd[],unwind##,ref_stsub[],world[]
+      ,this(l2ComputedObjectEvaluation)[])
+        ->source_obj.getEnterExitIter
+        ->(ni[],local_xi[]);
+      
+      &exitIterator
+      (# computed_xi: ^exitIterator;
+         l0tror: ^l0TransientObjectRef;
+         prepare::
+           (# computed_obj: ^l1ObjectEntity
+           do (* pull the computed object out of the source object *)
+              (thrd[],unwind##,local_xi[])->exitOneValue
+              (# context::(# do 'ibetaTwoExp2body.bet/1346'->value[] #)#)
+                ->l0tr[];
+              
+              (* .. check that it was really an object .. *)
+              (if true
+               // l0tr##<=l0TransientObjectRef## then 
+                  l0tr[]->l0tror[];
+                  (if l0tror<>NONE then l0tror->computed_obj[] else
+                      (thrd[],unwind##)->iterOrefFail
+                  if)
+               // l0tr##<=l0TransientNoneRef## then 
+                  (thrd[],unwind##)->iterNONEFail
+               else 
+                  iterInternalFail
+              if);
+              
+              (* obtain an exit iterator from the computed object *)
+              (stsub[],world[],this(l2ComputedObjectEvaluation)[])->getTranBase
+              (# 
+              do (thrd[],unwind##,computedOCP[],world[]
+                 ,this(l2ComputedObjectEvaluation)[])
+                   ->computed_obj.getExitIter
+                   ->computed_xi[]
+              #);
+              computed_xi.prepare
+           #);
+         more::(# do computed_xi.more->value #);
+         cleanup::(# do computed_xi.cleanup #)
+      do computed_xi->l0tr[]
+      #)[]->xi[]
+   #)
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

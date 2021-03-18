@@ -1,0 +1,20 @@
+Begin3
+Title:          gbeta
+Version:        0.9
+Entered-date:   01JUL01
+Description:    Bytecode compiler for the programming language gbeta;
+Description:    an object-oriented language which supports virtual attributes,
+Description:    general block structure, and dynamic and propagating 
+Description:    inheritance, while preserving statically checked type safety;
+Description:    gbeta is a generalized version of the language BETA.
+Keywords:	gbeta, programming language, object-oriented, bytecode, compiler
+Author:         eernst@cs.auc.dk -- Erik Ernst
+Maintained-by:  eernst@cs.auc.dk -- Erik Ernst
+Primary-site:   http://www.cs.auc.dk/~eernst/gbeta
+Primary-site:   2384K gbeta-0.9-i386-linux-elf-bin.tgz
+Primary-site:   1112K gbeta-0.9-src.tgz 
+Alternate-site: (None, yet)
+Platforms:	Linux/Intel, Solaris/SPARC, (may be compiled on others) 
+Copying-policy: GPL
+End
+

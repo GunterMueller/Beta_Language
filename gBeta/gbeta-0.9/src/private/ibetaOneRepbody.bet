@@ -1,0 +1,355 @@
+(* FILE "./private/ibetaOneRepbody.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: ibetaOneRepbody.bet,v 1.33 2001/07/01 21:44:11 eernst Exp $
+ *)
+
+ORIGIN 'ibetaOnebody';
+INCLUDE 'ibetaTwolib';
+INCLUDE 'ibetaOnelib'
+
+(************************************************************ 
+ *                                                          * 
+ *                    l1RepetitionEntity                    * 
+ *                                                          * 
+ ************************************************************)
+
+-- RepetitionEntityInit:dopart --
+do
+   (* set up entities for range/extend/new *)
+   private.init
+
+-- RepetitionEntityPrint:dopart --
+do
+   ' = ['->output;
+   (for i:(value.range-1) repeat
+        (if value[i][]<>NONE then
+            (dest[],indentation+indent_delta,true,NONE)
+              ->value[i].print
+         else
+            (* !! only nice as long as indent_delta is 3 *)
+            '\n   <uninitialized entry>'->output
+        if);
+        ','->output
+   for);
+   (if value.range > 0 then
+       (if value[value.range][]<>NONE then
+           (dest[],indentation+indent_delta,true,NONE)
+             ->value[value.range].print
+        else
+           (* !! only nice as long as indent_delta is 3 *)
+           '\n   <uninitialized entry>'->output
+       if)
+   if);
+   '\n]'->output
+
+-- RepetitionEntityPrintShort:dopart --
+do
+   '=['->output;
+   (for i:(value.range-1) repeat
+        (dest[],indentation+indent_delta,false)
+          ->value[i].printShort;
+        ','->output
+   for);
+   (if value.range > 0 then
+       (dest[],indentation+indent_delta,false)
+         ->value[value.range].printShort
+   if);
+   ']'->output
+
+-- RepetitionEntityPut:dopart --
+do
+   (if (inx>=1) and (inx<=value.range) then
+       val[]->value[inx][]
+    else
+       ('Index out of range'
+       ,thrd[],unwind##)->indexError
+   if)
+
+-- RepetitionEntityGet:dopart --
+do
+   (if (inx>=1) and (inx<=value.range) then
+       value[inx][]->val[]
+    else
+       ('Index out of range'
+       ,thrd[],unwind##)->indexError
+   if)
+
+-- RepetitionEntityExecute:dopart --
+do
+   (for i:value.range repeat
+        (thrd[],unwind##)->((thrd[],unwind##,i)->get).execute
+   for)
+
+-- RepetitionEntityGetEnterIter:dopart --
+do
+   &enterOnce
+   (# l0trrep: ^l0TransientRepetition;
+      strep: ^staticRepetition;
+      l1ent1,l1ent2: ^l1Entity;
+      l1obj: ^l1ObjectEntity;
+      l1oref: ^l1ObjectRefEntity;
+      l0tror: ^l0TransientObjectRef;
+      xi: ^exitIterator;
+      count: @integer
+   do 
+      (* static info about my entries are in strep.stocp *)
+      (if stsub##<=staticRepetition## then
+          stsub[]->strep[]
+       else
+          'Wrong static info for assigning to repetition'
+            ->internalError
+      if);
+      
+      (if true
+       // l0tr##<=l0TransientRepetition## then 
+          l0tr[]->l0trrep[];
+          (if true
+           // l0trrep.reference then 
+              (* reference semantics for exit and value sem.s for enter *)
+              (if l0trrep.low<=l0trrep.high then 
+                  
+                  (* set up artificial wrapper for transient values *)
+                  &l0TransientObjectRef[]->l0tror[];
+                  (* default anyway: NONE->usageAst[]; *)
+                  
+                  (* check that there are just enough receiving entries *)
+                  l0trrep.high-l0trrep.low+1->count;
+                  (thrd[],unwind##,count)->adjustLength;
+                  
+                  (* do entry-wise reference/value assignment *)
+                  (for i:count repeat
+                       (thrd[],unwind##,l0trrep.low-1+i)
+                         ->l0trrep.value.get
+                         ->l1ent1[];
+                       
+                       (* obtain source value *)
+                       (if true 
+                        // l1ent1##<=l1ObjectEntity## then
+                           l1ent1[]->l1obj[]
+                        // l1ent1##<=l1ObjectRefEntity## then 
+                           l1ent1[]->l1oref[];
+                           l1oref.value[]->l1obj[]
+                        else
+                           'Reference/value-assigning non-object in repetition'
+                             ->internalError
+                       if);
+                       l1obj[]->l0tror.value[];
+                       
+                       (* insert that value into the new repetition *)
+                       (thrd[],unwind##,i)->get->l1ent2[];
+                       (thrd[],unwind##,strep.stocp[]
+                       ,world[],usageAst[],execute)
+                         ->l1ent2.getEnterIter
+                         ->ni[];
+                       (thrd[],unwind##,ni[],l0tror[])->enterOneValue
+                       (#context::(# do 'ibetaOneRepbody.bet/179'->value[]#)#)
+                  for)
+               (* else: *)
+                  (* empty repeated value assignment: no action *)
+              if)
+              
+           else
+              (* dual value semantics repetition assignment *)
+              
+              (* allocate new repetition entries, if needed *)
+              l0trrep.high-l0trrep.low+1->count;
+              (thrd[],unwind##,count)->adjustLength;
+              
+              (* transfer values *)
+              (for i:count repeat
+                   (* entry-wise value transfer *)
+                   
+                   (thrd[],unwind##,l0trrep.low-1+i)
+                     ->l0trrep.value.get
+                     ->l1ent1[];
+                   (thrd[],unwind##,l0trrep.stocp[]
+                   ,l0trrep.world[],l0trrep.usageAst[])
+                     ->l1ent1.getExitIter
+                     ->xi[];
+                   (thrd[],unwind##,i)->get->l1ent2[];
+                   (thrd[],unwind##,strep.stocp[]
+                   ,world[],usageAst[],execute)
+                     ->l1ent2.getEnterIter
+                     ->ni[];
+                   (thrd[],unwind##,xi[],ni[])->transientTransfer
+                   (# context::(# do 'ibetaOneRepbody.bet/215'->value[] #)#)
+              for)
+          if)
+          
+       // l0tr##<=l0TransientString## then
+          (* unless we allow one-to-many assignments, this can only
+           * be char-by-char dual value assignment into this rep; 
+           * !!! if we allow one-to-many-assignments it could also be
+           * interpreted as a single string being assigned into all
+           * entries in this repetition *)
+          (# l0trs: ^l0TransientString;
+             l0trc: @l0TransientChar
+          do l0tr[]->l0trs[];
+             
+             (* check that there are enough receiving entries *)
+             l0trs.value.length->count;
+             (thrd[],unwind##,count)->adjustLength;
+             
+             (* do entry-wise value/value assignment *)
+             (for i:count repeat
+                  (* obtain the source value *)
+                  i->l0trs.value.inxget->l0trc;
+                  
+                  (* insert that value into the new repetition *)
+                  (thrd[],unwind##,i)->get->l1ent2[];
+                  (thrd[],unwind##,strep.stocp[]
+                  ,world[],usageAst[],execute)
+                    ->l1ent2.getEnterIter
+                    ->ni[];
+                  (thrd[],unwind##,ni[],l0trc[])->enterOneValue
+                  (# context::(# do 'ibetaOneRepbody.bet/251'->value[]#)#)
+             for)
+          #)
+          
+       else
+          (* one-to-many assignments *)
+          'ibetaOneRepbody.bet/256'->notyet; (* !!! *)
+      if)
+   #)[]->ni[]
+
+-- RepetitionEntityGetExitIter:dopart --
+do
+   &exitOnce
+   (# l0trrep: ^l0TransientRepetition;
+      strep: ^staticRepetition;
+      prepare::
+        (# 
+        do &l0TransientRepetition[]->l0trrep[];
+           (* default anyway: NONE->l0tr.usageAst[]; *)
+           this(l1RepetitionEntity)[]->l0trrep.value[];
+           1->l0trrep.low;
+           value.range->l0trrep.high;
+           (* default anyway: false->l0trrep.reference; *)
+           
+           (* save info needed to transfer values at the receiving end *)
+           (if stsub##<=staticRepetition## then 
+               stsub[]->strep[];
+               strep.stocp[]->l0trrep.stocp[]
+            else
+               'Found non-OCPs in repetition entry static info'
+                 ->internalError
+           if);
+           world[]->l0trrep.world[];
+           usageAst[]->l0trrep.usageAst[]
+        #)
+   do l0trrep[]->l0tr[]
+   #)[]->xi[]
+
+-- DelegateEntityPrint:dopart --
+do
+   ' --> '->output;
+   (if target.context<>NONE then 
+       (dest[],indentation,false)->(target.context).printShort
+    else 
+       '<no-context>'->output
+   if);
+   ', '->output;
+   (if target[]<>NONE then
+       (dest[],indentation,false)->target.from.print
+    else
+       '<nothing>'->output
+   if)
+
+-- DelegateEntityPrintShort:dopart --
+do
+   '-->'->output;
+   (if target.context<>NONE then 
+       (dest[],indentation,false)->(target.context).printShort
+    else 
+       '<no-context>'->output
+   if)
+
+-- DelegateEntityExecute:dopart --
+do
+   'Trying to execute a delegating entity'
+     ->internalError
+
+-- DelegateEntityGetEnterIter:dopart --
+do
+   'Trying to assign to a delegating entity'
+     ->internalError
+
+-- DelegateEntityGetExitIter:dopart --
+do
+   'Trying to evaluate a delegating entity'
+     ->internalError
+
+-- PrimitiveValueEntityPrint:dopart --
+do
+   ' = '->output;
+   INNER
+
+-- PrimitiveValueEntityPrintShort:dopart --
+do
+   '='->output;
+   INNER
+
+-- BooleanSourceEntityPrint:dopart --
+do
+   value->outputBoolean
+
+-- BooleanSourceEntityPrintShort:dopart --
+do
+   value->outputBooleanShort
+
+-- BooleanSourceEntityGetEnterIter:dopart --
+do
+   'Trying to assign to a boolean source'
+     ->internalError
+
+-- BooleanSourceEntityGetExitIter:dopart --
+do
+   &exitOnce
+   (# l0trb: ^l0TransientBoolean
+   do &l0TransientBoolean[]->l0trb[]->l0tr[];
+      NONE->l0tr.usageAst[];
+      this(l1BooleanSourceEntity).value->l0trb
+   #)[]->xi[]
+
+-- BooleanSourceEntityGetEnterExitIter:dopart --
+do
+   'Trying to assign-then-evaluate a boolean source'
+     ->internalError
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)

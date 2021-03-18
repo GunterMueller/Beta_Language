@@ -1,0 +1,99 @@
+ORIGIN 'systemjob';
+INCLUDE '~beta/containers/current/list';
+BUILD default 'systemjobintf.o' 'systemjobintf.c' '$CC -c $1 -o $0';
+MDBODY default 'systemjobmjolnerunix';
+--- SystemJobPrivate: ObjectDescriptor ---
+(#
+   cmd: ^text;
+   args: [0] ^text;
+   cd: ^text;
+   fds: ^fdlist;
+
+   triple:
+     (# fd: @integer; write: @boolean;; s: ^file
+     enter (s[],fd,write)
+     do
+	(if fds[]=NONE then &fdlist[]->fds[]; fds.init if);
+	this(triple)[]->fds.append;
+     #);
+   fdlist: list
+     (#
+	element:: triple;
+	set: @scan (# <<SLOT SystemJobPrivateFdListSet: DoPart>> #);
+	closeFd: @scan (# <<SLOT SystemJobPrivateFdListClose: DoPart>> #);
+     #);
+   handle: @integer;
+#)
+
+
+--- SystemJobInit: DoPart ---
+do
+   NONE->private.cmd[];
+   0->private.args.new;
+   NONE->private.fds[];
+   NONE->private.cd[];
+   0->private.handle;
+
+
+--- SystemJobExecutable: DoPart ---
+do t[]->private.cmd[]
+
+
+--- SystemJobArg: DoPart ---
+do 1->private.args.extend; t[]->private.args[private.args.range][];
+
+
+--- SystemJobArgs: DoPart ---
+do
+   t.range->p;
+   private.args.range->q;
+   p->private.args.extend;
+   l: (if p>0 then t[p][]->private.args[p+q][]; p-1->p; restart l if);
+
+
+--- SystemJobCD: DoPart ---
+do t[]->private.cd[]
+
+
+--- SystemJobStream: DoPart ---
+do (s[],fd,isOutput)->&private.triple;
+
+
+--- SystemJobRun: DoPart ---
+do
+   (if private.fds[]<>NONE then
+      (private.args.range+1,private.fds.size)->systemjobstart->p;
+      p->private.handle;
+      private.fds.set;
+   else
+      (private.args.range+1,0)->systemjobstart->p;
+      p->private.handle;
+   if);
+   (p,-1,private.cmd)->systemjobsetarg;
+   1->q;
+   l: (if q<=private.args.range then
+      (p,q,private.args[q])->systemjobsetarg; q+1->q; restart l;
+   if);
+   (if private.cd[]<>NONE then (p,private.cd)->systemjobsetdir if);
+   (if searchPATH then
+      (p,1)->systemjobrunit->pid;
+   else
+      (p,0)->systemjobrunit->pid;
+   if);
+   (if private.fds[]<>NONE then private.fds.closeFd if);
+   (if pid>0 then
+      pid->systemjobwait->status;
+   else
+      -1->status;
+   if);
+   p->systemjobend;
+
+
+--- SystemJobLib: Attributes ---
+systemjobstart: external
+  (# nargs,nfd,handle: @integer enter (nargs,nfd) exit handle #);
+systemjobsetarg: external (# h,n: @integer; arg: [1] @char enter (h,n,arg) #);
+systemjobsetdir: external (# h: @integer; dir: [1] @char enter (h,dir) #);
+systemjobrunit: external (# h,search,pid:@integer enter (h,search) exit pid #);
+systemjobwait: external (# handle,result: @integer enter handle exit result #);
+systemjobend: external (# handle: @integer enter handle #);

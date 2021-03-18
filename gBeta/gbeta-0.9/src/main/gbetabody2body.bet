@@ -1,0 +1,1128 @@
+(* FILE "./main/gbetabody2body.bet"
+ *
+ * Copyright (C) 1997-2001 Erik Ernst
+ *
+ * This file is part of "gbeta" -- a generalized version of the
+ * programming language BETA.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is destributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Among other things, the copyright notice and this notice must be
+ * preserved on all copies.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program, probably in a file named COPYING; if not,
+ * write to the Free Software Foundation, Inc., 675 Mass Ave,
+ * Cambridge, MA 02139, USA.
+ *
+ * To contact the author by email: eernst@cs.auc.dk
+ *
+ * To contact the author by snail-mail:
+ *    Erik Ernst
+ *    Department of Computer Science
+ *    University of Aalborg
+ *    DK-9220 Aalborg OE
+ *    Denmark
+ *
+ * $Id: gbetabody2body.bet,v 1.31 2001/07/02 01:39:29 eernst Exp $
+ *)
+
+ORIGIN 'gbetabody'
+
+-- GbetaSetupInteractionCallback:dopart --
+do
+   (# curImp: ^l2Imp;
+      myThreadId: @integer;
+      setVis:
+        (#
+        do (if curImp[]<>NONE then 
+               curImp[]->(&nodeVis[]).init->setAttributeVisualizer
+           if)
+        #);
+      rcb: executionCallback
+        (# checkBreak: @
+             (# 
+             do breakpoints.iterate
+                (# hit: @booleanValue
+                     (# 
+                     do false->value;
+                        (if current.elm.l2ast[]=curImp[] then 
+                            (before=current.elm.before)->value
+                         else
+                            false->value
+                        if)
+                     #)
+                do (if hit then 
+                       true->single_stepping;
+                       (if current.elm.once then 
+                           current[]->breakPoints.delete
+                       if)
+                   if)
+                #)
+             exit single_stepping
+             #);
+           goInHere: @booleanValue
+             (# l2ast: ^l2AstNode;
+                l2mpar: ^l2MainPart
+             do false->value;
+                curImp.scope.location->l2ast[];
+                L: (if (l2ast[]<>NONE) and (l2ast##<=l2MainPart##) then
+                       l2ast[]->l2mpar[];
+                       (if l2mpar.private.go_in_here then 
+                           true->value; leave L
+                       if)
+                    else
+                       (if l2ast[]<>NONE then
+                           (* not a main part, but still more enclosing nodes *)
+                           l2ast.scope.location->l2ast[];
+                           restart L
+                       if)
+                   if);
+             #);
+        do thrd.private.currentImp[]->curImp[];
+           (if kill_execution then (thrd[],unwind##)->killThisThread if);
+           L: (if single_stepping then 
+                  (if not goInHere then
+                      (if before then 
+                          setVis;
+                          (if verboseOutput then 
+                              (* in terminal context *)
+                              (if curImp[]<>NONE then 
+                                  (NONE,curImp.getContext)->display 
+                              if)
+                           else
+                              (* in Emacs context *)
+                              (NONE,curImp[])->displayPos
+                          if);
+                          (thrd[],unwind##
+                          ,this(interpreterBase).private.primaryDescriptor[])
+                            ->executeCommand;
+                          setVis
+                          (* else: "after" is ignored when single stepping *)
+                      if)
+                  if)
+               else
+                  (* running, check for breakpoints *)
+                  (if curImp[]<>NONE then 
+                      (if checkBreak then restart L if)
+                   (* else: !! an error? how could 'curImp' be NONE here? *)
+                  if)
+              if)
+        #);
+      scb: booleanValue
+        (# do false->kill_execution;
+           NONE->setAttributeVisualizer;
+           this(interpreterBase).private.primaryDescriptor[]
+             ->executeCommandStopped->value 
+        #)
+   do 
+      &rcb[]->primaryRunCallback[];
+      &scb[]->primaryStoppedCallback[]
+   #)
+
+-- GbetaSetupCommands:dopart --
+do
+   (* Interpreter commands have the highest priority, put them first *)
+   
+   &command
+   (# name::(# do 'help'->value[] #);
+      executeStopped::(# do t[]->doHelp #);
+      executeRunning::(# do t[]->doHelp #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'help [<command>]'->value[] #);      
+      shortHelp::(# do 'Give some help; try e.g. "help help"'->value[] #);
+      help::
+        (# do 'Print the name of the program being interpreted'->value[];
+           '\nand a short description of available commands;'->value.puttext;
+           '\nwith a <command> name, print a short description'->value.puttext;
+           '\nof that command.  In general, commands can be'->value.puttext;
+           '\nabbreviated; you may use "help" to determine'->value.puttext;
+           '\nwhat command is selected by an abbreviation:'->value.puttext;
+           '\n"help he" tells that "he" means "help" and'->value.puttext;
+           '\ngives the description of the "help" command.'->value.puttext
+        #);
+      doHelp:
+        (# t,msg: ^text
+        enter t[]
+        do t.removeLeadingWhiteSpace;
+           (if t.empty then
+               '\nMain fragment group: "'->msg[];
+               betaGroupName[]->msg.puttext;
+               '"'->msg.puttext;
+               msg[]->this(interp).help
+            else
+               L: (# 
+                  do commands.scan
+                     (#
+                     do (if current.name->t.eatWordIfMatch then
+                            'Syntax: '->puttext;
+                            current.syntax->putline; 
+                            (screen[],indent_delta,true)->printbase
+                            (# do current.help->output #);
+                            leave L
+                        if)
+                     #);
+                     (* no command names matched *)
+                     'No command matches "'->puttext;
+                     t[]->puttext;
+                     '".  Try "help" to see available commands'->putline
+                  #)
+           if)
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'display'->value[] #);
+      executeStopped::(# do (root[],t[],root[])->doit #);
+      executeRunning::(# do (root[],t[],thrd.private.currentImp[])->doit #);
+      setsLastCommand::(# do false->value #);
+      syntax::
+        (# do 'display [[context] [<group>:]<charpos>[-<charpos>]]'->value[] #);
+      shortHelp::(# do 'Display source code'->value[] #);
+      help::
+        (#
+        do (if verboseOutput then
+               (* outside Emacs *)
+               '[Running in a console]:'->value[];
+               '\nDisplay a pretty-printing of the source code'->value.puttext;
+               '\nbeing executed using current adornments'->value.puttext;
+               '\nsuch as coloring the current imperative; with'->value.puttext;
+               '\none or two numeric arguments, prettyprint'->value.puttext;
+               '\nthe source code of the AST node whose syntax'->value.puttext;
+               '\nmost closely surrounds the given <charpos>'->value.puttext;
+               '\n(or <charpos> range); if <group> is given,'->value.puttext;
+               '\nthe AST node is searched in the fragment'->value.puttext;
+               '\ngroup <group>; if the modifier "context" is'->value.puttext;
+               '\npresent, the syntax that encloses that AST'->value.puttext;
+               '\nnode is shown'->value.puttext
+            else
+               (* running under Emacs *)
+               '[Running under Emacs]:'->value[];
+               '\nDisplay and highlight the source code being'->value.puttext;
+               '\nexecuted, in the source code window (usually'->value.puttext;
+               '\nthe other half of the current frame); with'->value.puttext;
+               '\none or two numeric arguments, display the'->value.puttext;
+               '\nsource code of the AST node whose syntax'->value.puttext;
+               '\nmost closely surrounds the given <charpos>'->value.puttext;
+               '\n(or <charpos> range); this AST node is'->value.puttext;
+               '\nsearched in the current fragment group or,'->value.puttext;
+               '\nif specified, in the fragment group <group>;'->value.puttext; 
+               '\nthe "context" modifier has no effect in'->value.puttext;
+               '\nEmacs-mode'->value.puttext
+           if)
+        #);
+      doit:
+        (# show:
+             (# l2ast: ^l2AstNode
+             enter l2ast[]
+             do (if verboseOutput then
+                    (* in console environment *)
+                    (if print_context then
+                        (NONE,0,true,verboseOutput(*=true*))
+                          ->l2ast.printWithContextBase
+                        (# title::(# do 'DISPLAYED'->value[] #)#)
+                     else
+                        (NONE,l2ast[])->display
+                    if)
+                 else
+                    (* environment is Emacs, use it *)
+                    (NONE,l2ast[])->displaypos
+                if)
+             #);
+           root: ^l2AstNode;
+           t: ^text;
+           defaultAst: ^l2AstNode;
+           print_context: @boolean
+        enter (root[],t[],defaultAst[])
+        do t.removeLeadingWhiteSpace;
+           (if t.empty then
+               (if defaultAst[]<>NONE then
+                   defaultAst[]->show
+                else
+                   root[]->show
+               if)
+            else
+               'context'->t.eatWordIfMatch->print_context;
+               (if defaultAst[]=NONE then
+                   root[]->defaultAst[]
+               if);
+               t.removeLeadingWhiteSpace;
+               (if t.empty then 
+                   defaultAst[]->show
+                else
+                   L: (root[],t[],defaultAst[])->getFromNode
+                   (# notFound::(# do leave L #) do l2ast[]->show #)
+               if)
+           if)
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'declaration'->value[] #);
+      executeStopped::(# do (root[],t[],root[])->doit #);
+      executeRunning::(# do (root[],t[],thrd.private.currentImp[])->doit #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'declaration [<group>:]<charpos>'->value[] #);
+      shortHelp::(# do 'Display the declaration of a name'->value[] #);
+      help::
+        (# do '\nDisplay the source code for the declaration'->value[];
+           '\nof the name application at character position'->value.puttext;
+           '\n<charpos> in the current fragment group or,'->value.puttext;
+           '\nif specified, in the fragment group <group>.'->value.puttext
+        #);
+      doit:
+        (# show:
+             (# l2napl: ^l2NameApl
+             enter l2napl[]
+             do (if verboseOutput then 
+                    (* console environment *)
+                    (NONE,0,true,true)
+                      ->l2napl.decl.printWithContextBase
+                    (# title::(# do 'DECL'->value[] #)#)
+                 else
+                    (* environment is Emacs, use it *)
+                    (NONE,l2napl.decl[])->displaypos
+                if)
+             #);
+           showDcl:
+             (# l2ndcl: ^l2NameDcl
+             enter l2ndcl[]
+             do (if l2ndcl.decl.kind=vdeclDeclKind then
+                    (# l2ast: ^l2AstNode;
+                       l2vdcl: ^l2VDecl;
+                       l2mpar: ^l2MainPart;
+                       context: ^staticContext;
+                       stocp: ^staticOCP;
+                       vchain: ^virtualChain
+                    do l2ndcl.decl.location->l2ast[];
+                       (if l2ast##<=l2VDecl## then
+                           l2ast[]->l2vdcl[];
+                           (l2vdcl.getVirtualDecl).getTheNameDcl->l2ndcl[];
+                           l2vdcl.scope.location->l2ast[];
+                           (if l2ast##<=l2MainPart## then
+                               l2ast[]->l2mpar[];
+                               l2mpar.localStaticContext->context[];
+                               (if context##<=staticOCP## then 
+                                   context[]->stocp[];
+                                   stocp.sptype[]
+                                     ->l2vdcl.gatherVirtualChain
+                                     ->vchain[];
+                                   (if not vchain.empty then
+                                       (vchain.head).elm[]->l2vdcl[];
+                                    else
+                                       'Virtual declaration has empty chain'
+                                         ->internalError;
+                                   if);
+                                   (l2vdcl.getVirtualDecl).getTheNameDcl
+                                     ->l2ndcl[]
+                                else
+                                   'VDecl seems to live in non-object'
+                                     ->internalError
+                               if)
+                            else
+                               'VDecl found in non-mainpart'
+                                 ->internalError
+                           if);
+                        else
+                           fail
+                       if)
+                    #)
+                if);
+                (if verboseOutput then 
+                    (* console environment *)
+                    (NONE,0,true,true)
+                      ->l2ndcl.printWithContextBase
+                    (# title::(# do 'DECL'->value[] #)#)
+                 else
+                    (* Emacs environment *)
+                    (NONE,l2ndcl[])->displaypos
+                if)
+             #);
+           fail: (# do '\nCound not find a name application'->putline #);
+           root: ^l2AstNode;
+           t: ^text;
+           defaultAst: ^l2AstNode
+        enter (root[],t[],defaultAst[])
+        do t.removeLeadingWhiteSpace;
+           (if t.empty then 
+               (if defaultAst[]<>NONE then
+                   (if true
+                    // defaultAst##<=l2NameApl## then defaultAst[]->show
+                    // defaultAst##<=l2NameDcl## then defaultAst[]->showDcl
+                    else fail 
+                   if)
+                else
+                   (if true
+                    // root##<=l2NameApl## then root[]->show
+                    // root##<=l2NameDcl## then root[]->showDcl
+                    else fail
+                   if)
+               if)
+            else
+               L: (root[],t[],defaultAst[])->findPosition
+               (# l2napl: ^l2NameApl;
+                  l2ndcl: ^l2NameDcl
+               do (if true
+                   // current##<=l2NameApl## then current[]->show; leave L
+                   // current##<=l2NameDcl## then current[]->showDcl; leave L
+                  if)
+               #)
+           if)
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'quit'->value[] #);
+      executeStopped::(# do '\nQuitting.'->putline; true->done->die #);
+      executeRunning::
+        (# answer: ^text
+        do '\nStill executing.  Do you really want to quit?'->putline;
+           '[yes/No]: '->obtainLine->answer[];
+           (if (answer[]<>NONE) and (answer.length>0) then
+               (if 1->answer.inxget // 'y' // 'Y' then
+                   (normal,'')->stop
+               if)
+           if)
+        #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'quit'->value[] #);
+      shortHelp::(# do 'Quit the interpreter'->value[] #);
+      help::
+        (# do 'When terminated, quit the interpreter; when'->value[];
+           '\nexecuting, ask for confirmation first.'->value.puttext 
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'kill'->value[] #);
+      executeStopped::cannotExecute;
+      executeRunning::
+        (# 
+        do (if 'all'->t.eatWordIfMatch then true->kill_execution if);
+           (thrd[],unwind##)->killThisThread
+        #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'kill [all]'->value[] #);
+      shortHelp::(# do 'Kill this thread'->value[] #);
+      help::
+        (# do 'When executing, kill the current thread; with'->value[];
+           '\n"all", kill all currently running threads, thus'->value.puttext;
+           '\nbringing the program to a terminated state.'->value.puttext
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'run'->value[] #);
+      executeStopped:: 
+        (# do '\nRunning.'->putline; false->single_stepping; true->done #);
+      executeRunning::cannotExecuteR;
+      setsLastCommand::(# do true->value #);
+      syntax::(# do 'run'->value[] #);
+      shortHelp::(# do 'Run the program'->value[] #);
+      help::
+        (# do 'When terminated, start running the program'->value[];
+           '\nin running (not single-step) mode.'->value.puttext
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'restart'->value[] #);
+      executeStopped:: 
+        (# do '\nRestarting.'->putline; true->single_stepping; true->done #);
+      executeRunning::cannotExecuteR;
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'restart'->value[] #);
+      shortHelp::(# do 'Restart the interpretation'->value[] #);
+      help::
+        (# do 'When terminated, start running the program'->value[];
+           '\nin single-step mode.'->value.puttext
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'step'->value[] #);
+      executeStopped::(# do true->single_stepping->done #);
+      executeRunning::(# do true->single_stepping->done #);
+      setsLastCommand::(# do true->value #);
+      syntax::(# do 'step'->value[] #);
+      shortHelp::(# do 'Execute one step'->value[] #);
+      help::
+        (# do 'When executing, continue the execution until'->value[];
+           '\nan imperative boundary is encountered; for a'->value.puttext;
+           '\nsingle-threaded program this means "take one'->value.puttext;
+           '\nstep"; for a multi-threaded program we may stop'->value.puttext;
+           '\nat the interactive prompt in another thread;'->value.puttext;
+           '\nwhen terminated, start the program in single'->value.puttext;
+           '\nstepping mode.'->value.puttext
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'go'->value[] #);
+      executeStopped::(# do false->single_stepping; true->done; false->die #);
+      executeRunning::(# do false->single_stepping; true->done #);
+      setsLastCommand::(# do true->value #);
+      syntax::(# do 'go'->value[] #);
+      shortHelp::(# do '"Go" on without single stepping'->value[] #);
+      help::
+        (# do 'When executing, continue the execution of '->value[];
+           '\nthe program; do not stop unless a breakpoint or'->value.puttext;
+           '\na run-time error occurs; when terminated,'->value.puttext;
+           '\nrestart the program and "go".'->value.puttext
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'next'->value[] #);
+      executeStopped::cannotExecute;
+      executeRunning::
+        (# do false->single_stepping;
+           (thrd.private.currentImp[],false,true)->breakpoints.add;
+           true->done
+        #);
+      setsLastCommand::(# do true->value #);
+      syntax::(# do 'next'->value[] #);
+      shortHelp::(# do 'Execute the next imperative'->value[] #);
+      help::
+        (# do 'Execute until the end of the next imperative'->value[];
+           '\nis reached; for a single-threaded program'->value.puttext;
+           '\nthis means executing the entire imperative'->value.puttext;
+           '\nin one go even if it entails other imperatives;'->value.puttext;
+           '\nin a multi-threaded program all threads may'->value.puttext;
+           '\nexecute arbitrarily many imperatives until some'->value.puttext;
+           '\nthread reaches the end of the next imperative.'->value.puttext
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'finish'->value[] #);
+      executeStopped::cannotExecute;
+      executeRunning::
+        (# l2ast: ^l2AstNode;
+           l2mpar: ^l2Mainpart;
+           l2nfor: ^l2NamedForImp;
+           levels: @integer;
+           doit:
+             (#   
+             do thrd.private.currentImp[]->l2ast[];
+                L: (if l2ast[]<>NONE then 
+                       (if true
+                        // l2ast##<=l2Mainpart## then 
+                           (if levels>1 then 
+                               l2ast.scope.location->l2ast[]; 
+                               levels-1->levels; 
+                               restart L 
+                           if);
+                           l2ast[]->l2mpar[];
+                           (if not l2mpar.doPartOpt.empty then 
+                               false->single_stepping;
+                               ((l2mpar.doPartOpt.last).elm[],false,true)
+                                 ->breakpoints.add; 
+                               true->done
+                            else
+                               (* No imps?! BUG, but be friendly and continue *)
+                               true->single_stepping->done;
+                           if)
+                        // l2ast##<=l2NamedForImp## then 
+                           (if levels>1 then
+                               l2ast.scope.location->l2ast[]; 
+                               levels-1->levels; 
+                               restart L 
+                           if);
+                           l2ast[]->l2nfor[];
+                           (if not l2nfor.Imperatives.empty then 
+                               false->single_stepping;
+                               ((l2nfor.Imperatives.last).elm[],false,true)
+                                 ->breakpoints.add; 
+                               true->done
+                            else
+                               (* No imps?! BUG, but.. *)
+                               true->single_stepping->done
+                           if)
+                        else
+                           (* no contexts here, look at next block-level *)
+                           l2ast.scope.location->l2ast[];
+                           restart L
+                       if)
+                    else
+                       (* Bug? At the very beginning? Be friendly *)
+                       'Cannot "finish": there is no current imperative'
+                         ->putline
+                   if)
+             #);
+           help: 
+             (# msg: ^text
+             enter msg[]
+             do 'Could not perform "finish" command: expected '->puttext;
+                msg[]->puttext
+             #)
+        do t.removeLeadingWhiteSpace;
+           L: (if t.empty then 
+                  1->levels;
+                  doit
+               else
+                  0->t.eatInteger
+                  (# failed::(# do 'an integer'->help; leave L #)#)->levels;
+                  (if (levels<1) then 
+                      'a positive integer'->help;
+                      leave L
+                   else
+                      doit
+                  if)
+              if)
+        #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'finish [number]'->value[] #);
+      shortHelp::(# do 'Execute until end of enclosing entity'->value[] #);
+      help::
+        (# do 'Execute until the end of the object slice or'->value[];
+           '\nthe for-statement enclosing the current'->value.puttext;
+           '\nimperative.  Note that this only finishes "one'->value.puttext;
+           '\nround" of the execution of the for-statement;'->value.puttext;
+           '\nto run until all iterations of the for-statement'->value.puttext;
+           '\nare complete, put a breakpoint after it.'->value.puttext;
+           '\nWith the optional number, finish the'->value.puttext;
+           '\nenclosing block that many levels out'->value.puttext;
+           '\nin the block structure.'->value.puttext;
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'print'->value[] #);
+      executeStopped::cannotExecute;
+      executeRunning::(# do (thrd[],t[])->lookupAndPrintAden #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'print <AttributeDenotation>'->value[] #);
+      shortHelp::(# do 'Print an entity'->value[] #);
+      help::
+        (# do 'Look up a run-time entity and print it.  When'->value[];
+           '\nexecuting, the search starts from the current'->value.puttext;
+           '\nimperative in the context of the current thread;'->value.puttext;
+           '\nwhen terminated, the search starts from the'->value.puttext;
+           '\nfirst imperative of the outermost descriptor in'->value.puttext;
+           '\nthe context of the primary thread of execution.'->value.puttext
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'info'->value[] #);
+      executeStopped::cannotExecute;
+      executeRunning::(# do (thrd[],t[])->lookupAndPrintAdenStatic #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'info <AttributeDenotation>'->value[] #);
+      shortHelp::(# do 'Print static information'->value[] #);
+      help::
+        (# do 'Look up a run-time entity and print information'->value[];
+           '\nabout it which originates from static analysis;'->value.puttext;
+           '\nthe lookup process is the same as with "print".'->value.puttext
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'evalinfo'->value[] #);
+      executeStopped::cannotExecute;
+      executeRunning::(# do (thrd[],t[])->lookupAndPrintAdenStaticEval #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'evalinfo <Expression>'->value[] #);
+      shortHelp::(# do 'Print expression type for evaluation'->value[] #);
+      help::
+        (# do 'Investigate an expression and print information'->value[];
+           '\nfrom static analysis about the value obtained'->value.puttext;
+           '\nby an evaluation of the expression; the lookup'->value.puttext;
+           '\nprocess is the same as with "print".'->value.puttext
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'assigninfo'->value[] #);
+      executeStopped::cannotExecute;
+      executeRunning::(# do (thrd[],t[])->lookupAndPrintAdenStaticAssign #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'assigninfo <Expression>'->value[] #);
+      shortHelp::(# do 'Print expression type for assignment'->value[] #);
+      help::
+        (# do 'Investigate an expression and print information'->value[];
+           '\nfrom static analysis about the value accepted'->value.puttext;
+           '\nwhen assigning to the expression; the lookup'->value.puttext;
+           '\nprocess is the same as with "print".'->value.puttext
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'primaryobject'->value[] #);
+      executeStopped::(# do doit #);
+      executeRunning::(# do doit #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'primaryobject'->value[] #);
+      shortHelp::(# do 'Print the primary object'->value[] #);
+      help::
+        (# do 'Print the primary object for this interpretation;'->value[];
+           '\nto execute a BETA program means to create and'->value.puttext;
+           '\nexecute an instance of the outermost descriptor,'->value.puttext;
+           '\nand this is the primary object.'->value.puttext
+        #);
+      doit: 
+        (# do '\n---------- PRIMARY OBJECT ----------'->puttext;
+           (screen[],3,true,NONE)
+             ->this(interpreterBase).private.primaryObject.print;
+           '\n----------- END -----------'->putline
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'stack'->value[] #);
+      executeStopped::cannotExecute;
+      executeRunning::
+        (# do '\n---------- STACK ----------'->puttext;
+           thrd.stackScan(# do (screen[],3,true)->current.print #);
+           '\n----------- END -----------'->putline 
+        #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'stack'->value[] #);
+      shortHelp::(# do 'Print the stack'->value[] #);
+      help::
+        (# do 'Print a backtracing of the execution stack in'->value[];
+           '\nthe current thread.'->value.puttext
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'topofstack'->value[] #);
+      executeStopped::cannotExecute;
+      executeRunning::
+        (# do '\n---------- TOP-OF-STACK ----------'->puttext;
+           (if thrd.stackEmpty then
+               '\n(empty stack)'->puttext;
+            else
+               (screen[],3,true)->(thrd.stackTop).print;
+           if);
+           '\n----------- END -----------'->putline
+        #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'topofstack'->value[] #);
+      shortHelp::(# do 'Print the top of the stack'->value[] #);
+      help::
+        (# do 'Print the topmost object on the execution stack'->value[];
+           '\nof the current thread of execution.'->value.puttext
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'currentslice'->value[] #);
+      executeStopped::cannotExecute;
+      executeRunning::
+        (# curSlice: ^substanceSlice
+        do '\n---------- CURRENT-OBJECT-SLICE ----------'->puttext;
+           (if thrd.private.currentImp[]<>NONE then 
+               (if thrd.stackEmpty then
+                   (* select the primary slice a "default" run-time context *)
+                   this(interpreterBase).private
+                   .primaryObject.private.slices.first
+                     ->curSlice[]
+                else
+                   thrd.private.currentImp.scope.location
+                     ->thrd.findSlice
+                     ->curSlice[];
+                   (if curSlice[]<>NONE then
+                       (screen[],3,true)->curSlice.print
+                    else
+                       (* this would certainly be a bug, but keep running *)
+                       'Sorry, could not find the current slice'->putline;
+                       newline
+                   if)
+               if)
+            else
+               'There is no current imperative, '->puttext;
+               'hence no current slice to show'->putline;
+               newline
+           if);
+           '\n----------- END -----------'->putline
+        #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'currentslice'->value[] #);
+      shortHelp::(# do 'Print current object slice'->value[] #);
+      help::
+        (# do 'Whenever an imperative is being executed'->value[];
+           '\nit happens in the context of an object, and'->value.puttext;
+           '\nwithin the object it happens in the context of'->value.puttext;
+           '\none particular object slice; this slice is'->value.puttext;
+           '\nassociated with the syntax which encloses'->value.puttext;
+           '\nthe current imperative; print that slice.'->value.puttext
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'break'->value[] #);
+      executeStopped::(# do (root[],t[],NONE)->setBreakPoint #);
+      executeRunning::
+        (# do (root[],t[],thrd.private.currentImp[])->setBreakPoint #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'break [[<group>:]<charpos>]'->value[] #);
+      shortHelp::(# do 'Set a breakpoint'->value[] #);
+      help::
+        (# do 'Set a breakpoint at the imperative (i.e. statement)'->value[];
+           '\nin the fragment group <group> containing the'->value.puttext;
+           '\ncharacter at position <charpos> of the source'->value.puttext;
+           '\ncode file.  If no fragment group is specified,'->value.puttext;
+           '\nuse the fragment group containing the current'->value.puttext;
+           '\nimperative; if no character position is given,'->value.puttext;
+           '\nuse the current imperative.'->value.puttext
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'abreak'->value[] #);
+      executeStopped::(# do (root[],t[],NONE)->setBreakPointAfter #);
+      executeRunning::
+        (# do (root[],t[],thrd.private.currentImp[])->setBreakPointAfter #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'abreak [[<group>:]<charpos>]'->value[] #);
+      shortHelp::(# do 'Set a breakpoint after the given position'->value[] #);
+      help::
+        (# do 'Set a breakpoint after the imperative (i.e. statement)'->value[];
+           '\nin the fragment group <group> containing the'->value.puttext;
+           '\ncharacter at position <charpos> of the source'->value.puttext;
+           '\ncode file.  If no fragment group is specified,'->value.puttext;
+           '\nuse the fragment group containing the current'->value.puttext;
+           '\nimperative; if no character position is given,'->value.puttext;
+           '\nuse the current imperative.'->value.puttext
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'tbreak'->value[] #);
+      executeStopped::(# do (root[],t[],NONE)->setOnceBreakPoint #);
+      executeRunning::
+        (# do (root[],t[],thrd.private.currentImp[])->setOnceBreakPoint #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'tbreak [[<group>:]<charpos>]'->value[] #);
+      shortHelp::(# do 'Set a temporary breakpoint'->value[] #);
+      help::
+        (# do 'Set a temporary breakpoint at the imperative'->value[];
+           '\n(i.e. statement) in the fragment group <group>'->value.puttext;
+           '\ncontaining the character at position <charpos>'->value.puttext;
+           '\nof the source code file; the breakpoint is'->value.puttext;
+           '\nremoved when the interpretation stops at that'->value.puttext;
+           '\npoint for the first time.'->value.puttext
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'tabreak'->value[] #);
+      executeStopped::(# do (root[],t[],NONE)->setOnceBreakPointAfter #);
+      executeRunning::
+        (# do (root[],t[],thrd.private.currentImp[])->setOnceBreakPointAfter #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'tabreak [[<group>:]<charpos>]'->value[] #);
+      shortHelp::
+        (# do 'Set a temporary breakpoint after the given position'->value[] #);
+      help::
+        (# do 'Set a temporary breakpoint after the imperative'->value[];
+           '\n(i.e. statement) in the fragment group <group>'->value.puttext;
+           '\ncontaining the character at position <charpos>'->value.puttext;
+           '\nof the source code file; the breakpoint is'->value.puttext;
+           '\nremoved when the interpretation stops at that'->value.puttext;
+           '\npoint for the first time.'->value.puttext
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'unbreak'->value[] #);
+      executeStopped::(# do (root[],t[],NONE)->resetBreakPoint #);
+      executeRunning:: 
+        (# do (root[],t[],thrd.private.currentImp[])->resetBreakPoint #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'unbreak [[<group>:]<charpos>]'->value[] #);
+      shortHelp::(# do 'Remove a breakpoint'->value[] #);
+      help::
+        (# do 'Remove the breakpoint at the imperative (i.e.'->value[];
+           '\nstatement) in the fragment group <group>'->value.puttext;
+           '\ncontaining the character at position <charpos>'->value.puttext;
+           '\nof the source code file.'->value.puttext
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'goinhere'->value[] #);
+      executeStopped::(# do (root[],t[],NONE,true)->setGoInHere #);
+      executeRunning::
+        (# do (root[],t[],thrd.private.currentImp[],true)->SetGoInHere #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'goinhere [[<group>:]<charpos>]'->value[] #);
+      shortHelp::(# do 'Go (don\'t step) in this context'->value[] #);
+      help::
+        (# do 'Register the enclosing main part such that'->value[];
+           '\nsingle stepping will automatically continue'->value.puttext;
+           '\nwhenever a statement in this main part (and'->value.puttext;
+           '\nnot inside a nested main part) is reached.'->value.puttext;
+           '\nThe chosen main part will contain the specified'->value.puttext;
+           '\n[[<group>:]<charpos>].  If the <group> is'->value.puttext;
+           '\nmissing, the current group is assumed; if the'->value.puttext;
+           '\n<charpos> is also missing, the main part'->value.puttext;
+           '\nsurrounding the currently executing imperative'->value.puttext;
+           '\nis chosen.'->value.puttext
+        #)
+   #)[]->commands.append;
+
+   &command
+   (# name::(# do 'ungoinhere'->value[] #);
+      executeStopped::(# do (root[],t[],NONE,false)->setGoInHere #);
+      executeRunning::
+        (# do (root[],t[],thrd.private.currentImp[],false)->SetGoInHere #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'ungoinhere [[<group>:]<charpos>]'->value[] #);
+      shortHelp::(# do 'Allow single-stepping in this context'->value[] #);
+      help::
+        (# do 'De-register the enclosing main part such that'->value[];
+           '\nsingle stepping is again allowed; this will'->value.puttext;
+           '\ncancel the effect of a previous \'goinhere\''->value.puttext;
+           '\ncommand.  Use \'help goinhere\' to get more'->value.puttext;
+           '\ninformation about this.  Since we are not'->value.puttext;
+           '\nsingle-stepping in the given main part it'->value.puttext;
+           '\nis sometimes inconvenient to find the needed'->value.puttext;
+           '\ninformation; use \'show goinhere\' to get a'->value.puttext;
+           '\nlisting of all \'goinhere\' main parts; in this'->value.puttext;
+           '\nlist each main part is specified by <group>,'->value.puttext;
+           '\n<first-charpos>, and <last-charpos>.  Use, e.g.,'->value.puttext;
+           '\n\'ungoinhere <group>:<first-charpos>\'.  If the'->value.puttext;
+           '\n<group> is missing, then the program is all in'->value.puttext;
+           '\none file and the <group> may then be left out'->value.puttext;
+           '\nof the \'ungoinhere\' command, too.'->value.puttext
+        #)
+   #)[]->commands.append;
+
+   &command
+   (# name::(# do 'do'->value[] #);
+      executeStopped::cannotExecute;
+      executeRunning::(# do (thrd[],t[])->parseAndInterpretAtCurImp #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'do <imperative>'->value[] #);
+      shortHelp::(# do 'Execute the given imperative'->value[] #);
+      help::
+        (# do 'Execute the given imperative in the context'->value[];
+           '\nof the current imperative in the current object,'
+             ->value.puttext;
+           '\nthe current slice, and the current thread.'->value.puttext
+        #)
+   #)[]->commands.append;
+   
+   (* Static commands have the lowest priority *)
+   
+   &command
+   (# name::(# do 'type'->value[] #);
+      executeStopped::(# do (root[],t[],NONE)->doit #);
+      executeRunning::(# do (root[],t[],thrd.private.currentImp[])->doit #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'type [<group>:]<charpos>'->value[] #);
+      shortHelp::(# do 'Print static type information'->value[] #);
+      help::
+        (# do 'Print the type information from static analysis'->value[];
+           '\nconcerning the syntax in the fragment group'->value.puttext;
+           '\n<group> containing the character at position'->value.puttext;
+           '\n<charpos> of the source code file.'->value.puttext
+        #);
+      doit: 
+        (# root: ^l2AstNode; t: ^text; defaultPos: ^l2AstNode
+        enter (root[],t[],defaultPos[])
+        do (root[],t[],defaultPos[])->getLocalType;
+           (if verboseOutput then (NONE,root[])->display if);
+           NONE->setAttributeVisualizer
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'substance'->value[] #);
+      executeStopped::(# do (root[],t[],NONE)->doit #);
+      executeRunning::(# do (root[],t[],thrd.private.currentImp[])->doit #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'substance [<group>:]<charpos>'->value[] #);
+      shortHelp::
+        (# do 'Print static substance (enriched type info)'->value[] #);
+      help::
+        (# do 'Print the enriched static type information (which'->value[];
+           '\nis called the "static substance") concerning the'->value.puttext;
+           '\nsyntax in the fragment group <group> containing'->value.puttext;
+           '\nthe character at position <charpos> of the source'->value.puttext;
+           '\ncode file.'->value.puttext
+        #);
+      doit: 
+        (# root: ^l2AstNode; t: ^text; defaultPos: ^l2AstNode
+        enter (root[],t[],defaultPos[])
+        do (root[],t[],defaultPos[])->getLocalSubstance;
+           (if verboseOutput then (NONE,root[])->display if);
+           NONE->setAttributeVisualizer
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'entertype'->value[] #);
+      executeStopped::(# do (root[],t[],NONE)->getStaticTransientIn #);
+      executeRunning::
+        (# do (root[],t[],thrd.private.currentImp[])->getStaticTransientIn #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'entertype [<group>:]<charpos>'->value[] #);
+      shortHelp::(# do 'Print a static type for assignment'->value[] #);
+      help::
+        (# do 'Print the expression assignment type information'->value[];
+           '\nfrom static analysis concerning the syntax'->value.puttext;
+           '\nin the fragment group <group> containing the'->value.puttext;
+           '\ncharacter at position <charpos> of the source'->value.puttext;
+           '\ncode file.'->value.puttext
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'exittype'->value[] #);
+      executeStopped::(# do (root[],t[],NONE)->getStaticTransientOut #);
+      executeRunning::
+        (# do (root[],t[],thrd.private.currentImp[])->getStaticTransientOut #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'exittype [<group>:]<charpos>'->value[] #);
+      shortHelp::(# do 'Print a static type for evaluation'->value[] #);
+      help::
+        (# do 'Print the expression evaluation type information'->value[];
+           '\nfrom static analysis concerning the syntax'->value.puttext;
+           '\nin the fragment group <group> containing the'->value.puttext;
+           '\ncharacter at position <charpos> of the source'->value.puttext;
+           '\ncode file.'->value.puttext
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'show'->value[] #);
+      executeStopped::(# do (root[],t[])->doit #);
+      executeRunning::(# do (root[],t[])->doit #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'show <category>'->value[] #);
+      shortHelp::(# do 'Show miscellaneous information'->value[] #);
+      help::
+        (# do 'Show an aspect of the state of the interpreter'->value[];
+           '\n(current breakpoints) or some static semantic'->value.puttext;
+           '\nattributes of the program as a whole; the'->value.puttext;
+           '\nprogram is pretty-printed with (color or'->value.puttext;
+           '\nsimilar) markup to visualize the placement,'->value.puttext;
+           '\ndistribution, and density of those aspects:'->value.puttext;
+           '\n'->value.puttext;
+           '\n"show breakpoints" shows current breakpoints;'->value.puttext;
+           '\nthe position of each breakpoint is given in a'->value.puttext;
+           '\n<group>:<charpos>:<ast> format; please note that'->value.puttext;
+           '\nyou may use <group>:<charpos> to e.g. set the'->value.puttext;
+           '\nsame breakpoint in another session, and you may'->value.puttext;
+           '\nuse <group>:<ast> to display the source code of'->value.puttext;
+           '\nthe breakpoint'->value.puttext;
+           '\n'->value.puttext;
+           '\n"show deref" shows what names are looked up'->value.puttext;
+           '\ndirectly and what names are looked up via'->value.puttext;
+           '\na reference (i.e. a pointer);'->value.puttext;
+           '\n'->value.puttext;
+           '\n"show goinhere" shows the main parts which are'->value.puttext;
+           '\ncurrently registered with the \'goinhere\''->value.puttext;
+           '\ncommand as a "do-not-stop-here" area.'->value.puttext;
+           '\n'->value.puttext;
+           '\n"show growable" shows for each name whether'->value.puttext;
+           '\nits type is growable (i.e., known by upper bound'->value.puttext;
+           '\nonly), or it is a compile-time constant'->value.puttext;
+           '\n'->value.puttext;
+           '\n"show kind" shows which names denote objects,'->value.puttext;
+           '\npatterns, references to objects/patterns etc'->value.puttext;
+           '\n'->value.puttext;
+           '\n"show repeat" distinguishes between repetitions'->value.puttext;
+           '\nand ordinary, individual objects.'->value.puttext;
+           '\n'->value.puttext;
+        #);
+      doit:
+        (# root: ^l2AstNode; t: ^text
+        enter (root[],t[])
+        do (if t[]->show then 
+               (NONE,root[])->display;
+               NONE->setAttributeVisualizer
+           if)
+        #)
+   #)[]->commands.append;
+   
+   &command
+   (# name::(# do 'option'->value[] #);
+      executeStopped::(# do (root[],t[])->doit #);
+      executeRunning::(# do (root[],t[])->doit #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'option <option>[<arg>]...'->value[] #);
+      shortHelp::(# do 'Set an option like on the command line'->value[] #);
+      help::
+        (# do 'Set an option like on the command line; for'->value[]; 
+           '\nexample, giving "-cc" when starting gbeta has'->value.puttext;
+           '\nthe same effect as giving the command'->value.puttext;
+           '\n"option cc" during an interpretation session;'->value.puttext;
+           '\nto learn about the available options use an'->value.puttext;
+           '\nundefined option like in "option ?".'->value.puttext
+        #);
+      doit:
+        (# root: ^l2AstNode; t: ^text;
+           oldVis: ^attributeVisualizer
+        enter (root[],t[])
+        do getAttributeVisualizer->oldVis[];
+           t.cleanUpBackSpaces;
+           t.removeLeadingWhiteSpace;
+           (t[],screen[],true)->useoptions;
+           (if getAttributeVisualizer<>oldVis[] then 
+               (NONE,root[])->display;
+               oldVis[]->setAttributeVisualizer
+           if)
+        #)
+   #)[]->commands.append;
+
+   &command
+   (# name::(# do 'bvm'->value[] #);
+      executeStopped::cannotExecute;
+      executeRunning::(# do thrd.private.bvm.print #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'bvm'->value[] #);
+      shortHelp::
+        (# do 'Print the state of the BETA virtual machine'->value[] #);
+      help::
+        (# do 'Print the state of the BETA virtual machine,'->value[]; 
+           '\nincluding the various evaluation stacks'->value.puttext;
+           '\nand the stack of temporary objects.'->value.puttext
+        #)
+   #)[]->commands.append;
+
+   &command
+   (# name::(# do 'bytecode'->value[] #);
+      executeStopped::(# do (root[],t[],NONE)->doit #);
+      executeRunning::(# do (root[],t[],thrd.private.currentImp[])->doit #);
+      setsLastCommand::(# do false->value #);
+      syntax::(# do 'bytecode [<group>:]<charpos>'->value[] #);
+      shortHelp::
+        (# do 'Print the byte code for the specified imp.'->value[] #);
+      help::
+        (# do 'Print the byte code instructions concerning'->value[];
+           '\nthe syntax in the fragment group <group>'->value.puttext;
+           '\ncontaining the character at position <charpos>'->value.puttext;
+           '\nof the source code file.  If no position is'->value.puttext;
+           '\ngiven, the current imperative is chosen.'->value.puttext;
+           '\nNote that the byte code is generated on demand,'->value.puttext;
+           '\nso there will be no byte code instructions at an'->value.puttext;
+           '\nimperative which has not yet been executed.'->value.puttext
+        #);
+      doit: 
+        (# root: ^l2AstNode; 
+           t: ^text; 
+           defaultPos: ^l2AstNode;
+           l2eval: ^l2Evaluation
+        enter (root[],t[],defaultPos[])
+        do (root[],t[],defaultPos[])->getCode
+        #)
+   #)[]->commands.append
+
+(* 
+ * local variables:
+ * ee-beta-main-file: "~/gbeta-0.9/src/main/gbeta.bet"
+ * end:
+ *)
